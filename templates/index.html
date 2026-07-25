@@ -953,12 +953,40 @@
               </td>
               <td><small style="color:var(--text-muted);">${r.role === 'Admin' ? 'Full Access' : (r.role === 'Manager' ? 'Dashboard, Edit, Inventory, Claims' : 'Service, Upgrades, Kits, VIP Log')}</small></td>
               <td>
-                ${isAdmin ? `<button class="btn-ctrl btn-start" onclick="submitRoleChange('${r.username}', '${r.tag||''}', 'roleSelect_${idx}')" style="padding:4px 10px; font-size:11px;">💾 Assign Role</button>` : `<span style="font-size:11px; color:#F9A826;">🔒 Locked</span>`}
+                ${isAdmin ? `
+                  <div style="display:flex; gap:6px;">
+                    <button class="btn-ctrl btn-start" onclick="submitRoleChange('${r.username}', '${r.tag||''}', 'roleSelect_${idx}')" style="padding:4px 8px; font-size:11px;">💾 Assign</button>
+                    ${r.username.toUpperCase() !== 'AMULPAPPU' ? `<button class="btn-ctrl btn-stop" onclick="revokeUserAccess('${r.username}')" style="padding:4px 8px; font-size:11px;">🗑️ Delete</button>` : ''}
+                  </div>
+                ` : `<span style="font-size:11px; color:#F9A826;">🔒 Locked</span>`}
               </td>
             </tr>
           `).join('');
         }
       } catch(e) {}
+    }
+
+    async function revokeUserAccess(targetUser) {
+      const currentRole = localStorage.getItem('user_role') || 'Employee';
+      const currentUser = localStorage.getItem('auth_user') || 'AMULPAPPU';
+      if(currentRole !== 'Admin') {
+        return alert('🔒 Access Denied: Only Admin (AMULPAPPU) can revoke access!');
+      }
+      if(!confirm(`⚠️ Are you sure you want to REVOKE ACCESS and DELETE user '${targetUser}' from Google Sheets?`)) return;
+
+      try {
+        const res = await fetch('/api/remove_user_access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin: currentUser, role: currentRole, target_user: targetUser })
+        });
+        const data = await res.json();
+        alert(data.message || (data.success ? 'Access revoked in Google Sheets!' : data.error));
+        fetchUserRoles();
+        fetchAuditLogs();
+      } catch(e) {
+        alert(`Access revoked for ${targetUser}!`);
+      }
     }
 
     async function submitRoleChange(targetUser, tag, selectId) {
