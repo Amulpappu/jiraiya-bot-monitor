@@ -1143,6 +1143,25 @@
       }
     }
 
+    function applyRolePermissions(role) {
+      const userRole = role || localStorage.getItem('user_role') || 'Employee';
+      const roleBadge = document.getElementById('userRoleBadge');
+      if(roleBadge) {
+        roleBadge.innerText = userRole;
+        roleBadge.className = 'badge ' + (userRole === 'Admin' ? 'badge-primary' : (userRole === 'Manager' ? 'badge-warning' : 'badge-success'));
+      }
+
+      const adminElements = document.querySelectorAll('.admin-only');
+      adminElements.forEach(el => {
+        el.style.display = (userRole === 'Admin') ? '' : 'none';
+      });
+
+      const managerElements = document.querySelectorAll('.manager-only');
+      managerElements.forEach(el => {
+        el.style.display = (userRole === 'Admin' || userRole === 'Manager') ? '' : 'none';
+      });
+    }
+
     function checkAuthSession() {
       const authUser = localStorage.getItem('auth_user');
       const authRole = localStorage.getItem('user_role');
@@ -1160,7 +1179,7 @@
       if(!authUser || !authRole) {
         if(loginOverlay) loginOverlay.style.display = 'flex';
       } else {
-        if(loginOverlay) loginOverlay.style.display = 'none';
+        if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
         const dUser = document.getElementById('displayUsername');
         if(dUser) dUser.innerText = authUser;
         const uAvatar = document.getElementById('userAvatar');
@@ -1199,7 +1218,7 @@
           localStorage.setItem('auth_expiry', expiryTime);
 
           const loginOverlay = document.getElementById('loginModalOverlay');
-          if(loginOverlay) loginOverlay.style.display = 'none';
+          if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
 
           const dUser = document.getElementById('displayUsername');
           if(dUser) dUser.innerText = authUser;
@@ -1229,7 +1248,7 @@
           localStorage.setItem('auth_expiry', expiryTime);
 
           const loginOverlay = document.getElementById('loginModalOverlay');
-          if(loginOverlay) loginOverlay.style.display = 'none';
+          if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
           applyRolePermissions(role);
           fetchLiveData();
         } else {
