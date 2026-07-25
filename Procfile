@@ -1,2 +1,1 @@
-web: python monitor_app.py
-worker: python bot.py
+web: python start_all.py
