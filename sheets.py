@@ -79,30 +79,42 @@ EMPLOYEE_TRACKER_HEADERS = [
 def get_client():
     global _client
     if _client is None:
-        raw_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-        if raw_json:
-            import json
-            info = json.loads(raw_json)
-            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-        else:
-            creds = Credentials.from_service_account_file(
-                config.GOOGLE_CREDENTIALS_FILE, scopes=SCOPES
-            )
-        _client = gspread.authorize(creds)
+        try:
+            raw_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+            if raw_json:
+                import json
+                info = json.loads(raw_json)
+                creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+            else:
+                creds_file = getattr(config, "GOOGLE_CREDENTIALS_FILE", "credentials.json")
+                if not os.path.exists(creds_file):
+                    print(f"[Sheets Warning] Credentials file '{creds_file}' not found.")
+                    return None
+                creds = Credentials.from_service_account_file(creds_file, scopes=SCOPES)
+            _client = gspread.authorize(creds)
+        except Exception as e:
+            print(f"[Sheets Auth Error]: {e}")
+            return None
     return _client
 
 
 def get_spreadsheet():
     global _spreadsheet
     if _spreadsheet is None:
-        client = get_client()
-        if config.EXISTING_SPREADSHEET_ID:
-            _spreadsheet = _with_retry(lambda: client.open_by_key(config.EXISTING_SPREADSHEET_ID))
-        else:
-            try:
-                _spreadsheet = _with_retry(lambda: client.open(config.SPREADSHEET_NAME))
-            except gspread.SpreadsheetNotFound:
-                _spreadsheet = _with_retry(lambda: client.create(config.SPREADSHEET_NAME))
+        try:
+            client = get_client()
+            if not client:
+                return None
+            if getattr(config, "EXISTING_SPREADSHEET_ID", ""):
+                _spreadsheet = _with_retry(lambda: client.open_by_key(config.EXISTING_SPREADSHEET_ID))
+            else:
+                try:
+                    _spreadsheet = _with_retry(lambda: client.open(config.SPREADSHEET_NAME))
+                except Exception:
+                    _spreadsheet = _with_retry(lambda: client.create(config.SPREADSHEET_NAME))
+        except Exception as e:
+            print(f"[Get Spreadsheet Error]: {e}")
+            return None
     return _spreadsheet
 
 
@@ -247,6 +259,28 @@ def _ensure_sheet(sheet_name: str, headers: list):
 
     _WORKSHEET_CACHE[sheet_name] = ws
     return ws
+
+
+def add_or_update_inventory(item_name: str, qty: int, bought: float, restock_date: str, unit_price: float):
+    ws = _ensure_sheet("Inventory", INVENTORY_HEADERS)
+    now_str = now_ist().strftime("%Y-%m-%d %I:%M %p")
+    tot_val = qty * unit_price
+    new_row = [item_name, str(qty), str(bought), restock_date, str(unit_price), str(tot_val), now_str]
+
+    all_data = _with_retry(lambda: ws.get_all_values())
+    found_idx = -1
+    for idx, row in enumerate(all_data):
+        if idx > 0 and len(row) > 0 and row[0].strip().lower() == item_name.strip().lower():
+            found_idx = idx + 1
+            break
+
+    if found_idx > 0:
+        _with_retry(lambda: ws.update(f"A{found_idx}:G{found_idx}", [new_row]))
+    else:
+        _with_retry(lambda: ws.append_row(new_row))
+
+    clear_rows_cache("Inventory")
+    return new_row
 
 
 def clean_non_july_logs():
@@ -898,49 +932,190 @@ def _sum_numeric(values):
     return total
 
 
-def _revenue_window(rows, value_col, days=None, today_only=False, this_month=False):
-    """Sums column value_col for rows matching a timeframe in IST."""
+def filter_rows_by_period(rows, period="all"):
+    """Filters rows by timestamp period: all, today, week, month, year."""
+    if not period or period.lower() == "all":
+        return rows
+
     now = now_ist()
-    total = 0.0
+    period = period.lower()
+    filtered = []
+
     for r in rows:
-        if len(r) <= value_col:
-            continue
-        try:
-            dt = datetime.datetime.strptime(r[0], TIMESTAMP_FORMAT)
-            dt = dt.replace(tzinfo=IST)
-        except (ValueError, TypeError):
+        if not r or len(r) == 0 or not r[0]:
             continue
 
-        if today_only and dt.date() != now.date():
-            continue
-        if this_month and (dt.year != now.year or dt.month != now.month):
-            continue
-        if days is not None and (now - dt).days >= days:
+        raw_ts = str(r[0]).strip()
+        dt = None
+        for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT, "%Y-%m-%d"):
+            try:
+                dt = datetime.datetime.strptime(raw_ts, fmt).replace(tzinfo=IST)
+                break
+            except Exception:
+                continue
+
+        if not dt:
+            filtered.append(r)
             continue
 
-        try:
-            total += float(r[value_col])
-        except (ValueError, TypeError):
-            pass
-    return total
+        if period == "today":
+            if dt.date() == now.date():
+                filtered.append(r)
+        elif period == "week":
+            if (now - dt).days <= 7:
+                filtered.append(r)
+        elif period == "month":
+            if dt.year == now.year and dt.month == now.month:
+                filtered.append(r)
+        elif period == "year":
+            if dt.year == now.year:
+                filtered.append(r)
+        else:
+            filtered.append(r)
+
+    return filtered
+
+
+def get_dynamic_revenue_trend(rows_by_sheet, period="all"):
+    """Group revenue and expenses by date/hour for line chart rendering."""
+    events = []
+
+    for sname in ("Service", "Upgrades", "Kits", "VIP Claim"):
+        col_amt = _AMOUNT_COL.get(sname, 4)
+        for r in rows_by_sheet.get(sname, []):
+            if len(r) > col_amt and r[0]:
+                amt = _sum_numeric([r[col_amt]])
+                dt = None
+                for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT, "%Y-%m-%d"):
+                    try:
+                        dt = datetime.datetime.strptime(str(r[0]).strip(), fmt).replace(tzinfo=IST)
+                        break
+                    except Exception:
+                        continue
+                if dt:
+                    events.append((dt, amt, 0.0))
+
+    col_exp = _AMOUNT_COL.get("Expenses", 1)
+    for r in rows_by_sheet.get("Expenses", []):
+        if len(r) > col_exp and r[0]:
+            amt = _sum_numeric([r[col_exp]])
+            dt = None
+            for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT, "%Y-%m-%d"):
+                try:
+                    dt = datetime.datetime.strptime(str(r[0]).strip(), fmt).replace(tzinfo=IST)
+                    break
+                except Exception:
+                    continue
+            if dt:
+                events.append((dt, 0.0, amt))
+
+    if not events:
+        return [
+            {"label": "Start", "revenue": 0, "profit": 0},
+            {"label": "Today", "revenue": 0, "profit": 0}
+        ]
+
+    events.sort(key=lambda x: x[0])
+    grouped = defaultdict(lambda: {"revenue": 0.0, "expense": 0.0})
+
+    p_clean = period.lower() if period else "all"
+    if p_clean == "today":
+        fmt = "%I %p"
+    elif p_clean in ("week", "month"):
+        fmt = "%b %d"
+    else:
+        fmt = "%m-%d"
+
+    for dt, rev, exp in events:
+        label = dt.strftime(fmt)
+        grouped[label]["revenue"] += rev
+        grouped[label]["expense"] += exp
+
+    trend = []
+    for label, vals in grouped.items():
+        r = round(vals["revenue"], 2)
+        p = round(vals["revenue"] - vals["expense"], 2)
+        trend.append({"label": label, "revenue": r, "profit": p})
+
+    if len(trend) == 1:
+        trend.insert(0, {"label": "Start", "revenue": 0, "profit": 0})
+
+    return trend
 
 
 # Column index (0-based) of "Employee" and "Total Amount" per sheet
-_EMPLOYEE_COL = {"Service": 5, "Upgrades": 3, "Kits": 6, "Expenses": 2}
-_AMOUNT_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 1}
+_EMPLOYEE_COL = {"Service": 5, "Upgrades": 3, "Kits": 6, "Expenses": 2, "VIP Claim": 3}
+_AMOUNT_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 1, "VIP Claim": 4}
 
 
-def _leaderboard(rows_by_sheet):
-    """Ranks employees by total number of sales invoices processed (Service, Upgrades, Kits). Excludes Expenses."""
-    counter = Counter()
-    for ws_name in ("Service", "Upgrades", "Kits"):
-        col = _EMPLOYEE_COL[ws_name]
-        for row in rows_by_sheet[ws_name]:
-            if len(row) > col and row[col]:
-                resolved = resolve_name(row[col])
-                if resolved in config.EMPLOYEE_MAPPING.values():
-                    counter[resolved] += 1
-    return counter.most_common(config.LEADERBOARD_TOP_N)
+def resolve_employee(raw_name: str) -> str:
+    if not raw_name:
+        return "Unknown"
+    cleaned = raw_name.strip()
+    tag_clean = "@" + cleaned.lstrip("@").lower()
+    if tag_clean in config.EMPLOYEE_MAPPING:
+        return config.EMPLOYEE_MAPPING[tag_clean]
+    for emp_val in config.EMPLOYEE_MAPPING.values():
+        if emp_val.lower() == cleaned.lower():
+            return emp_val
+    return cleaned
+
+
+def get_rich_leaderboard(rows_by_sheet):
+    """Generates detailed employee performance metrics per mechanic (Service, Kits, Upgrades, Total Logs, Ranks)."""
+    stats = {}
+
+    emp_set = set(config.EMPLOYEE_MAPPING.values())
+    emp_set.update(["Eli", "Meenu", "AMULPAPPU"])
+
+    for emp_name in emp_set:
+        rev_map = getattr(config, "REVERSE_MAPPING", {})
+        tag = rev_map.get(emp_name, f"@{emp_name.lower().replace(' ', '')}")
+        stats[emp_name] = {
+            "name": emp_name,
+            "tag": tag,
+            "service": 0,
+            "kits": 0,
+            "upgrades": 0,
+            "total_logs": 0,
+            "points": 0
+        }
+
+    col_svc = _EMPLOYEE_COL.get("Service", 3)
+    for r in rows_by_sheet.get("Service", []):
+        if len(r) > col_svc and r[col_svc]:
+            emp = resolve_employee(r[col_svc])
+            if emp not in stats:
+                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
+            stats[emp]["service"] += 1
+
+    col_kit = _EMPLOYEE_COL.get("Kits", 3)
+    for r in rows_by_sheet.get("Kits", []):
+        if len(r) > col_kit and r[col_kit]:
+            emp = resolve_employee(r[col_kit])
+            if emp not in stats:
+                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
+            stats[emp]["kits"] += 1
+
+    col_upg = _EMPLOYEE_COL.get("Upgrades", 3)
+    for r in rows_by_sheet.get("Upgrades", []):
+        if len(r) > col_upg and r[col_upg]:
+            emp = resolve_employee(r[col_upg])
+            if emp not in stats:
+                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
+            stats[emp]["upgrades"] += 1
+
+    for emp_info in stats.values():
+        tot = emp_info["service"] + emp_info["kits"] + emp_info["upgrades"]
+        emp_info["total_logs"] = tot
+        emp_info["points"] = tot
+
+    sorted_list = sorted(stats.values(), key=lambda x: x["total_logs"], reverse=True)
+
+    for rank, item in enumerate(sorted_list, start=1):
+        item["rank"] = rank
+
+    return sorted_list
 
 
 def update_dashboard():
@@ -1182,3 +1357,314 @@ def clean_transactions_sheet():
     _with_retry(lambda: ws_txn.update("A1", cleaned))
     _apply_transactions_dropdown(ws_txn)
     clear_rows_cache("Transactions")
+
+
+def log_security_audit(username: str, role: str, action_type: str, details: str = ""):
+    """Logs user login, logout, and role permission events to Google Sheets tab 'User_Audit_Logs'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return
+        try:
+            ws = sh.worksheet("User_Audit_Logs")
+        except Exception:
+            ws = sh.add_worksheet(title="User_Audit_Logs", rows=100, cols=10)
+            ws.append_row(["Timestamp (IST)", "Action Type", "User Name", "Role", "Details"])
+
+        row = [now_ist().strftime(TIMESTAMP_FORMAT), action_type, username, role, details]
+        ws.append_row(row)
+        clear_rows_cache("User_Audit_Logs")
+    except Exception as e:
+        print(f"[Audit Log Error]: {e}")
+
+
+def get_security_audit_logs():
+    """Fetches recent security audit logs from Google Sheets 'User_Audit_Logs'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return []
+        try:
+            ws = sh.worksheet("User_Audit_Logs")
+            rows = _with_retry(lambda: ws.get_all_values())
+            if len(rows) <= 1:
+                return []
+            headers = [h.strip() for h in rows[0]]
+            logs = []
+            for r in rows[1:]:
+                if len(r) >= 4:
+                    logs.append({
+                        "timestamp": r[0],
+                        "action": r[1],
+                        "user": r[2],
+                        "role": r[3],
+                        "details": r[4] if len(r) > 4 else ""
+                    })
+            return list(reversed(logs[-50:]))
+        except Exception:
+            return []
+    except Exception as e:
+        print(f"[Get Audit Logs Error]: {e}")
+        return []
+
+
+def get_user_roles():
+    """Fetches user roles from Google Sheets tab 'User_Roles'."""
+    default_roles = [
+        {"username": "AMULPAPPU", "role": "Admin", "tag": "@Amulpappu", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
+        {"username": "Meenu Kutty", "role": "Manager", "tag": "@Blari", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
+        {"username": "Eli", "role": "Employee", "tag": "@Eli", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
+    ]
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return default_roles
+        try:
+            ws = sh.worksheet("User_Roles")
+        except Exception:
+            ws = sh.add_worksheet(title="User_Roles", rows=50, cols=5)
+            ws.append_row(["Username", "Role", "Discord Tag", "Last Updated (IST)"])
+            for dr in default_roles:
+                ws.append_row([dr["username"], dr["role"], dr["tag"], dr["updated"]])
+            return default_roles
+
+        rows = _with_retry(lambda: ws.get_all_values())
+        if len(rows) <= 1:
+            return default_roles
+
+        user_map = {}
+        for dr in default_roles:
+            user_map[dr["username"].lower()] = dr
+
+        for r in rows[1:]:
+            if len(r) >= 2 and r[0].strip():
+                u_name = r[0].strip()
+                u_role = r[1].strip()
+                u_tag = r[2].strip() if len(r) > 2 else f"@{u_name.lower()}"
+                u_time = r[3].strip() if len(r) > 3 else ""
+                user_map[u_name.lower()] = {
+                    "username": u_name,
+                    "role": u_role,
+                    "tag": u_tag,
+                    "updated": u_time
+                }
+        return list(user_map.values())
+    except Exception as e:
+        print(f"[Get User Roles Error]: {e}")
+        return default_roles
+
+
+def save_user_role(username: str, role: str, discord_tag: str = ""):
+    """Updates or inserts a user's role in Google Sheets tab 'User_Roles'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        try:
+            ws = sh.worksheet("User_Roles")
+        except Exception:
+            ws = sh.add_worksheet(title="User_Roles", rows=50, cols=5)
+            ws.append_row(["Username", "Role", "Discord Tag", "Last Updated (IST)"])
+
+        rows = _with_retry(lambda: ws.get_all_values())
+        updated = False
+        now_str = now_ist().strftime(TIMESTAMP_FORMAT)
+        u_lower = username.lower()
+
+        for idx, r in enumerate(rows[1:], start=2):
+            if len(r) > 0 and r[0].strip().lower() == u_lower:
+                tag_val = discord_tag if discord_tag else (r[2].strip() if len(r) > 2 else f"@{username.lower()}")
+                ws.update_cell(idx, 2, role)
+                ws.update_cell(idx, 3, tag_val)
+                ws.update_cell(idx, 4, now_str)
+                updated = True
+                break
+
+        if not updated:
+            tag_val = discord_tag if discord_tag else f"@{username.lower()}"
+            ws.append_row([username, role, tag_val, now_str])
+
+        clear_rows_cache("User_Roles")
+        log_security_audit(username, role, "ROLE_ASSIGNED", f"Role saved in Google Sheets tab 'User_Roles'")
+        return True
+    except Exception as e:
+        print(f"[Save User Role Error]: {e}")
+        return False
+
+
+def remove_user_role(username: str):
+    """Removes a user's role entry from Google Sheets tab 'User_Roles'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        ws = sh.worksheet("User_Roles")
+        rows = ws.get_all_values()
+        u_lower = username.lower()
+        for idx, r in enumerate(rows[1:], start=2):
+            if len(r) > 0 and r[0].strip().lower() == u_lower:
+                ws.delete_rows(idx)
+                break
+        clear_rows_cache("User_Roles")
+        log_security_audit(username, "None", "ACCESS_REVOKED", "User access revoked by Admin")
+        return True
+    except Exception as e:
+        print(f"[Remove User Role Error]: {e}")
+        return False
+
+
+def get_inventory_items():
+    """Fetches all inventory stock items from Google Sheets tab 'Inventory'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return []
+        try:
+            ws = sh.worksheet("Inventory")
+        except Exception:
+            ws = sh.add_worksheet(title="Inventory", rows=100, cols=8)
+            ws.append_row(["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Cost (₹)", "Total Value (₹)", "Last Updated"])
+            return []
+
+        rows = ws.get_all_values()
+        if len(rows) <= 1:
+            return []
+
+        items = []
+        for r in rows[1:]:
+            if len(r) > 0 and r[0].strip():
+                item_name = r[0].strip()
+                qty = int(_sum_numeric([r[1]])) if len(r) > 1 else 0
+                bought = _sum_numeric([r[2]]) if len(r) > 2 else 0
+                restock_date = r[3].strip() if len(r) > 3 and r[3].strip() else datetime.now().strftime("%Y-%m-%d")
+                unit_price = _sum_numeric([r[4]]) if len(r) > 4 else 0
+                total_value = _sum_numeric([r[5]]) if len(r) > 5 else (qty * unit_price)
+                last_updated = r[6].strip() if len(r) > 6 else ""
+
+                items.append({
+                    "item_name": item_name,
+                    "qty": qty,
+                    "bought": bought,
+                    "restock_date": restock_date,
+                    "unit_price": unit_price,
+                    "total_value": total_value,
+                    "last_updated": last_updated
+                })
+        return items
+    except Exception as e:
+        print(f"[Get Inventory Items Error]: {e}")
+        return []
+
+
+def save_inventory_item(item_name: str, qty: int, bought: float, restock_date: str, unit_price: float):
+    """Saves or updates an inventory item in Google Sheets tab 'Inventory'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        try:
+            ws = sh.worksheet("Inventory")
+        except Exception:
+            ws = sh.add_worksheet(title="Inventory", rows=100, cols=8)
+            ws.append_row(["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Cost (₹)", "Total Value (₹)", "Last Updated"])
+
+        rows = ws.get_all_values()
+        now_str = now_ist().strftime(TIMESTAMP_FORMAT)
+        total_val = qty * unit_price
+        u_lower = item_name.lower()
+        updated = False
+
+        for idx, r in enumerate(rows[1:], start=2):
+            if len(r) > 0 and r[0].strip().lower() == u_lower:
+                ws.update_cell(idx, 2, qty)
+                ws.update_cell(idx, 3, bought)
+                ws.update_cell(idx, 4, restock_date)
+                ws.update_cell(idx, 5, unit_price)
+                ws.update_cell(idx, 6, total_val)
+                ws.update_cell(idx, 7, now_str)
+                updated = True
+                break
+
+        if not updated:
+            ws.append_row([item_name, qty, bought, restock_date, unit_price, total_val, now_str])
+
+        clear_rows_cache("Inventory")
+        log_security_audit("System", "Inventory", "INVENTORY_UPDATED", f"Item: {item_name}, Qty: {qty}, Value: ₹{total_val}")
+        return True
+    except Exception as e:
+        print(f"[Save Inventory Item Error]: {e}")
+        return False
+
+
+def delete_inventory_item(item_name: str):
+    """Deletes an item row from Google Sheets tab 'Inventory'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        ws = sh.worksheet("Inventory")
+        rows = ws.get_all_values()
+        u_lower = item_name.strip().lower()
+        for idx, r in enumerate(rows[1:], start=2):
+            if len(r) > 0 and r[0].strip().lower() == u_lower:
+                ws.delete_rows(idx)
+                break
+        clear_rows_cache("Inventory")
+        log_security_audit("System", "Inventory", "INVENTORY_DELETED", f"Item: {item_name}")
+        return True
+    except Exception as e:
+        print(f"[Delete Inventory Item Error]: {e}")
+        return False
+
+
+def save_access_request(username: str, ign: str, email: str, role: str):
+    """Saves a user access request into Google Sheets tab 'Access_Requests'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        try:
+            ws = sh.worksheet("Access_Requests")
+        except Exception:
+            ws = sh.add_worksheet(title="Access_Requests", rows=50, cols=6)
+            ws.append_row(["Timestamp (IST)", "Username", "In Game Name", "Email", "Requested Role", "Status"])
+
+        now_str = now_ist().strftime(TIMESTAMP_FORMAT)
+        ws.append_row([now_str, username, ign, email, role, "Pending Approval"])
+        clear_rows_cache("Access_Requests")
+        log_security_audit(username, role, "ACCESS_REQUESTED", f"IGN: {ign}, Email: {email}")
+        return True
+    except Exception as e:
+        print(f"[Save Access Request Error]: {e}")
+        return False
+
+
+def get_access_requests():
+    """Fetches all pending access requests from Google Sheets tab 'Access_Requests'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return []
+        try:
+            ws = sh.worksheet("Access_Requests")
+            rows = _with_retry(lambda: ws.get_all_values())
+            if len(rows) <= 1:
+                return []
+            reqs = []
+            for idx, r in enumerate(rows[1:], start=2):
+                if len(r) >= 5:
+                    reqs.append({
+                        "row_idx": idx,
+                        "timestamp": r[0],
+                        "username": r[1],
+                        "ign": r[2],
+                        "email": r[3],
+                        "role": r[4],
+                        "status": r[5] if len(r) > 5 else "Pending Approval"
+                    })
+            return list(reversed(reqs))
+        except Exception:
+            return []
+    except Exception as e:
+        print(f"[Get Access Requests Error]: {e}")
+        return []

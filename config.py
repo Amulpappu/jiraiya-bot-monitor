@@ -1,10 +1,27 @@
 import os
 
 # ── Discord ──────────────────────────────────────────────
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "YOUR_DISCORD_BOT_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
+if not DISCORD_TOKEN or DISCORD_TOKEN == "YOUR_DISCORD_BOT_TOKEN":
+    if os.path.exists("token.txt"):
+        try:
+            with open("token.txt", "r", encoding="utf-8") as f:
+                DISCORD_TOKEN = f.read().strip()
+        except Exception:
+            pass
+    elif os.path.exists(".env"):
+        try:
+            with open(".env", "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("DISCORD_TOKEN="):
+                        DISCORD_TOKEN = line.split("=", 1)[1].strip().strip('"').strip("'")
+        except Exception:
+            pass
+    if not DISCORD_TOKEN:
+        DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "YOUR_DISCORD_BOT_TOKEN")
 
-# ── Google Sheets ────────────────────────────────────────
-GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", os.path.join(APP_DIR, "credentials.json"))
 SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 
 # If you already have an existing Google Sheet you want the bot to use,

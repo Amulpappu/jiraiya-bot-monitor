@@ -703,9 +703,80 @@ async def collect_target_channels(guild: discord.Guild):
     return targets
 
 
+async def send_heartbeat_loop():
+    """Background task sending heartbeat pings every 15 seconds & executing cloud remote commands."""
+    import urllib.request
+    import json
+    urls = [
+        "https://amulpappu001.pythonanywhere.com/api/heartbeat",
+        "http://localhost:5000/api/heartbeat"
+    ]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Content-Type": "application/json"
+    }
+    while True:
+        await asyncio.sleep(15)
+        for u in urls:
+            try:
+                req = urllib.request.Request(u, data=b"{}", headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    raw = resp.read().decode('utf-8')
+                    res_data = json.loads(raw)
+                    cmd = res_data.get("command")
+                    if cmd == "stop":
+                        print("[Remote Command] Received Stop command from Web dashboard. Closing bot...")
+                        await bot.close()
+                        return
+
+                    elif cmd == "wipe":
+                        print("[Remote Command] FULL WIPE + FULL re-scan from beginning...")
+                        sheets.clear_rows_cache()
+                        sheets._LOGGED_IDS_CACHE = None
+                        asyncio.create_task(_do_full_scan(limit=2000))
+            except Exception as e:
+                pass
+
+
+async def _do_recent_scan(limit=50):
+    """Scans only the most recent N messages per channel for missed invoices."""
+    for guild in bot.guilds:
+        targets = await collect_target_channels(guild)
+        for channel in targets:
+            channel_name = getattr(channel, "name", "channel")
+            try:
+                count = await backfill_channel_history(channel, channel_name, limit=limit)
+                print(f"  [Recent Scan] #{channel_name}: {count} message(s)")
+            except Exception as e:
+                print(f"  [Recent Scan] #{channel_name}: error ({e})")
+    try:
+        await asyncio.to_thread(sheets.update_dashboard)
+    except Exception:
+        pass
+
+
+async def _do_full_scan(limit=2000):
+    """Full scan from the beginning of channel history (used after wipe)."""
+    for guild in bot.guilds:
+        targets = await collect_target_channels(guild)
+        for channel in targets:
+            channel_name = getattr(channel, "name", "channel")
+            try:
+                count = await backfill_channel_history(channel, channel_name, limit=limit)
+                print(f"  [Full Scan] #{channel_name}: {count} message(s)")
+            except Exception as e:
+                print(f"  [Full Scan] #{channel_name}: error ({e})")
+    try:
+        await asyncio.to_thread(sheets.update_employee_tracker)
+        await asyncio.to_thread(sheets.update_dashboard)
+    except Exception:
+        pass
+
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
+    asyncio.create_task(send_heartbeat_loop())
     try:
         sheets.setup_all_sheets()
         print("Google Sheets ready.")
@@ -720,7 +791,7 @@ async def on_ready():
             norm = config.normalize_channel_name(channel_name)
             clean_display_name = re.sub(r"[^\x20-\x7E]", "", norm).strip("┆| ") or channel_name
             try:
-                count = await backfill_channel_history(channel, channel_name)
+                count = await backfill_channel_history(channel, channel_name, limit=50)
                 print(f"  #{clean_display_name}: scanned {count} message(s).")
             except discord.Forbidden:
                 print(f"  #{clean_display_name}: missing permission to read history, skipped.")
