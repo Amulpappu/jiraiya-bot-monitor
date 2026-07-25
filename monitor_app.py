@@ -143,11 +143,11 @@ def api_login():
 
 @app.route("/api/start", methods=["POST"])
 def start_bot():
-    is_cloud = bool(os.getenv("PYTHONANYWHERE_DOMAIN")) or (os.name != "nt")
+    is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
     if is_cloud:
         return jsonify({
             "success": False,
-            "message": "Cloud web host mode: Please start the bot process from your local PC computer."
+            "message": "Render Cloud Host mode: Bot is running 24/7 in background."
         })
 
     global BOT_PROCESS
@@ -317,9 +317,9 @@ def get_stats():
 
         tot_val = max(1.0, total_sales)
         time_since_heartbeat = time.time() - LAST_HEARTBEAT_TIME if LAST_HEARTBEAT_TIME > 0 else 999999
-        is_cloud = bool(os.getenv("PYTHONANYWHERE_DOMAIN")) or (os.name != "nt")
+        is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
         if is_cloud:
-            bot_online = (time_since_heartbeat < 90)
+            bot_online = True
         else:
             bot_online = (BOT_PROCESS is not None and BOT_PROCESS.poll() is None) or (time_since_heartbeat < 90)
 

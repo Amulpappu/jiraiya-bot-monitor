@@ -724,8 +724,8 @@ async def send_heartbeat_loop():
     import urllib.request
     import json
     urls = [
-        "https://amulpappu001.pythonanywhere.com/api/heartbeat",
-        "http://localhost:5000/api/heartbeat"
+        "http://localhost:5000/api/heartbeat",
+        "http://127.0.0.1:5000/api/heartbeat"
     ]
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
