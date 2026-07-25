@@ -734,14 +734,18 @@ def auto_start_bot_on_launch():
         return
     _BOT_THREAD_STARTED = True
 
+    is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
+    if is_cloud:
+        print("[Server] Cloud host environment detected (Render 24/7 Service Active).")
+        return
+
     try:
         if BOT_PROCESS is None or BOT_PROCESS.poll() is not None:
             start_bot()
             print("[Server] Auto-started bot process successfully.")
     except Exception as e:
-        print(f"[Server Warning] Subprocess launch skipped on Cloud WSGI: {e}")
+        print(f"[Server Warning]: {e}")
 
-# Automatically start bot thread safely
 try:
     threading.Thread(target=auto_start_bot_on_launch, daemon=True).start()
 except Exception as e:
