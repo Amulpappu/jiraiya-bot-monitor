@@ -138,16 +138,7 @@ def api_login():
         return jsonify({"success": False, "error": "Invalid password! Use admin2026, manager8686, or employe7878."})
 
 
-@app.route("/api/request_access", methods=["POST"])
-def request_access():
-    data = request.get_json() or {}
-    username = str(data.get("username", "")).strip()
-    ign = str(data.get("ign", "")).strip()
-    email = str(data.get("email", "")).strip()
-    role = str(data.get("role", "Employee")).strip()
 
-    threading.Thread(target=sheets.log_security_audit, args=(username, role, "ACCESS_REQUEST", ign, email, "Requested Access"), daemon=True).start()
-    return jsonify({"success": True, "message": f"📩 Access request for {ign or username} ({role}) sent & logged to Admin!"})
 
 
 @app.route("/api/start", methods=["POST"])
@@ -627,6 +618,7 @@ def request_access():
         "dismissed": False
     })
     threading.Thread(target=sheets.save_access_request, args=(username, display_name, email, role), daemon=True).start()
+    threading.Thread(target=sheets.log_security_audit, args=(username, role, "ACCESS_REQUEST", display_name, email, "Requested Access"), daemon=True).start()
     return jsonify({"success": True, "message": f"Access Request for {display_name} ({role}) sent to Admin (lohithgamer12@gmail.com)! Admin will issue access approval."})
 
 
