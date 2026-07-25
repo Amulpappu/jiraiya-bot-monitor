@@ -1,0 +1,8 @@
+credentials.json
+venv/
+build/
+dist/
+__pycache__/
+*.log
+processed_images.json
+*.exe
