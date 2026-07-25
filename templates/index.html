@@ -1419,7 +1419,10 @@
         const logsData = await resLogs.json();
         const term = document.getElementById('terminalLogBox');
         if(logsData.console_logs && term) {
-          term.innerHTML = logsData.console_logs.map(l => `<div>${l}</div>`).join('');
+          term.innerHTML = logsData.console_logs.map(l => {
+            const formatted = l.replace(/(https:\/\/discord\.com\/channels\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#2A8DFF; font-weight:700; text-decoration:underline;">🔗 Open Invoice in Discord</a>');
+            return `<div>${formatted}</div>`;
+          }).join('');
           term.scrollTop = term.scrollHeight;
         }
 

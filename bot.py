@@ -77,6 +77,24 @@ def resolve_employee_name(author: discord.User | discord.Member) -> str:
     return getattr(author, "display_name", str(author))
 
 
+def get_message_jump_url(message: discord.Message) -> str:
+    guild_id = message.guild.id if getattr(message, "guild", None) else "@me"
+    return f"https://discord.com/channels/{guild_id}/{message.channel.id}/{message.id}"
+
+
+def log_discord_error(message: discord.Message, error_desc: str):
+    link = get_message_jump_url(message)
+    ch_name = getattr(message.channel, "name", "channel")
+    author_name = getattr(message.author, "name", "user")
+    full_msg = f"[Error] ❌ {error_desc} in #{ch_name} (by @{author_name}) | Jump: {link}"
+    ocr.logger.error(full_msg)
+    try:
+        import monitor_app
+        monitor_app.append_log(full_msg)
+    except Exception:
+        pass
+
+
 async def add_reaction_if_enabled(message: discord.Message, emoji: str):
     """Adds an emoji reaction to a message only if ENABLE_DISCORD_REACTIONS is True in config.py."""
     if getattr(config, "ENABLE_DISCORD_REACTIONS", False):
@@ -563,10 +581,8 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 created_at=message.created_at,
             )
         except Exception as e:
-            ocr.logger.error(
-                f"Failed to write to Google Sheets for message {message.id}: {e}"
-            )
-            await message.reply("Failed to save this invoice to Google Sheets. Check bot logs.")
+            log_discord_error(message, f"Google Sheets save failed ({cfg['sheet_name']}): {e}")
+            await add_reaction_if_enabled(message, "❌")
             continue
 
         processed_hashes.add(image_hash)
