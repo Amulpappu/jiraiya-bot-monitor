@@ -1504,7 +1504,7 @@
               revenueChart.update('none');
             }
             if(distributionChart && data.charts.distribution && data.charts.distribution.length > 0) {
-              distributionChart.data.labels = data.charts.distribution.map(d => d.name);
+              distributionChart.data.labels = data.charts.distribution.map(d => `${d.name} (${d.value||0})`);
               distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
               distributionChart.update('none');
             }

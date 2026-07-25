@@ -183,7 +183,23 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
 
     try:
         ss = get_spreadsheet()
-        ws = _with_retry(lambda: ss.worksheet(ws_name))
+        if not ss:
+            if ws_name in _LAST_KNOWN_ROWS:
+                return _LAST_KNOWN_ROWS[ws_name]
+            return []
+        try:
+            ws = _with_retry(lambda: ss.worksheet(ws_name))
+        except Exception:
+            ws = None
+            if ws_name in ("VIP Claim", "VIP Claims", "VIP Log"):
+                for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
+                    try:
+                        ws = _with_retry(lambda: ss.worksheet(alt))
+                        if ws: break
+                    except Exception: pass
+            if not ws:
+                raise Exception(f"Worksheet '{ws_name}' not found.")
+
         data = _with_retry(lambda: ws.get_all_values())[1:]  # skip header row
         _ROWS_CACHE[ws_name] = (now, data)
         _LAST_KNOWN_ROWS[ws_name] = data
@@ -1356,7 +1372,35 @@ def clean_transactions_sheet():
     _with_retry(lambda: ws_txn.clear())
     _with_retry(lambda: ws_txn.update("A1", cleaned))
     _apply_transactions_dropdown(ws_txn)
-    clear_rows_cache("Transactions")
+def mark_vip_claim_as_claimed_in_sheet(timestamp: str = "", customer: str = ""):
+    """Marks a VIP Claim as 'Claimed' in Google Sheets tab 'VIP Claim' or 'VIP Log'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh: return False
+        ws = None
+        for name in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
+            try:
+                ws = sh.worksheet(name)
+                if ws: break
+            except Exception: pass
+        if not ws: return False
+
+        rows = ws.get_all_values()
+        cust_clean = customer.strip().lower() if customer else ""
+        for idx, r in enumerate(rows[1:], start=2):
+            if len(r) > 1:
+                row_cust = str(r[1]).strip().lower()
+                row_ts = str(r[0]).strip()
+                if (cust_clean and cust_clean in row_cust) or (timestamp and timestamp in row_ts):
+                    status_col = 6 if len(r) >= 6 else 5
+                    ws.update_cell(idx, status_col, "Claimed")
+                    clear_rows_cache()
+                    print(f"[VIP Claim] Marked row {idx} as Claimed for {customer}")
+                    return True
+        return False
+    except Exception as e:
+        print(f"[Mark VIP Claim Error]: {e}")
+        return False
 
 
 def log_security_audit(username: str, role: str, action_type: str, ign: str = "", email: str = "", details: str = ""):
