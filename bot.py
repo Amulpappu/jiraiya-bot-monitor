@@ -789,6 +789,34 @@ async def _do_full_scan(limit=2000):
         pass
 
 
+async def send_heartbeat_loop():
+    await bot.wait_until_ready()
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "https://jiraiya-bot-monitor.onrender.com")
+    local_url = "http://127.0.0.1:5000"
+    import urllib.request
+
+    while not bot.is_closed():
+        for target_host in (local_url, render_url):
+            try:
+                hb_endpoint = f"{target_host.rstrip('/')}/api/heartbeat"
+                req = urllib.request.Request(
+                    hb_endpoint,
+                    data=json.dumps({"bot": "jiraiya", "status": "online"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    res_data = json.loads(resp.read().decode("utf-8"))
+                    cmd = res_data.get("command")
+                    if cmd == "stop":
+                        print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
+                        await bot.change_presence(status=discord.Status.offline)
+                        await bot.close()
+                        sys.exit(0)
+            except Exception:
+                pass
+        await asyncio.sleep(5)
+
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")

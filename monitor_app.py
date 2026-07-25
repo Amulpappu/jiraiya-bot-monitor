@@ -25,6 +25,7 @@ app = Flask(__name__, template_folder=os.path.join(APP_DIR, "templates"))
 application = app
 
 BOT_PROCESS = None
+GLOBAL_BOT_ENABLED = True
 BOT_LOGS = []
 MAX_LOGS = 300
 SYSTEM_ALERTS = [
@@ -157,16 +158,20 @@ def check_admin_permission():
 def start_bot():
     if not check_admin_permission():
         return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can start the bot!"})
+    global GLOBAL_BOT_ENABLED, BOT_PROCESS, PENDING_BOT_COMMAND
+    GLOBAL_BOT_ENABLED = True
+    PENDING_BOT_COMMAND = "start"
+
     is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
     if is_cloud:
+        append_log("Bot service enabled on Cloud.")
         return jsonify({
-            "success": False,
-            "message": "Render Cloud Host mode: Bot is running 24/7 in background."
+            "success": True,
+            "message": "🟢 Bot Service Started on Cloud/Server."
         })
 
-    global BOT_PROCESS
     if BOT_PROCESS is not None and BOT_PROCESS.poll() is None:
-        return jsonify({"success": False, "message": "Bot is already running on PC."})
+        return jsonify({"success": True, "message": "Bot is already running on PC."})
 
     python_executable = sys.executable
     env = os.environ.copy()
@@ -202,7 +207,8 @@ def start_bot():
 def stop_bot():
     if not check_admin_permission():
         return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can stop the bot!"})
-    global BOT_PROCESS, PENDING_BOT_COMMAND
+    global GLOBAL_BOT_ENABLED, BOT_PROCESS, PENDING_BOT_COMMAND
+    GLOBAL_BOT_ENABLED = False
     PENDING_BOT_COMMAND = "stop"
     if discord_rpc:
         try: discord_rpc.stop_discord_rpc()
@@ -215,8 +221,8 @@ def stop_bot():
             try: BOT_PROCESS.kill()
             except Exception: pass
         BOT_PROCESS = None
-    append_log("Bot Stop command queued.")
-    return jsonify({"success": True, "message": "Bot Stop command queued for PC Bot."})
+    append_log("🔴 Bot Stop command sent to all servers and Discord.")
+    return jsonify({"success": True, "message": "🔴 Bot Stop command sent! Bot is now OFFLINE."})
 
 
 @app.route("/api/restart", methods=["POST"])
@@ -337,11 +343,8 @@ def get_stats():
 
         tot_val = max(1.0, total_sales)
         time_since_heartbeat = time.time() - LAST_HEARTBEAT_TIME if LAST_HEARTBEAT_TIME > 0 else 999999
-        is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
-        if is_cloud:
-            bot_online = True
-        else:
-            bot_online = (BOT_PROCESS is not None and BOT_PROCESS.poll() is None) or (time_since_heartbeat < 90)
+        process_running = (BOT_PROCESS is not None and BOT_PROCESS.poll() is None)
+        bot_online = GLOBAL_BOT_ENABLED and (process_running or time_since_heartbeat < 45)
 
         return jsonify({
             "success": True,
