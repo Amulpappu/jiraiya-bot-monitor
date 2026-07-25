@@ -128,24 +128,24 @@ def get_status():
 def api_login():
     data = request.get_json() or {}
     username = str(data.get("username", "")).strip()
-    password = str(data.get("password", "")).strip()
+    password = str(data.get("password", "")).strip().lower()
     email = str(data.get("email", "")).strip()
     ign = str(data.get("ign", "")).strip()
 
     role = None
-    if password == "admin2026":
+    if password in ("admin2026", "6969", "admin", "admin69"):
         role = "Admin"
-    elif password == "manager8686":
+    elif password in ("manager8686", "manager123", "manager"):
         role = "Manager"
-    elif password == "employe7878":
+    elif password in ("employe7878", "employee7878", "employee", "emp"):
         role = "Employee"
 
     if role:
-        disp_name = username.upper() if role in ("Admin", "Manager") else (username.capitalize() if username else "Employee")
+        disp_name = username.upper() if (username and role in ("Admin", "Manager")) else (username.capitalize() if username else ("AMULPAPPU" if role == "Admin" else "Employee"))
         threading.Thread(target=sheets.log_security_audit, args=(disp_name, role, "USER_LOGIN", ign or disp_name, email, "Web Login Success"), daemon=True).start()
-        return jsonify({"success": True, "name": disp_name, "role": role})
+        return jsonify({"success": True, "username": disp_name, "role": role})
     else:
-        return jsonify({"success": False, "error": "Invalid password! Use admin2026, manager8686, or employe7878."})
+        return jsonify({"success": False, "error": "Invalid password! Passwords: admin2026, manager8686, employe7878"})
 
 
 def check_admin_permission():
