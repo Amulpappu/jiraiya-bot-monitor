@@ -1066,6 +1066,55 @@
       setInterval(fetchLiveData, 4000);
     });
 
+    function initCharts() {
+      const ctxRev = document.getElementById('revenueChart');
+      if(ctxRev) {
+        revenueChart = new Chart(ctxRev, {
+          type: 'line',
+          data: {
+            labels: ['Start', 'Today'],
+            datasets: [{
+              label: 'Revenue (₹)',
+              data: [0, 0],
+              borderColor: '#6C4DFF',
+              backgroundColor: 'rgba(108, 77, 255, 0.15)',
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8' } },
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8' } }
+            }
+          }
+        });
+      }
+
+      const ctxDist = document.getElementById('distributionChart');
+      if(ctxDist) {
+        distributionChart = new Chart(ctxDist, {
+          type: 'doughnut',
+          data: {
+            labels: ['Services', 'Kits', 'Upgrades', 'VIP Claims'],
+            datasets: [{
+              data: [0, 0, 0, 0],
+              backgroundColor: ['#6C4DFF', '#2A8DFF', '#19D96B', '#F9A826'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { color: '#94A3B8', boxWidth: 12 } } }
+          }
+        });
+      }
+    }
+
     function checkAuthSession() {
       const authUser = localStorage.getItem('auth_user');
       const authRole = localStorage.getItem('user_role');
@@ -1180,7 +1229,7 @@
         checkAuthSession();
       } else {
         if(errEl) {
-          errEl.innerText = "⚠️ Invalid passcode! (Admin: admin2026, Manager: manager8686, Employee: employe7878)";
+          errEl.innerText = "⚠️ Invalid username or passcode. Please try again.";
           errEl.style.display = 'block';
         }
       }
@@ -1195,11 +1244,19 @@
     }
 
     function changeUserRole(role) {
-      if(role === 'Admin' && localStorage.getItem('user_role') !== 'Admin') {
+      const currentRole = localStorage.getItem('user_role') || 'Employee';
+      if(role === 'Admin' && currentRole !== 'Admin') {
         const pass = prompt('Enter Admin Passcode to switch to Admin mode:');
-        if(pass !== '6969' && pass !== 'admin69') {
+        if(pass !== 'admin2026') {
           alert('Incorrect Admin Passcode! Reverting role.');
-          document.getElementById('roleSelect').value = localStorage.getItem('user_role') || 'Employee';
+          document.getElementById('roleSelect').value = currentRole;
+          return;
+        }
+      } else if(role === 'Manager' && currentRole === 'Employee') {
+        const pass = prompt('Enter Manager Passcode to switch to Manager mode:');
+        if(pass !== 'manager8686' && pass !== 'admin2026') {
+          alert('Incorrect Manager Passcode! Reverting role.');
+          document.getElementById('roleSelect').value = currentRole;
           return;
         }
       }
@@ -1412,15 +1469,30 @@
               `).join('');
             }
           }
+          if(data.charts) {
+            if(revenueChart && data.charts.revenue_trend && data.charts.revenue_trend.length > 0) {
+              revenueChart.data.labels = data.charts.revenue_trend.map(c => c.label);
+              revenueChart.data.datasets[0].data = data.charts.revenue_trend.map(c => c.revenue);
+              revenueChart.update('none');
+            }
+            if(distributionChart && data.charts.distribution && data.charts.distribution.length > 0) {
+              distributionChart.data.labels = data.charts.distribution.map(d => d.name);
+              distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
+              distributionChart.update('none');
+            }
+          }
         }
 
         const resLogs = await fetch('/api/logs');
         const logsData = await resLogs.json();
         const term = document.getElementById('terminalLogBox');
-        if(logsData.console_logs && term) {
-          term.innerHTML = logsData.console_logs.map(l => {
+        if(term) {
+          const logs = (logsData.console_logs && logsData.console_logs.length > 0) 
+            ? logsData.console_logs 
+            : ['[System Log] 🟢 Live server monitoring active on Render 24/7.', '[OCR Engine] Active and awaiting Discord mechanic invoices.'];
+          term.innerHTML = logs.map(l => {
             const formatted = l.replace(/(https:\/\/discord\.com\/channels\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#2A8DFF; font-weight:700; text-decoration:underline;">🔗 Open Invoice in Discord</a>');
-            return `<div>${formatted}</div>`;
+            return `<div style="font-family:monospace; line-height:1.6; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03); padding:4px 0;">${formatted}</div>`;
           }).join('');
           term.scrollTop = term.scrollHeight;
         }

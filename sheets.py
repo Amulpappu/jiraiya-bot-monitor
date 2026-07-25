@@ -1413,9 +1413,7 @@ def get_security_audit_logs():
 def get_user_roles():
     """Fetches user roles from Google Sheets tab 'User_Roles'."""
     default_roles = [
-        {"username": "AMULPAPPU", "role": "Admin", "tag": "@Amulpappu", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
-        {"username": "Meenu Kutty", "role": "Manager", "tag": "@Blari", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
-        {"username": "Eli", "role": "Employee", "tag": "@Eli", "updated": now_ist().strftime(TIMESTAMP_FORMAT)},
+        {"username": "AMULPAPPU", "role": "Admin", "tag": "@Amulpappu", "updated": now_ist().strftime(TIMESTAMP_FORMAT)}
     ]
     try:
         sh = get_spreadsheet()
@@ -1443,7 +1441,7 @@ def get_user_roles():
                 u_name = r[0].strip()
                 u_role = r[1].strip()
                 u_tag = r[2].strip() if len(r) > 2 else f"@{u_name.lower()}"
-                u_time = r[3].strip() if len(r) > 3 else ""
+                u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
                 user_map[u_name.lower()] = {
                     "username": u_name,
                     "role": u_role,
@@ -1486,8 +1484,8 @@ def save_user_role(username: str, role: str, discord_tag: str = ""):
             tag_val = discord_tag if discord_tag else f"@{username.lower()}"
             ws.append_row([username, role, tag_val, now_str])
 
+        log_security_audit(username, role, "ROLE_ASSIGNED", ign=username, details=f"Assigned {role} role in User Settings")
         clear_rows_cache("User_Roles")
-        log_security_audit(username, role, "ROLE_ASSIGNED", f"Role saved in Google Sheets tab 'User_Roles'")
         return True
     except Exception as e:
         print(f"[Save User Role Error]: {e}")
