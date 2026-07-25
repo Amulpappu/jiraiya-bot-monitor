@@ -374,16 +374,16 @@ def get_stats():
                 ]
             },
             "system_resources": (lambda: (
-                (lambda p: {
-                    "cpu": int(p.cpu_percent(interval=None)),
-                    "memory": f"{round(p.virtual_memory().used / (1024**3), 1)} / {round(p.virtual_memory().total / (1024**3), 1)} GB ({int(p.virtual_memory().percent)}%)",
-                    "storage": f"{round(p.disk_usage('/').used / (1024**3), 1)} / {round(p.disk_usage('/').total / (1024**3), 1)} GB ({int(p.disk_usage('/').percent)}%)",
+                (lambda p, m=__import__('psutil').virtual_memory(), d=__import__('psutil').disk_usage('/'): {
+                    "cpu": int(__import__('psutil').cpu_percent(interval=None)),
+                    "memory": f"{round(m.used / (1024**3), 1)} / {round(m.total / (1024**3), 1)} GB ({int(m.percent)}%)" if m.total >= 1024**3 else f"{int(m.used / (1024**2))} / {int(m.total / (1024**2))} MB ({int(m.percent)}%)",
+                    "storage": f"{round(d.used / (1024**3), 1)} / {round(d.total / (1024**3), 1)} GB ({int(d.percent)}%)" if d.total >= 1024**3 else f"{int(d.used / (1024**2))} / {int(d.total / (1024**2))} MB ({int(d.percent)}%)",
                     "ping": "14ms",
                     "api_status": "Operational" if bot_online else "Offline"
-                })(__import__('psutil')) if 'psutil' in sys.modules or __import__('importlib.util').util.find_spec('psutil') else {
+                })() if 'psutil' in sys.modules or __import__('importlib.util').util.find_spec('psutil') else {
                     "cpu": 24,
-                    "memory": "2.1 / 8.0 GB (26%)",
-                    "storage": "45 / 128 GB (35%)",
+                    "memory": "240 / 512 MB (47%)",
+                    "storage": "3.2 / 10 GB (32%)",
                     "ping": "14ms",
                     "api_status": "Operational" if bot_online else "Offline"
                 }

@@ -515,19 +515,19 @@
           <div class="widget-card">
             <div class="widget-title">
               <span>System Resources</span>
-              <span class="badge badge-warning">Live 18ms</span>
+              <span class="badge badge-warning" id="resPingBadge">Live 14ms</span>
             </div>
             <div class="meter-item">
-              <div class="meter-label"><span>CPU Usage</span><span>62%</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 62%; background: var(--primary);"></div></div>
+              <div class="meter-label"><span>CPU Usage</span><span id="resCpuVal">24%</span></div>
+              <div class="meter-bar-bg"><div class="meter-bar-fill" id="resCpuBar" style="width: 24%; background: var(--primary);"></div></div>
             </div>
             <div class="meter-item">
-              <div class="meter-label"><span>Memory Usage</span><span>7.4 / 16 GB (46%)</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 46%; background: var(--secondary);"></div></div>
+              <div class="meter-label"><span>Memory Usage</span><span id="resMemVal">240 / 512 MB (47%)</span></div>
+              <div class="meter-bar-bg"><div class="meter-bar-fill" id="resMemBar" style="width: 47%; background: var(--secondary);"></div></div>
             </div>
             <div class="meter-item">
-              <div class="meter-label"><span>Disk Usage</span><span>256 / 512 GB (50%)</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 50%; background: var(--success);"></div></div>
+              <div class="meter-label"><span>Disk Usage</span><span id="resDiskVal">3.2 / 10 GB (32%)</span></div>
+              <div class="meter-bar-bg"><div class="meter-bar-fill" id="resDiskBar" style="width: 32%; background: var(--success);"></div></div>
             </div>
           </div>
         </div>
@@ -1508,6 +1508,22 @@
               distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
               distributionChart.update('none');
             }
+          if(data.system_resources) {
+            const sr = data.system_resources;
+            if(document.getElementById('resCpuVal')) document.getElementById('resCpuVal').innerText = sr.cpu + '%';
+            if(document.getElementById('resCpuBar')) document.getElementById('resCpuBar').style.width = Math.min(100, Math.max(5, sr.cpu)) + '%';
+            
+            if(document.getElementById('resMemVal')) document.getElementById('resMemVal').innerText = sr.memory;
+            const memMatch = (sr.memory || '').match(/\((\d+)%\)/);
+            const memPct = memMatch ? parseInt(memMatch[1]) : 45;
+            if(document.getElementById('resMemBar')) document.getElementById('resMemBar').style.width = Math.min(100, Math.max(5, memPct)) + '%';
+
+            if(document.getElementById('resDiskVal')) document.getElementById('resDiskVal').innerText = sr.storage;
+            const diskMatch = (sr.storage || '').match(/\((\d+)%\)/);
+            const diskPct = diskMatch ? parseInt(diskMatch[1]) : 30;
+            if(document.getElementById('resDiskBar')) document.getElementById('resDiskBar').style.width = Math.min(100, Math.max(5, diskPct)) + '%';
+
+            if(document.getElementById('resPingBadge')) document.getElementById('resPingBadge').innerText = 'Live ' + (sr.ping || '14ms');
           }
         }
 

@@ -623,22 +623,27 @@ class JiraiyaBotMonitorApp(ctk.CTk):
 
         ctk.CTkLabel(sys_box, text="System Resources", font=ctk.CTkFont(size=14, weight="bold"), text_color="#FFF").pack(anchor="w", padx=16, pady=(14, 10))
 
+        self.sys_meter_labels = {}
+        self.sys_meter_pbs = {}
         sys_meters = [
-            ("CPU Usage", "62%", 0.62, "#6C4DFF"),
-            ("Memory Usage", "7.4 / 16 GB (46%)", 0.46, "#2A8DFF"),
-            ("Disk Usage", "256 / 512 GB (50%)", 0.50, "#19D96B"),
+            ("cpu", "CPU Usage", "24%", 0.24, "#6C4DFF"),
+            ("mem", "Memory Usage", "240 / 512 MB (47%)", 0.47, "#2A8DFF"),
+            ("disk", "Disk Usage", "3.2 / 10 GB (32%)", 0.32, "#19D96B"),
         ]
-        for mtitle, mval, pct, color in sys_meters:
+        for mkey, mtitle, mval, pct, color in sys_meters:
             m_item = ctk.CTkFrame(sys_box, fg_color="transparent")
             m_item.pack(fill="x", padx=16, pady=6)
             lbl_r = ctk.CTkFrame(m_item, fg_color="transparent")
             lbl_r.pack(fill="x")
             ctk.CTkLabel(lbl_r, text=mtitle, font=ctk.CTkFont(size=11, weight="bold"), text_color="#FFF").pack(side="left")
-            ctk.CTkLabel(lbl_r, text=mval, font=ctk.CTkFont(size=10, weight="bold"), text_color="#A4AEC6").pack(side="right")
+            val_lbl = ctk.CTkLabel(lbl_r, text=mval, font=ctk.CTkFont(size=10, weight="bold"), text_color="#A4AEC6")
+            val_lbl.pack(side="right")
+            self.sys_meter_labels[mkey] = val_lbl
 
             pb = ctk.CTkProgressBar(m_item, height=6, corner_radius=3, fg_color="#090B14", progress_color=color)
             pb.pack(fill="x", pady=(2, 4))
             pb.set(pct)
+            self.sys_meter_pbs[mkey] = pb
 
         # 2. OVERVIEW PAGE (Financial Intelligence & Analytics Dashboard)
         p_ov = ctk.CTkFrame(self.pages_container, fg_color="transparent")
@@ -1624,6 +1629,28 @@ class JiraiyaBotMonitorApp(ctk.CTk):
             else:
                 for u in db.get_users():
                     self.tree_users.insert("", "end", values=(u["display_name"], u["discord_tag"], u["role"], u["permissions"], u["status"], u["last_login"]))
+        except Exception:
+            pass
+
+    def _refresh_live_resources(self):
+        try:
+            import psutil
+            cpu_pct = int(psutil.cpu_percent(interval=None))
+            mem = psutil.virtual_memory()
+            mem_str = f"{round(mem.used / (1024**3), 1)} / {round(mem.total / (1024**3), 1)} GB ({int(mem.percent)}%)" if mem.total >= 1024**3 else f"{int(mem.used / (1024**2))} / {int(mem.total / (1024**2))} MB ({int(mem.percent)}%)"
+            disk = psutil.disk_usage('/')
+            disk_str = f"{round(disk.used / (1024**3), 1)} / {round(disk.total / (1024**3), 1)} GB ({int(disk.percent)}%)" if disk.total >= 1024**3 else f"{int(disk.used / (1024**2))} / {int(disk.total / (1024**2))} MB ({int(disk.percent)}%)"
+            
+            if hasattr(self, "sys_meter_labels"):
+                if "cpu" in self.sys_meter_labels:
+                    self.sys_meter_labels["cpu"].configure(text=f"{cpu_pct}%")
+                    self.sys_meter_pbs["cpu"].set(max(0.05, cpu_pct / 100.0))
+                if "mem" in self.sys_meter_labels:
+                    self.sys_meter_labels["mem"].configure(text=mem_str)
+                    self.sys_meter_pbs["mem"].set(max(0.05, mem.percent / 100.0))
+                if "disk" in self.sys_meter_labels:
+                    self.sys_meter_labels["disk"].configure(text=disk_str)
+                    self.sys_meter_pbs["disk"].set(max(0.05, disk.percent / 100.0))
         except Exception:
             pass
 
