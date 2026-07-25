@@ -1298,6 +1298,7 @@ class JiraiyaBotMonitorApp(ctk.CTk):
             (self.emp_dir_tree, "employee"),
             (self.tree_dash_emp, "employee"),
             (self.tree_vip, "vip"),
+            (self.tree_users, "user_role"),
             (self.tree_svc, "record"),
             (self.tree_upg, "record"),
             (self.tree_kits, "record"),
@@ -1402,6 +1403,21 @@ class JiraiyaBotMonitorApp(ctk.CTk):
                     self.log(f"[Employees] Removed staff mapping: {emp_name}")
                     self._refresh_employee_page_list()
                     self.update_stats()
+
+            elif item_type == "user_role":
+                u_name = str(vals[0])
+                if u_name.upper() == "AMULPAPPU":
+                    messagebox.showerror("Error", "Cannot delete primary Admin AMULPAPPU!")
+                    return
+                confirm = messagebox.askyesno("Revoke User Access", f"Are you sure you want to revoke access & delete user:\n'{u_name}'?")
+                if confirm:
+                    self.selected_item_info = None
+                    db.delete_user_by_name(u_name)
+                    sheets.remove_user_role(u_name)
+                    db.add_alert("Access Revoked", f"Revoked access for user: {u_name}", "warning")
+                    self.log(f"[Security] Revoked access for user: {u_name}")
+                    self._load_users_list()
+                    messagebox.showinfo("Success", f"🗑️ Access revoked for {u_name}! Deleted from App & Google Sheets.")
 
             else:
                 messagebox.showinfo("Delete", "Selected row is a read-only historical Discord log.")
@@ -1596,8 +1612,18 @@ class JiraiyaBotMonitorApp(ctk.CTk):
     def _load_users_list(self):
         try:
             self.tree_users.delete(*self.tree_users.get_children())
-            for u in db.get_users():
-                self.tree_users.insert("", "end", values=(u["display_name"], u["discord_tag"], u["role"], u["permissions"], u["status"], u["last_login"]))
+            roles_from_sheet = sheets.get_user_roles()
+            if roles_from_sheet:
+                for r in roles_from_sheet:
+                    uname = r.get("username", "")
+                    utag = r.get("tag", f"@{uname.lower()}")
+                    urole = r.get("role", "Employee")
+                    uperms = "Full Access" if urole == "Admin" else ("Dashboard, Edit, Inventory, Claims" if urole == "Manager" else "Service, Upgrades, Kits, VIP Log")
+                    udate = r.get("updated", "")
+                    self.tree_users.insert("", "end", values=(uname, utag, urole, uperms, "Active", udate))
+            else:
+                for u in db.get_users():
+                    self.tree_users.insert("", "end", values=(u["display_name"], u["discord_tag"], u["role"], u["permissions"], u["status"], u["last_login"]))
         except Exception:
             pass
 
