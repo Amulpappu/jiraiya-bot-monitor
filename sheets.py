@@ -1542,16 +1542,37 @@ def remove_user_role(username: str):
         sh = get_spreadsheet()
         if not sh:
             return False
-        ws = sh.worksheet("User_Roles")
-        rows = ws.get_all_values()
-        u_lower = username.lower()
-        for idx, r in enumerate(rows[1:], start=2):
-            if len(r) > 0 and r[0].strip().lower() == u_lower:
-                ws.delete_rows(idx)
-                break
-        clear_rows_cache("User_Roles")
-        log_security_audit(username, "None", "ACCESS_REVOKED", "User access revoked by Admin")
-        return True
+        ws = None
+        try:
+            ws = sh.worksheet("User_Roles")
+        except Exception:
+            return False
+
+        rows = _with_retry(lambda: ws.get_all_values())
+        if not rows or len(rows) <= 1:
+            return False
+
+        u_lower = username.strip().lower()
+        header = rows[0]
+        new_rows = [header]
+        removed = False
+
+        for r in rows[1:]:
+            if len(r) > 0 and r[0].strip():
+                row_u = r[0].strip().lower()
+                if row_u == u_lower or u_lower in row_u or row_u in u_lower:
+                    removed = True
+                    continue
+            new_rows.append(r)
+
+        if removed:
+            _with_retry(lambda: ws.clear())
+            _with_retry(lambda: ws.update("A1", new_rows))
+            clear_rows_cache()
+            log_security_audit(username, "None", "ACCESS_REVOKED", ign=username, details="User access revoked and deleted from Google Sheets")
+            print(f"[Sheets Security] Deleted user '{username}' from User_Roles tab.")
+            return True
+        return False
     except Exception as e:
         print(f"[Remove User Role Error]: {e}")
         return False

@@ -685,8 +685,11 @@ def remove_user_access():
     if target_user.upper() == "AMULPAPPU":
         return jsonify({"success": False, "error": "Cannot remove primary Admin AMULPAPPU!"})
 
-    threading.Thread(target=sheets.remove_user_role, args=(target_user,), daemon=True).start()
-    return jsonify({"success": True, "message": f"🗑️ Access revoked for {target_user} in Google Sheets!"})
+    res = sheets.remove_user_role(target_user)
+    if res:
+        return jsonify({"success": True, "message": f"🗑️ Access revoked for {target_user}! User permanently deleted from Google Sheets."})
+    else:
+        return jsonify({"success": False, "error": f"Could not find {target_user} in Google Sheets or user already removed."})
 
 
 @app.route("/api/alerts")
