@@ -838,15 +838,15 @@
 
       <!-- Login Form View -->
       <div id="loginFormSection">
-        <form onsubmit="handleLoginSubmit(event)">
+        <form onsubmit="handleLoginSubmit(event); return false;">
           <div class="form-group" style="margin-bottom:14px;">
             <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:6px; display:block;">Username / In-Game Name</label>
-            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU" required style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
+            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU" required onkeydown="if(event.key==='Enter') handleLoginSubmit(event)" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
           <div class="form-group" style="margin-bottom:16px;">
             <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:6px; display:block;">Password / Passcode</label>
-            <input type="password" id="loginPassword" placeholder="••••••••" required style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
+            <input type="password" id="loginPassword" placeholder="••••••••" required onkeydown="if(event.key==='Enter') handleLoginSubmit(event)" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; font-size:12px;">
@@ -858,7 +858,7 @@
 
           <div id="loginErrorMsg" style="color:#FF5C5C; font-size:12px; margin-bottom:16px; display:none; text-align:center;">⚠️ Invalid credentials</div>
 
-          <button type="submit" class="btn-ctrl btn-start" style="width:100%; padding:14px; border-radius:12px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #6C4DFF, #5031E6); box-shadow:0 6px 20px rgba(108,77,255,0.4);">
+          <button type="button" onclick="handleLoginSubmit(event)" class="btn-ctrl btn-start" style="width:100%; padding:14px; border-radius:12px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #6C4DFF, #5031E6); box-shadow:0 6px 20px rgba(108,77,255,0.4); cursor:pointer;">
             🔐 Sign In to Workspace
           </button>
         </form>
