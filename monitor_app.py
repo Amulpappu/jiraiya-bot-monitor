@@ -42,6 +42,15 @@ def append_log(line: str):
         BOT_LOGS.pop(0)
 
 
+@app.route("/api/logs")
+def get_console_logs():
+    logs = BOT_LOGS[-100:] if BOT_LOGS else [
+        "[System] 🟢 Antigravity Terminal Stream active 24/7.",
+        "[OCR Engine] Discord invoice parser ready."
+    ]
+    return jsonify({"success": True, "console_logs": logs})
+
+
 def reader_thread(proc):
     for line in iter(proc.stdout.readline, ""):
         if not line:
