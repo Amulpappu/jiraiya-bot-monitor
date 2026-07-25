@@ -1144,7 +1144,7 @@
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: u, password: p })
+          body: JSON.stringify({ username: u, password: p, ign: u, email: u + '@gmail.com' })
         });
         const data = await res.json();
         if(data.success) {

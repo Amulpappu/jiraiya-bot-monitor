@@ -119,15 +119,35 @@ def api_login():
     data = request.get_json() or {}
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", "")).strip()
+    email = str(data.get("email", "")).strip()
+    ign = str(data.get("ign", "")).strip()
 
+    role = None
     if password == "admin2026":
-        return jsonify({"success": True, "name": username.upper() if username else "ADMIN", "role": "Admin"})
+        role = "Admin"
     elif password == "manager8686":
-        return jsonify({"success": True, "name": username.upper() if username else "MANAGER", "role": "Manager"})
+        role = "Manager"
     elif password == "employe7878":
-        return jsonify({"success": True, "name": username.capitalize() if username else "Employee", "role": "Employee"})
+        role = "Employee"
+
+    if role:
+        disp_name = username.upper() if role in ("Admin", "Manager") else (username.capitalize() if username else "Employee")
+        threading.Thread(target=sheets.log_security_audit, args=(disp_name, role, "USER_LOGIN", ign or disp_name, email, "Web Login Success"), daemon=True).start()
+        return jsonify({"success": True, "name": disp_name, "role": role})
     else:
         return jsonify({"success": False, "error": "Invalid password! Use admin2026, manager8686, or employe7878."})
+
+
+@app.route("/api/request_access", methods=["POST"])
+def request_access():
+    data = request.get_json() or {}
+    username = str(data.get("username", "")).strip()
+    ign = str(data.get("ign", "")).strip()
+    email = str(data.get("email", "")).strip()
+    role = str(data.get("role", "Employee")).strip()
+
+    threading.Thread(target=sheets.log_security_audit, args=(username, role, "ACCESS_REQUEST", ign, email, "Requested Access"), daemon=True).start()
+    return jsonify({"success": True, "message": f"📩 Access request for {ign or username} ({role}) sent & logged to Admin!"})
 
 
 @app.route("/api/start", methods=["POST"])

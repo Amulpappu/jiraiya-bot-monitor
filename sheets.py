@@ -1359,8 +1359,8 @@ def clean_transactions_sheet():
     clear_rows_cache("Transactions")
 
 
-def log_security_audit(username: str, role: str, action_type: str, details: str = ""):
-    """Logs user login, logout, and role permission events to Google Sheets tab 'User_Audit_Logs'."""
+def log_security_audit(username: str, role: str, action_type: str, ign: str = "", email: str = "", details: str = ""):
+    """Logs user login, access requests, and role permission events to Google Sheets tab 'User_Audit_Logs'."""
     try:
         sh = get_spreadsheet()
         if not sh:
@@ -1369,9 +1369,9 @@ def log_security_audit(username: str, role: str, action_type: str, details: str 
             ws = sh.worksheet("User_Audit_Logs")
         except Exception:
             ws = sh.add_worksheet(title="User_Audit_Logs", rows=100, cols=10)
-            ws.append_row(["Timestamp (IST)", "Action Type", "User Name", "Role", "Details"])
+            ws.append_row(["Timestamp (IST)", "Action Type", "User Name", "In-Game Name (IGN)", "Email Address", "Role", "Details"])
 
-        row = [now_ist().strftime(TIMESTAMP_FORMAT), action_type, username, role, details]
+        row = [now_ist().strftime(TIMESTAMP_FORMAT), action_type, username, ign or username, email or "N/A", role, details]
         ws.append_row(row)
         clear_rows_cache("User_Audit_Logs")
     except Exception as e:
@@ -1397,8 +1397,10 @@ def get_security_audit_logs():
                         "timestamp": r[0],
                         "action": r[1],
                         "user": r[2],
-                        "role": r[3],
-                        "details": r[4] if len(r) > 4 else ""
+                        "ign": r[3] if len(r) > 3 else r[2],
+                        "email": r[4] if len(r) > 4 else "",
+                        "role": r[5] if len(r) > 5 else (r[3] if len(r) > 3 else "Employee"),
+                        "details": r[6] if len(r) > 6 else ""
                     })
             return list(reversed(logs[-50:]))
         except Exception:
