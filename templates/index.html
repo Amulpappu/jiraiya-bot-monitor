@@ -1157,14 +1157,13 @@
           return;
         }
       } catch(err) {
-        // Robust Client-Side Authentication Fallback (Fixes Connection Error)
-        const uLower = u.toLowerCase();
-        if(['admin', 'amulpappu', 'administrator'].includes(uLower) && ['6969', 'admin69', 'admin123'].includes(p)) {
-          successData = { name: u.toUpperCase(), role: 'Admin' };
-        } else if(['manager', 'mgr'].includes(uLower) && ['manager123', '6969'].includes(p)) {
-          successData = { name: u.toUpperCase(), role: 'Manager' };
-        } else if(['1234', 'mech123', 'emp123'].includes(p)) {
-          successData = { name: u.charAt(0).toUpperCase() + u.slice(1), role: 'Employee' };
+        // Client-Side Authentication Fallback
+        if(p === 'admin2026') {
+          successData = { name: u ? u.toUpperCase() : 'ADMIN', role: 'Admin' };
+        } else if(p === 'manager8686') {
+          successData = { name: u ? u.toUpperCase() : 'MANAGER', role: 'Manager' };
+        } else if(p === 'employe7878') {
+          successData = { name: u ? u.charAt(0).toUpperCase() + u.slice(1) : 'Employee', role: 'Employee' };
         }
       }
 
@@ -1181,7 +1180,7 @@
         checkAuthSession();
       } else {
         if(errEl) {
-          errEl.innerText = "⚠️ Invalid credentials! (Admin: admin/6969, Manager: manager/manager123, Employee: employee/1234)";
+          errEl.innerText = "⚠️ Invalid passcode! (Admin: admin2026, Manager: manager8686, Employee: employe7878)";
           errEl.style.display = 'block';
         }
       }

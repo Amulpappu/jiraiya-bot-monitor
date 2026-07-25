@@ -114,6 +114,22 @@ def get_status():
     })
 
 
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json() or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", "")).strip()
+
+    if password == "admin2026":
+        return jsonify({"success": True, "name": username.upper() if username else "ADMIN", "role": "Admin"})
+    elif password == "manager8686":
+        return jsonify({"success": True, "name": username.upper() if username else "MANAGER", "role": "Manager"})
+    elif password == "employe7878":
+        return jsonify({"success": True, "name": username.capitalize() if username else "Employee", "role": "Employee"})
+    else:
+        return jsonify({"success": False, "error": "Invalid password! Use admin2026, manager8686, or employe7878."})
+
+
 @app.route("/api/start", methods=["POST"])
 def start_bot():
     is_cloud = bool(os.getenv("PYTHONANYWHERE_DOMAIN")) or (os.name != "nt")
