@@ -841,7 +841,7 @@
         <form onsubmit="handleLoginSubmit(event)">
           <div class="form-group" style="margin-bottom:14px;">
             <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:6px; display:block;">Username / In-Game Name</label>
-            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU or Eli" required style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
+            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU" required style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
           <div class="form-group" style="margin-bottom:16px;">
@@ -1217,9 +1217,9 @@
       } catch(err) {
         let role = null;
         const lowerP = pInput.toLowerCase();
-        if(lowerP === 'admin2026' || lowerP === '6969' || lowerP === 'admin') role = 'Admin';
-        else if(lowerP === 'manager8686' || lowerP === 'manager123' || lowerP === 'manager') role = 'Manager';
-        else if(lowerP === 'employe7878' || lowerP === 'employee7878' || lowerP === 'employee') role = 'Employee';
+        if(lowerP === 'admin2026' || lowerP === '6969') role = 'Admin';
+        else if(lowerP === 'manager8686' || lowerP === 'manager123') role = 'Manager';
+        else if(lowerP === 'employe7878' || lowerP === 'employee7878') role = 'Employee';
 
         if(role) {
           const authUser = uInput || (role === 'Admin' ? 'AMULPAPPU' : 'User');

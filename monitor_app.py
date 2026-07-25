@@ -133,11 +133,11 @@ def api_login():
     ign = str(data.get("ign", "")).strip()
 
     role = None
-    if password in ("admin2026", "6969", "admin", "admin69"):
+    if password in ("admin2026", "6969"):
         role = "Admin"
-    elif password in ("manager8686", "manager123", "manager"):
+    elif password in ("manager8686", "manager123"):
         role = "Manager"
-    elif password in ("employe7878", "employee7878", "employee", "emp"):
+    elif password in ("employe7878", "employee7878"):
         role = "Employee"
 
     if role:
