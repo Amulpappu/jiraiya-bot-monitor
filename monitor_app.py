@@ -138,11 +138,16 @@ def api_login():
         return jsonify({"success": False, "error": "Invalid password! Use admin2026, manager8686, or employe7878."})
 
 
-
+def check_admin_permission():
+    data = request.get_json(silent=True) or {}
+    role = str(data.get("role", "")).strip()
+    return role == "Admin"
 
 
 @app.route("/api/start", methods=["POST"])
 def start_bot():
+    if not check_admin_permission():
+        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can start the bot!"})
     is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
     if is_cloud:
         return jsonify({
@@ -181,11 +186,13 @@ def start_bot():
             )
         except Exception: pass
 
-    return jsonify({"success": True, "message": "Bot started successfully on local PC."})
+    return jsonify({"success": True, "message": "Bot process started on PC."})
 
 
 @app.route("/api/stop", methods=["POST"])
 def stop_bot():
+    if not check_admin_permission():
+        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can stop the bot!"})
     global BOT_PROCESS, PENDING_BOT_COMMAND
     PENDING_BOT_COMMAND = "stop"
     if discord_rpc:
@@ -205,6 +212,8 @@ def stop_bot():
 
 @app.route("/api/restart", methods=["POST"])
 def restart_bot():
+    if not check_admin_permission():
+        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can restart the bot!"})
     global PENDING_BOT_COMMAND
     PENDING_BOT_COMMAND = "restart"
     append_log("Bot Restart command queued.")
@@ -213,6 +222,8 @@ def restart_bot():
 
 @app.route("/api/rescan", methods=["POST"])
 def rescan():
+    if not check_admin_permission():
+        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can initiate rescan!"})
     global PENDING_BOT_COMMAND
     PENDING_BOT_COMMAND = "rescan"
     append_log("[Action] Scanning recent Discord messages for missed invoices (No Data Wiped)...")

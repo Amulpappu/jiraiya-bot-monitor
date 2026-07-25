@@ -1740,9 +1740,20 @@
       }
     }
 
-    // ── Bot Controls ──
     async function controlBot(action) {
-      await fetch('/api/' + action, { method: 'POST' });
+      const currentRole = localStorage.getItem('user_role') || 'Employee';
+      if(currentRole !== 'Admin') {
+        return alert('🔒 Access Denied: Only Admin (AMULPAPPU) can start, stop, or restart the bot!');
+      }
+      const res = await fetch('/api/' + action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: currentRole })
+      });
+      const data = await res.json();
+      if(!data.success && data.error) {
+        alert(data.error);
+      }
       fetchLiveData();
     }
 
