@@ -64,32 +64,6 @@ DEFAULT_USERS = [
         "status": "Active",
         "last_login": "2026-07-25 03:30:00 IST",
         "created_at": "2026-07-01",
-    },
-    {
-        "id": "2",
-        "display_name": "Eli",
-        "discord_username": "eli_tuner",
-        "discord_tag": "@eli",
-        "discord_id": "234567890123456789",
-        "email": "eli@jiraiya.customs",
-        "role": "Chief Mechanic",
-        "permissions": "Employees, Services, Kits, Upgrades",
-        "status": "Active",
-        "last_login": "2026-07-24 22:15:00 IST",
-        "created_at": "2026-07-05",
-    },
-    {
-        "id": "3",
-        "display_name": "Meenu Kutty",
-        "discord_username": "blari",
-        "discord_tag": "@blari",
-        "discord_id": "345678901234567890",
-        "email": "meenu@jiraiya.customs",
-        "role": "Manager",
-        "permissions": "Dashboard, Logs, Transactions, Employees, Reports",
-        "status": "Active",
-        "last_login": "2026-07-24 21:45:00 IST",
-        "created_at": "2026-07-23",
     }
 ]
 
@@ -178,6 +152,16 @@ class DatabaseManager:
 
     def delete_user(self, user_id):
         self.data["users"] = [u for u in self.data["users"] if u["id"] != str(user_id)]
+        self.save()
+
+    def delete_user_by_name(self, username):
+        u_clean = username.strip().lower()
+        self.data["users"] = [
+            u for u in self.data.get("users", [])
+            if u.get("display_name", "").strip().lower() != u_clean
+            and u.get("discord_username", "").strip().lower() != u_clean
+            and u_clean not in u.get("display_name", "").strip().lower()
+        ]
         self.save()
 
     def get_alerts(self):
