@@ -1679,30 +1679,25 @@ def get_security_audit_logs():
 
 
 def get_user_roles():
-    """Fetches system roles ONLY for users who have logged into the web workspace (from User_Audit_Logs and User_Roles tab)."""
+    """Fetches system roles ONLY for active users (from User_Roles tab and web logins), respecting revoked/deleted users."""
     user_map = {}
     rev_map = getattr(config, "REVERSE_MAPPING", {})
+    revoked_users = set()
 
-    # 1. Add users from User_Audit_Logs (only web logged-in users like Amul, Pete Mitchell, Mr Arivu, Maria, Eli, etc.)
+    # 1. Fetch revoked/deleted users from audit logs
     try:
         audit_logs = get_security_audit_logs()
         for log in audit_logs:
-            u_name = log.get("user") or log.get("username")
-            if u_name and u_name.strip():
-                u_clean = u_name.strip()
-                if u_clean.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
-                    u_clean = "Amul"
-                key = u_clean.lower()
-                if key not in user_map:
-                    user_map[key] = {
-                        "username": u_clean,
-                        "role": log.get("role") or "Employee",
-                        "tag": "@amul_pappu" if u_clean == "Amul" else rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
-                        "updated": log.get("timestamp") or "Logged In"
-                    }
+            act = str(log.get("action", "")).upper()
+            det = str(log.get("details", "")).lower()
+            if "REVOKED" in act or "deleted" in det or "revoked" in det:
+                u_rev = (log.get("user") or log.get("username") or "").strip().lower()
+                if u_rev:
+                    revoked_users.add(u_rev)
     except Exception: pass
 
-    # 2. Override/Add users from Google Sheets tab 'User_Roles'
+    # 2. Add active users from User_Roles sheet in Google Sheets (primary source of truth)
+    roles_sheet_users = set()
     try:
         sh = get_spreadsheet()
         if sh:
@@ -1725,9 +1720,32 @@ def get_user_roles():
                                 "tag": u_tag,
                                 "updated": u_time
                             }
+                            roles_sheet_users.add(key)
             except Exception: pass
     except Exception as e:
         print(f"[Get User Roles Error]: {e}")
+
+    # 3. Add users from User_Audit_Logs (only web logged-in users who have NOT been revoked/deleted)
+    try:
+        if 'audit_logs' in locals() and audit_logs:
+            for log in audit_logs:
+                u_name = log.get("user") or log.get("username")
+                if u_name and u_name.strip():
+                    u_clean = u_name.strip()
+                    if u_clean.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
+                        u_clean = "Amul"
+                    key = u_clean.lower()
+                    # Skip if user was deleted/revoked by Admin
+                    if key in revoked_users and key not in roles_sheet_users:
+                        continue
+                    if key not in user_map:
+                        user_map[key] = {
+                            "username": u_clean,
+                            "role": log.get("role") or "Employee",
+                            "tag": "@amul_pappu" if u_clean == "Amul" else rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
+                            "updated": log.get("timestamp") or "Logged In"
+                        }
+    except Exception: pass
 
     if "amul" not in user_map:
         user_map["amul"] = {
@@ -1779,42 +1797,37 @@ def save_user_role(username: str, role: str, discord_tag: str = ""):
 
 
 def remove_user_role(username: str):
-    """Removes a user's role entry from Google Sheets tab 'User_Roles'."""
+    """Removes a user's role entry from Google Sheets tab 'User_Roles' and records ACCESS_REVOKED."""
     try:
+        u_clean = username.strip()
+        log_security_audit(u_clean, "None", "ACCESS_REVOKED", ign=u_clean, details="User access revoked and deleted from Google Sheets")
+
         sh = get_spreadsheet()
         if not sh:
-            return False
-        ws = None
+            return True
         try:
             ws = sh.worksheet("User_Roles")
-        except Exception:
-            return False
+            rows = _with_retry(lambda: ws.get_all_values())
+            if rows and len(rows) > 1:
+                u_lower = u_clean.lower()
+                header = rows[0]
+                new_rows = [header]
+                removed = False
+                for r in rows[1:]:
+                    if len(r) > 0 and r[0].strip():
+                        row_u = r[0].strip().lower()
+                        if row_u == u_lower or u_lower in row_u or row_u in u_lower:
+                            removed = True
+                            continue
+                    new_rows.append(r)
+                if removed:
+                    _with_retry(lambda: ws.clear())
+                    _with_retry(lambda: ws.update("A1", new_rows))
+        except Exception: pass
 
-        rows = _with_retry(lambda: ws.get_all_values())
-        if not rows or len(rows) <= 1:
-            return False
-
-        u_lower = username.strip().lower()
-        header = rows[0]
-        new_rows = [header]
-        removed = False
-
-        for r in rows[1:]:
-            if len(r) > 0 and r[0].strip():
-                row_u = r[0].strip().lower()
-                if row_u == u_lower or u_lower in row_u or row_u in u_lower:
-                    removed = True
-                    continue
-            new_rows.append(r)
-
-        if removed:
-            _with_retry(lambda: ws.clear())
-            _with_retry(lambda: ws.update("A1", new_rows))
-            clear_rows_cache()
-            log_security_audit(username, "None", "ACCESS_REVOKED", ign=username, details="User access revoked and deleted from Google Sheets")
-            print(f"[Sheets Security] Deleted user '{username}' from User_Roles tab.")
-            return True
-        return False
+        clear_rows_cache()
+        print(f"[Sheets Security] Revoked access and deleted user '{u_clean}'.")
+        return True
     except Exception as e:
         print(f"[Remove User Role Error]: {e}")
         return False
