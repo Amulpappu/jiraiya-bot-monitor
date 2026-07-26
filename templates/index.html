@@ -883,6 +883,14 @@
     // ── Navigation & Views Switcher ──
     let activeView = 'dashboard';
     function switchTab(viewName, element) {
+      const userRole = localStorage.getItem('user_role') || 'Employee';
+      if(userRole === 'Employee' && viewName === 'dashboard') {
+        alert('🔒 Access Denied: Dashboard is restricted for Employee role.');
+        const empNav = document.querySelector("a[onclick*='employees']");
+        if(empNav) switchTab('employees', empNav);
+        return;
+      }
+
       activeView = viewName;
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       if(element) element.classList.add('active');
@@ -1276,6 +1284,37 @@
       applyRolePermissions(role);
     }
 
+    let activeView = 'dashboard';
+    function switchTab(viewName, element) {
+      const userRole = localStorage.getItem('user_role') || 'Employee';
+      if(userRole === 'Employee' && viewName === 'dashboard') {
+        alert('🔒 Access Denied: Dashboard is restricted for Employee role.');
+        const empNav = document.querySelector("a[onclick*='employees']");
+        if(empNav) switchTab('employees', empNav);
+        return;
+      }
+
+      activeView = viewName;
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      if(element) element.classList.add('active');
+      document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
+      const targetView = document.getElementById('view-' + viewName);
+      if(targetView) targetView.classList.add('active');
+      document.getElementById('pageTitle').innerText = viewName.charAt(0).toUpperCase() + viewName.slice(1).replace('_', ' ');
+
+      if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
+        fetchSheetData(viewName);
+      } else if(viewName === 'inventory') {
+        fetchInventory();
+      } else if(viewName === 'employees') {
+        fetchEmployees();
+      } else if(viewName === 'user_settings') {
+        fetchUserRoles();
+        fetchAuditLogs();
+        fetchAccessRequestsUI();
+      }
+    }
+
     function applyRolePermissions(role) {
       const currentRole = role || localStorage.getItem('user_role') || 'Admin';
       const rSelect = document.getElementById('roleSelect');
@@ -1283,6 +1322,7 @@
       const dRole = document.getElementById('displayRole');
       if(dRole) dRole.value = currentRole + ' Mode';
 
+      const navDashboard = document.querySelector("a[onclick*='dashboard']");
       const navSettings = document.querySelector("a[onclick*='settings']");
       const navUserSettings = document.querySelector("a[onclick*='user_settings']");
       const navEmployees = document.querySelector("a[onclick*='employees']");
@@ -1293,6 +1333,7 @@
       const invGrid = document.getElementById('inventoryGridContainer');
 
       if (currentRole === 'Employee') {
+        if(navDashboard) navDashboard.style.display = 'none';
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'none';
         if(navEmployees) navEmployees.style.display = 'flex';
@@ -1301,7 +1342,15 @@
         if(addEmpBtn) addEmpBtn.style.display = 'none';
         if(addInvCard) addInvCard.style.display = 'none';
         if(invGrid) invGrid.style.gridTemplateColumns = '1fr';
+
+        // Auto-redirect Employee away from Dashboard view if active
+        const dashView = document.getElementById('view-dashboard');
+        if(dashView && dashView.classList.contains('active')) {
+          const empNav = document.querySelector("a[onclick*='employees']");
+          if(empNav) switchTab('employees', empNav);
+        }
       } else if (currentRole === 'Manager') {
+        if(navDashboard) navDashboard.style.display = 'flex';
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'flex';
         if(navEmployees) navEmployees.style.display = 'flex';
@@ -1311,6 +1360,7 @@
         if(addInvCard) addInvCard.style.display = 'block';
         if(invGrid) invGrid.style.gridTemplateColumns = '320px 1fr';
       } else {
+        if(navDashboard) navDashboard.style.display = 'flex';
         if(navSettings) navSettings.style.display = 'flex';
         if(navUserSettings) navUserSettings.style.display = 'flex';
         if(navEmployees) navEmployees.style.display = 'flex';
