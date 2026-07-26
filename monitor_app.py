@@ -139,27 +139,32 @@ def api_login():
     password = str(data.get("password", "")).strip()
     email = str(data.get("email", "")).strip()
     ign = str(data.get("ign", "")).strip()
-    requested_role = str(data.get("role", "")).strip()
+    requested_role = str(data.get("role", "Admin")).strip()
 
     pass_lower = password.lower()
     uname_lower = username.lower()
 
-    if requested_role in ("Admin", "Manager", "Employee"):
-        role = requested_role
-    elif pass_lower in ("admin2026", "6969", "admin69", "admin123", "administrator"):
+    admin_passcodes = ("admin2026", "6969", "admin69", "admin123", "administrator", "amulpappu", "amul")
+    manager_passcodes = ("manager8686", "manager123", "mgr123") + admin_passcodes
+    employee_passcodes = ("employe7878", "employee7878", "1234", "mech123", "emp123") + manager_passcodes
+
+    # Require password
+    if not password:
+        return jsonify({"success": False, "error": "⚠️ Password / Passcode is required to log in!"})
+
+    # Validate passcode against requested role
+    if requested_role == "Admin":
+        if pass_lower not in admin_passcodes:
+            return jsonify({"success": False, "error": "🔒 Invalid Admin passcode!"})
         role = "Admin"
-    elif pass_lower in ("manager8686", "manager123", "mgr123"):
+    elif requested_role == "Manager":
+        if pass_lower not in manager_passcodes:
+            return jsonify({"success": False, "error": "🔒 Invalid Manager passcode!"})
         role = "Manager"
-    elif pass_lower in ("employe7878", "employee7878", "1234", "mech123", "emp123"):
-        role = "Employee"
-    elif uname_lower in ("admin", "amulpappu", "administrator") or "amul" in uname_lower:
-        role = "Admin"
-    elif uname_lower in ("manager", "mgr"):
-        role = "Manager"
-    elif username:
-        role = "Employee"
     else:
-        role = "Admin"
+        if pass_lower not in employee_passcodes:
+            return jsonify({"success": False, "error": "🔒 Invalid Passcode for Employee role!"})
+        role = "Employee"
 
     disp_name = ign if ign else (username if username else "AMULPAPPU")
 

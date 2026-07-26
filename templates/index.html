@@ -1116,10 +1116,8 @@
       const loginOverlay = document.getElementById('loginModalOverlay');
 
       if(!authUser || !authRole) {
-        authUser = 'AMULPAPPU';
-        authRole = 'Admin';
-        localStorage.setItem('auth_user', authUser);
-        localStorage.setItem('user_role', authRole);
+        openLoginModal();
+        return;
       }
 
       if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
@@ -1139,13 +1137,22 @@
       const roleInput = document.getElementById('loginRole') ? document.getElementById('loginRole').value : 'Admin';
       const pInput = (document.getElementById('loginPassword') ? document.getElementById('loginPassword').value : '').trim();
       const remember = document.getElementById('remember1Week') ? document.getElementById('remember1Week').checked : true;
+      const errEl = document.getElementById('loginErrorMsg');
+
+      if(!pInput) {
+        if(errEl) {
+          errEl.innerText = '⚠️ Password / Passcode is required to log in!';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
 
       const finalName = ignInput || uInput || 'AMULPAPPU';
       const finalRole = roleInput || 'Admin';
       const finalEmail = emailInput || (finalName.toLowerCase() + '@gmail.com');
 
       try {
-        await fetch('/api/login', {
+        const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1156,7 +1163,19 @@
             password: pInput
           })
         });
-      } catch(err) {}
+        const data = await res.json();
+        if(!data.success) {
+          if(errEl) {
+            errEl.innerText = data.error || '🔒 Invalid password / passcode!';
+            errEl.style.display = 'block';
+          }
+          return;
+        }
+      } catch(err) {
+        // Client side validation fallback
+      }
+
+      if(errEl) errEl.style.display = 'none';
 
       const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
       localStorage.setItem('auth_user', finalName.toUpperCase());
