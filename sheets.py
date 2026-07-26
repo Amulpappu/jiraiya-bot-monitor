@@ -1679,55 +1679,64 @@ def get_security_audit_logs():
 
 
 def get_user_roles():
-    """Fetches user roles from Google Sheets tab 'User_Roles'."""
-    default_roles = [
-        {"username": "AMULPAPPU", "role": "Admin", "tag": "@Amulpappu", "updated": now_ist().strftime(TIMESTAMP_FORMAT)}
-    ]
+    """Fetches all configured system roles from Google Sheets tab 'User_Roles', merged with audit logs and employee mapping."""
+    user_map = {}
+    rev_map = getattr(config, "REVERSE_MAPPING", {})
+
+    # 1. Base employee mappings from config
+    for tag, emp_name in config.EMPLOYEE_MAPPING.items():
+        key = emp_name.strip().lower()
+        if key not in user_map:
+            user_map[key] = {
+                "username": emp_name,
+                "role": "Admin" if emp_name.lower() in ("amul", "amulpappu", "pete mitchell") else "Employee",
+                "tag": rev_map.get(emp_name, tag),
+                "updated": "System Configured"
+            }
+
+    # 2. Add users from User_Audit_Logs (e.g. Pete Mitchell, Mr Arivu, Maria, RAJU, Lohith, Amul)
+    try:
+        audit_logs = get_security_audit_logs()
+        for log in audit_logs:
+            u_name = log.get("user") or log.get("username")
+            if u_name and u_name.strip():
+                u_clean = u_name.strip()
+                key = u_clean.lower()
+                if key not in user_map:
+                    user_map[key] = {
+                        "username": u_clean,
+                        "role": log.get("role") or "Employee",
+                        "tag": rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
+                        "updated": log.get("timestamp") or "Logged In"
+                    }
+    except Exception: pass
+
+    # 3. Override/Add users from Google Sheets tab 'User_Roles'
     try:
         sh = get_spreadsheet()
-        if not sh:
-            return default_roles
-        try:
-            ws = sh.worksheet("User_Roles")
-        except Exception:
-            ws = sh.add_worksheet(title="User_Roles", rows=50, cols=5)
-            ws.append_row(["Username", "Role", "Discord Tag", "Last Updated (IST)"])
-            for dr in default_roles:
-                ws.append_row([dr["username"], dr["role"], dr["tag"], dr["updated"]])
-            return default_roles
-
-        rows = _with_retry(lambda: ws.get_all_values())
-        if len(rows) <= 1:
-            return default_roles
-
-        user_map = {}
-        for dr in default_roles:
-            user_map[dr["username"].lower()] = dr
-
-        for r in rows[1:]:
-            if len(r) >= 2 and r[0].strip():
-                u_name = r[0].strip()
-                u_role = r[1].strip()
-                u_tag = r[2].strip() if len(r) > 2 else f"@{u_name.lower()}"
-                u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
-                key = u_name.lower()
-                if key in ("amul", "amulpappu", "amul_pappu", "amulpappu "):
-                    key = "amulpappu"
-                    u_name = "AMULPAPPU"
-                user_map[key] = {
-                    "username": u_name,
-                    "role": u_role,
-                    "tag": u_tag,
-                    "updated": u_time
-                }
-
-        if "amulpappu" not in user_map:
-            user_map["amulpappu"] = default_roles[0]
-
-        return list(user_map.values())
+        if sh:
+            try:
+                ws = sh.worksheet("User_Roles")
+                rows = _with_retry(lambda: ws.get_all_values())
+                if rows and len(rows) > 1:
+                    for r in rows[1:]:
+                        if len(r) >= 2 and r[0].strip():
+                            u_name = r[0].strip()
+                            u_role = r[1].strip()
+                            u_tag = r[2].strip() if len(r) > 2 else (rev_map.get(u_name, f"@{u_name.lower().replace(' ', '')}"))
+                            u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
+                            key = u_name.lower()
+                            user_map[key] = {
+                                "username": u_name,
+                                "role": u_role,
+                                "tag": u_tag,
+                                "updated": u_time
+                            }
+            except Exception: pass
     except Exception as e:
         print(f"[Get User Roles Error]: {e}")
-        return default_roles
+
+    return list(user_map.values())
 
 
 def save_user_role(username: str, role: str, discord_tag: str = ""):
