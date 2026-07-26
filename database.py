@@ -178,6 +178,34 @@ class DatabaseManager:
         self.data["alerts"] = self.data["alerts"][:100]
         self.save()
 
+    def get_access_requests(self):
+        return self.data.get("access_requests", [])
+
+    def add_access_request(self, username, ign, email, role):
+        if "access_requests" not in self.data:
+            self.data["access_requests"] = []
+        now_str = datetime.datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+        req = {
+            "timestamp": now_str,
+            "username": username,
+            "ign": ign or username,
+            "email": email,
+            "role": role,
+            "status": "Pending Approval"
+        }
+        # Remove any previous duplicates for same username
+        self.data["access_requests"] = [r for r in self.data["access_requests"] if r.get("username","").lower() != username.lower()]
+        self.data["access_requests"].insert(0, req)
+        self.save()
+        return req
+
+    def update_access_request_status(self, username, status):
+        u_clean = username.strip().lower()
+        for req in self.data.get("access_requests", []):
+            if req.get("username", "").strip().lower() == u_clean or req.get("ign", "").strip().lower() == u_clean:
+                req["status"] = status
+        self.save()
+
     def get_inventory(self):
         return self.data.get("inventory", DEFAULT_INVENTORY)
 

@@ -19,10 +19,15 @@ if APP_DIR and os.path.exists(APP_DIR):
 
 import config
 import sheets
+import config
+import sheets
+import database
 try:
     import discord_rpc
 except Exception:
     discord_rpc = None
+
+db = database.DatabaseManager()
 
 app = Flask(__name__, template_folder=os.path.join(APP_DIR, "templates"))
 application = app
@@ -647,6 +652,9 @@ Log into your Web Dashboard (https://jiraiya-bot-monitor.onrender.com) as Admin 
         return False
 
 
+import database
+db = database.DatabaseManager()
+
 @app.route("/api/request_access", methods=["POST"])
 def request_access():
     data = request.get_json(silent=True) or request.form or {}
@@ -664,6 +672,12 @@ def request_access():
         "time": time.strftime("%I:%M %p"),
         "dismissed": False
     })
+
+    try:
+        db.add_access_request(username, display_name, email, role)
+    except Exception as e:
+        print(f"[DB Save Request Error]: {e}")
+
     threading.Thread(target=sheets.save_access_request, args=(username, display_name, email, role), daemon=True).start()
     threading.Thread(target=sheets.log_security_audit, args=(username, role, "ACCESS_REQUEST", display_name, email, "Requested Access"), daemon=True).start()
     threading.Thread(target=send_access_request_email, args=(username, display_name, email, role), daemon=True).start()
@@ -672,8 +686,17 @@ def request_access():
 
 @app.route("/api/access_requests")
 def get_access_requests():
-    reqs = sheets.get_access_requests()
-    return jsonify({"success": True, "requests": reqs})
+    local_reqs = db.get_access_requests()
+    sheet_reqs = sheets.get_access_requests()
+
+    seen = set()
+    combined = []
+    for r in local_reqs + sheet_reqs:
+        u = r.get("username", "").strip().lower()
+        if u and u not in seen:
+            seen.add(u)
+            combined.append(r)
+    return jsonify({"success": True, "requests": combined})
 
 
 @app.route("/api/approve_access_request", methods=["POST"])
@@ -689,6 +712,17 @@ def approve_access_request():
         return jsonify({"success": False, "error": "Invalid target user"})
 
     user_to_save = ign if ign else target_user
+    db.update_access_request_status(target_user, f"Approved ({role})")
+    db.add_user({
+        "display_name": user_to_save,
+        "discord_username": target_user,
+        "discord_tag": f"@{target_user.lower().replace(' ', '')}",
+        "email": email,
+        "role": role,
+        "permissions": "Full Access" if role == "Admin" else ("Edit Access" if role == "Manager" else "View & Log"),
+        "status": "Active"
+    })
+
     threading.Thread(target=sheets.update_access_request_status, args=(target_user, f"Approved ({role})"), daemon=True).start()
     threading.Thread(target=sheets.save_user_role, args=(user_to_save, role, f"@{target_user.lower().replace(' ', '')}"), daemon=True).start()
     threading.Thread(target=sheets.log_security_audit, args=(admin_user, "Admin", "ACCESS_APPROVED", f"Approved {user_to_save} as {role}"), daemon=True).start()
@@ -706,6 +740,7 @@ def reject_access_request():
     if not target_user:
         return jsonify({"success": False, "error": "Invalid target user"})
 
+    db.update_access_request_status(target_user, "Rejected")
     threading.Thread(target=sheets.update_access_request_status, args=(target_user, "Rejected"), daemon=True).start()
     threading.Thread(target=sheets.log_security_audit, args=(admin_user, "Admin", "ACCESS_REJECTED", f"Rejected access for {target_user}"), daemon=True).start()
 
