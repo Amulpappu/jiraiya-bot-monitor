@@ -1519,9 +1519,9 @@
             if(empBody) {
               empBody.innerHTML = data.leaderboard.map(e => `
                 <tr>
-                  <td><span class="badge badge-primary">${e.rank}</span></td>
+                  <td><span class="badge badge-primary">#${e.rank}</span></td>
                   <td><strong>${e.name}</strong></td>
-                  <td>@${e.name.toLowerCase()}</td>
+                  <td>${e.tag || '@' + (e.name||'').toLowerCase()}</td>
                   <td style="color:#6C4DFF; font-weight:700;">${e.civilian_service||0}</td>
                   <td style="color:#2A8DFF; font-weight:700;">${e.govt_service||0}</td>
                   <td>${e.kits||0}</td>
@@ -1704,7 +1704,7 @@
               <tr>
                 <td><span class="badge badge-primary">#${e.rank || 1}</span></td>
                 <td><strong>${e.name || 'Staff Member'}</strong></td>
-                <td><small style="color:var(--text-muted);">${e.tag || '@' + (e.name||'').toLowerCase()}</small></td>
+                <td>${e.tag || '@' + (e.name||'').toLowerCase()}</td>
                 <td style="color:#6C4DFF; font-weight:700;">${Number(e.civilian_service || 0).toLocaleString()}</td>
                 <td style="color:#2A8DFF; font-weight:700;">${Number(e.govt_service || 0).toLocaleString()}</td>
                 <td>${Number(e.kits || 0).toLocaleString()}</td>
@@ -1724,7 +1724,7 @@
         <tr>
           <td><span class="badge badge-primary">#1</span></td>
           <td><strong>AMULPAPPU</strong></td>
-          <td><small style="color:var(--text-muted);">@amulpappu</small></td>
+          <td>@amulpappu</td>
           <td style="color:#6C4DFF; font-weight:700;">0</td>
           <td style="color:#2A8DFF; font-weight:700;">0</td>
           <td>0</td><td>0</td>
