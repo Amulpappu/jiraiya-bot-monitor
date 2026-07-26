@@ -883,32 +883,50 @@
     // ── Navigation & Views Switcher ──
     let activeView = 'dashboard';
     function switchTab(viewName, element) {
-      const userRole = localStorage.getItem('user_role') || 'Employee';
+      if(!viewName) return;
+      const userRole = localStorage.getItem('user_role') || 'Admin';
       if(userRole === 'Employee' && viewName === 'dashboard') {
         alert('🔒 Access Denied: Dashboard is restricted for Employee role.');
         const empNav = document.querySelector("a[onclick*='employees']");
-        if(empNav) switchTab('employees', empNav);
+        switchTab('employees', empNav);
         return;
       }
 
       activeView = viewName;
+
+      // Update sidebar active highlights safely
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      if(!element) {
+        element = document.querySelector(`a[onclick*="'${viewName}'"]`);
+      }
       if(element) element.classList.add('active');
+
+      // Toggle visible view section safely
       document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
       const targetView = document.getElementById('view-' + viewName);
-      if(targetView) targetView.classList.add('active');
-      document.getElementById('pageTitle').innerText = viewName.charAt(0).toUpperCase() + viewName.slice(1).replace('_', ' ');
+      if(targetView) {
+        targetView.classList.add('active');
+      }
 
-      if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
-        fetchSheetData(viewName);
-      } else if(viewName === 'inventory') {
-        fetchInventory();
-      } else if(viewName === 'employees') {
-        fetchEmployees();
-      } else if(viewName === 'user_settings') {
-        fetchUserRoles();
-        fetchAuditLogs();
-        fetchAccessRequestsUI();
+      const pTitle = document.getElementById('pageTitle');
+      if(pTitle) {
+        pTitle.innerText = viewName.charAt(0).toUpperCase() + viewName.slice(1).replace('_', ' ');
+      }
+
+      try {
+        if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
+          fetchSheetData(viewName);
+        } else if(viewName === 'inventory') {
+          fetchInventory();
+        } else if(viewName === 'employees') {
+          fetchEmployees();
+        } else if(viewName === 'user_settings') {
+          fetchUserRoles();
+          fetchAuditLogs();
+          fetchAccessRequestsUI();
+        }
+      } catch(err) {
+        console.warn("View data fetch warning:", err);
       }
     }
 
@@ -1302,36 +1320,7 @@
       applyRolePermissions(role);
     }
 
-    let activeView = 'dashboard';
-    function switchTab(viewName, element) {
-      const userRole = localStorage.getItem('user_role') || 'Employee';
-      if(userRole === 'Employee' && viewName === 'dashboard') {
-        alert('🔒 Access Denied: Dashboard is restricted for Employee role.');
-        const empNav = document.querySelector("a[onclick*='employees']");
-        if(empNav) switchTab('employees', empNav);
-        return;
-      }
 
-      activeView = viewName;
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      if(element) element.classList.add('active');
-      document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
-      const targetView = document.getElementById('view-' + viewName);
-      if(targetView) targetView.classList.add('active');
-      document.getElementById('pageTitle').innerText = viewName.charAt(0).toUpperCase() + viewName.slice(1).replace('_', ' ');
-
-      if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
-        fetchSheetData(viewName);
-      } else if(viewName === 'inventory') {
-        fetchInventory();
-      } else if(viewName === 'employees') {
-        fetchEmployees();
-      } else if(viewName === 'user_settings') {
-        fetchUserRoles();
-        fetchAuditLogs();
-        fetchAccessRequestsUI();
-      }
-    }
 
     function applyRolePermissions(role) {
       const currentRole = role || localStorage.getItem('user_role') || 'Admin';
