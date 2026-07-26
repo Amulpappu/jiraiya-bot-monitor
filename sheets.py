@@ -1679,39 +1679,30 @@ def get_security_audit_logs():
 
 
 def get_user_roles():
-    """Fetches all configured system roles from Google Sheets tab 'User_Roles', merged with audit logs and employee mapping."""
+    """Fetches system roles ONLY for users who have logged into the web workspace (from User_Audit_Logs and User_Roles tab)."""
     user_map = {}
     rev_map = getattr(config, "REVERSE_MAPPING", {})
 
-    # 1. Base employee mappings from config
-    for tag, emp_name in config.EMPLOYEE_MAPPING.items():
-        key = emp_name.strip().lower()
-        if key not in user_map:
-            user_map[key] = {
-                "username": emp_name,
-                "role": "Admin" if emp_name.lower() in ("amul", "amulpappu", "pete mitchell") else "Employee",
-                "tag": rev_map.get(emp_name, tag),
-                "updated": "System Configured"
-            }
-
-    # 2. Add users from User_Audit_Logs (e.g. Pete Mitchell, Mr Arivu, Maria, RAJU, Lohith, Amul)
+    # 1. Add users from User_Audit_Logs (only web logged-in users like Amul, Pete Mitchell, Mr Arivu, Maria, Eli, etc.)
     try:
         audit_logs = get_security_audit_logs()
         for log in audit_logs:
             u_name = log.get("user") or log.get("username")
             if u_name and u_name.strip():
                 u_clean = u_name.strip()
+                if u_clean.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
+                    u_clean = "Amul"
                 key = u_clean.lower()
                 if key not in user_map:
                     user_map[key] = {
                         "username": u_clean,
                         "role": log.get("role") or "Employee",
-                        "tag": rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
+                        "tag": "@amul_pappu" if u_clean == "Amul" else rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
                         "updated": log.get("timestamp") or "Logged In"
                     }
     except Exception: pass
 
-    # 3. Override/Add users from Google Sheets tab 'User_Roles'
+    # 2. Override/Add users from Google Sheets tab 'User_Roles'
     try:
         sh = get_spreadsheet()
         if sh:
@@ -1722,8 +1713,10 @@ def get_user_roles():
                     for r in rows[1:]:
                         if len(r) >= 2 and r[0].strip():
                             u_name = r[0].strip()
+                            if u_name.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
+                                u_name = "Amul"
                             u_role = r[1].strip()
-                            u_tag = r[2].strip() if len(r) > 2 else (rev_map.get(u_name, f"@{u_name.lower().replace(' ', '')}"))
+                            u_tag = "@amul_pappu" if u_name == "Amul" else (r[2].strip() if len(r) > 2 else rev_map.get(u_name, f"@{u_name.lower().replace(' ', '')}"))
                             u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
                             key = u_name.lower()
                             user_map[key] = {
@@ -1735,6 +1728,14 @@ def get_user_roles():
             except Exception: pass
     except Exception as e:
         print(f"[Get User Roles Error]: {e}")
+
+    if "amul" not in user_map:
+        user_map["amul"] = {
+            "username": "Amul",
+            "role": "Admin",
+            "tag": "@amul_pappu",
+            "updated": now_ist().strftime(TIMESTAMP_FORMAT)
+        }
 
     return list(user_map.values())
 
