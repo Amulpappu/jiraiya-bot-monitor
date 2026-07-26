@@ -626,6 +626,9 @@ def send_access_request_email(username: str, ign: str, email: str, role: str):
             except Exception:
                 pass
 
+        if not smtp_password:
+            smtp_password = "tkrb tlwi ztwq sifc"
+
         subject = f"📬 Web Access Request: {ign or username} ({role})"
         body_text = f"""
 New Web Workspace Access Request Received!
