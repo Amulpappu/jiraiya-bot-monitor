@@ -69,7 +69,7 @@ VIP_CLAIM_HEADERS = ["Person Name", "Category", "Vehicle", "Staff", "Amount", "T
 TRANSACTIONS_HEADERS = ["Date", "Transaction Amount", "Description", "Transaction Type", "Employee Name"]
 EMPLOYEE_TRACKER_HEADERS = [
     "Employee Name",
-    "Kit Logs",
+    "Kit Qty Sold",
     "Civilian Service",
     "Govt Service",
     "Service Logs",
@@ -1086,7 +1086,11 @@ def get_top_services_breakdown(rows_by_sheet):
             civ_amt += amt
 
     upg_count = len(rows_by_sheet.get("Upgrades", []))
-    kit_count = len(rows_by_sheet.get("Kits", []))
+    # Kits: sum actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3) sold
+    kit_count = sum(
+        (_sum_numeric([r[2]]) if len(r) > 2 else 0) + (_sum_numeric([r[3]]) if len(r) > 3 else 0)
+        for r in rows_by_sheet.get("Kits", [])
+    )
     vip_count = len(rows_by_sheet.get("VIP Claim", []))
 
     col_upg = _AMOUNT_COL.get("Upgrades", 2)
@@ -1101,7 +1105,7 @@ def get_top_services_breakdown(rows_by_sheet):
         {"name": "Civilian Service (₹3k)", "count": civ_count, "amount": civ_amt, "color": "#6C4DFF"},
         {"name": "Govt Service (PD/EMS/₹5k)", "count": govt_count, "amount": govt_amt, "color": "#2A8DFF"},
         {"name": "Upgrades Installed", "count": upg_count, "amount": upg_amt, "color": "#19D96B"},
-        {"name": "Kits Issued", "count": kit_count, "amount": kit_amt, "color": "#F9A826"},
+        {"name": "Kits Qty Sold", "count": int(kit_count), "amount": kit_amt, "color": "#F9A826"},
         {"name": "VIP Claims", "count": vip_count, "amount": vip_amt, "color": "#E056FD"},
     ]
 
@@ -1231,7 +1235,10 @@ def get_rich_leaderboard(rows_by_sheet):
                     "total_logs": 0,
                     "points": 0
                 }
-            stats[emp]["kits"] += 1
+            # Add actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3) instead of 1 per log
+            repair_qty = int(_sum_numeric([r[2]])) if len(r) > 2 else 0
+            cleaning_qty = int(_sum_numeric([r[3]])) if len(r) > 3 else 0
+            stats[emp]["kits"] += repair_qty + cleaning_qty
 
     for r in rows_by_sheet.get("Upgrades", []):
         if not r or len(r) < 2:
@@ -1460,7 +1467,10 @@ def update_employee_tracker():
         if len(row) > 6 and row[6].strip():
             emp = resolve_name(row[6])
             if emp in valid_employees:
-                tracker_data[emp]["kit"] += 1
+                # Sum actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3)
+                repair_qty = int(_sum_numeric([row[2]])) if len(row) > 2 else 0
+                cleaning_qty = int(_sum_numeric([row[3]])) if len(row) > 3 else 0
+                tracker_data[emp]["kit"] += repair_qty + cleaning_qty
                 if row[0]:
                     tracker_data[emp]["last_date"] = row[0].split()[0]
 
