@@ -745,21 +745,7 @@
           </div>
         </div>
 
-        <!-- Pending Access Requests Table -->
-        <div class="chart-card" style="margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-            <h4 style="color:#FFF; margin:0;">📬 Pending Access Requests (Google Sheets Tab: Access_Requests)</h4>
-            <button class="btn-ctrl btn-start" onclick="fetchAccessRequests()" style="padding:6px 12px; font-size:11px;">🔄 Refresh Requests</button>
-          </div>
-          <table class="custom-table">
-            <thead>
-              <tr><th>Timestamp (IST)</th><th>Username</th><th>In Game Name</th><th>Email</th><th>Requested Role</th><th>Action</th></tr>
-            </thead>
-            <tbody id="accessReqsTableBody">
-              <tr><td colspan="6" style="text-align:center;">Loading access requests from Google Sheets...</td></tr>
-            </tbody>
-          </table>
-        </div>
+
 
         <!-- Role Access Control Table (Lock for Non-Admin) -->
         <div class="chart-card" style="margin-bottom:20px;">
@@ -1651,6 +1637,7 @@
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--danger);">Failed to load access requests.</td></tr>';
       }
     }
+    window.fetchAccessRequests = fetchAccessRequestsUI;
 
     async function approveAccessRequestUI(username, ign, role, email) {
       if(!confirm(`Approve access request for ${ign || username} as '${role}'?`)) return;

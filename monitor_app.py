@@ -652,13 +652,23 @@ Log into your Web Dashboard (https://jiraiya-bot-monitor.onrender.com) as Admin 
             msg['Subject'] = subject
             msg.attach(MIMEText(body_text, 'plain'))
 
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, [admin_email], msg.as_string())
-            server.quit()
-            append_log(f"[SMTP Email Sent] Delivered access request alert email to {admin_email}!")
-            return True
+            pwd_clean = smtp_password.replace(" ", "")
+            try:
+                server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=12)
+                server.login(smtp_user, pwd_clean)
+                server.sendmail(smtp_user, [admin_email], msg.as_string())
+                server.quit()
+                append_log(f"[SMTP Email Sent] Delivered access request alert email to {admin_email}!")
+                return True
+            except Exception as e_ssl:
+                append_log(f"[SMTP SSL Port 465 Retry]: {e_ssl}")
+                server = smtplib.SMTP("smtp.gmail.com", 587, timeout=12)
+                server.starttls()
+                server.login(smtp_user, pwd_clean)
+                server.sendmail(smtp_user, [admin_email], msg.as_string())
+                server.quit()
+                append_log(f"[SMTP Email Sent via TLS] Delivered access request alert email to {admin_email}!")
+                return True
         else:
             append_log(f"[SMTP Info] Email logged for {admin_email}. (To receive direct email inbox alerts, set SMTP_USER and SMTP_PASSWORD in environment settings).")
             return True
