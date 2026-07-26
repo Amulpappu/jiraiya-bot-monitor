@@ -156,12 +156,26 @@ def api_login():
     if not password:
         return jsonify({"success": False, "error": "⚠️ Password / Passcode is required to log in!"})
 
-    # Validate passcode against requested role
-    if requested_role == "Admin":
+    disp_name = ign if ign else (username if username else "AMULPAPPU")
+
+    # Look up assigned role in User_Roles sheet to automatically enforce assigned promotions (e.g. Eli -> Manager)
+    assigned_role = None
+    try:
+        user_roles = sheets.get_user_roles()
+        for ur in user_roles:
+            if ur.get("username", "").strip().lower() == disp_name.lower() or ur.get("tag", "").lstrip("@").lower() == disp_name.lower():
+                assigned_role = ur.get("role")
+                break
+    except Exception: pass
+
+    target_role = assigned_role if (assigned_role and assigned_role in ("Admin", "Manager", "Employee")) else requested_role
+
+    # Validate passcode against target role
+    if target_role == "Admin":
         if pass_lower not in admin_passcodes:
             return jsonify({"success": False, "error": "🔒 Invalid Admin passcode!"})
         role = "Admin"
-    elif requested_role == "Manager":
+    elif target_role == "Manager":
         if pass_lower not in manager_passcodes:
             return jsonify({"success": False, "error": "🔒 Invalid Manager passcode!"})
         role = "Manager"
@@ -170,11 +184,9 @@ def api_login():
             return jsonify({"success": False, "error": "🔒 Invalid Passcode for Employee role!"})
         role = "Employee"
 
-    disp_name = ign if ign else (username if username else "AMULPAPPU")
-
     threading.Thread(
         target=sheets.log_security_audit,
-        args=(disp_name, role, "USER_LOGIN", ign or disp_name, email or f"{disp_name.lower()}@gmail.com", "Web Login Success"),
+        args=(disp_name, role, "USER_LOGIN", ign or disp_name, email or f"{disp_name.lower()}@gmail.com", f"Web Login Success ({role})"),
         daemon=True
     ).start()
 
@@ -596,7 +608,37 @@ def update_user_role():
     msg = f"[Role Change] Admin {admin_user} assigned role {new_role} to {target_user}."
     append_log(msg)
     threading.Thread(target=sheets.save_user_role, args=(target_user, new_role, tag), daemon=True).start()
+    threading.Thread(
+        target=sheets.log_security_audit,
+        args=(target_user, new_role, "ROLE_CHANGED", target_user, f"{target_user.lower()}@gmail.com", f"Role updated to {new_role} by Admin {admin_user}"),
+        daemon=True
+    ).start()
     return jsonify({"success": True, "message": f"Role updated to {new_role} for {target_user} in Google Sheets!"})
+
+
+@app.route("/api/roles/change", methods=["POST"])
+def change_user_role_audit():
+    try:
+        data = request.json or {}
+        username = str(data.get("username", "AMULPAPPU")).strip()
+        old_role = str(data.get("old_role", "Employee")).strip()
+        new_role = str(data.get("new_role", "Manager")).strip()
+
+        threading.Thread(
+            target=sheets.save_user_role,
+            args=(username, new_role),
+            daemon=True
+        ).start()
+
+        threading.Thread(
+            target=sheets.log_security_audit,
+            args=(username, new_role, "ROLE_CHANGED", username, f"{username.lower()}@gmail.com", f"Role changed from {old_role} to {new_role}"),
+            daemon=True
+        ).start()
+
+        return jsonify({"success": True, "message": f"Role change logged for {username}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/api/roles", methods=["GET"])
@@ -608,7 +650,7 @@ def get_system_roles():
 @app.route("/api/audit_logs")
 def get_audit_logs():
     logs = sheets.get_security_audit_logs()
-    return jsonify({"success": True, "logs": logs})
+    return jsonify({"success": True, "logs": logs, "audit_logs": logs})
 
 
 def send_access_request_email(username: str, ign: str, email: str, role: str):

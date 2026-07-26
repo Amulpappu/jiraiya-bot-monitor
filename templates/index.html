@@ -1318,6 +1318,19 @@
       }
       localStorage.setItem('user_role', role);
       applyRolePermissions(role);
+
+      const authUser = localStorage.getItem('auth_user') || 'AMULPAPPU';
+      fetch('/api/roles/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: authUser,
+          old_role: currentRole,
+          new_role: role
+        })
+      }).then(() => {
+        if(typeof fetchAuditLogs === 'function') fetchAuditLogs();
+      }).catch(() => {});
     }
 
 
@@ -1652,16 +1665,22 @@
       try {
         const res = await fetch('/api/audit_logs');
         const data = await res.json();
-        if(data.success && data.audit_logs && data.audit_logs.length > 0) {
-          tbody.innerHTML = data.audit_logs.slice(0, 50).map(log => `
+        const logs = data.audit_logs || data.logs || [];
+        if(data.success && logs && logs.length > 0) {
+          tbody.innerHTML = logs.slice(0, 50).map(log => {
+            const actionStr = log.action || log.action_type || 'USER_LOG';
+            const actionBadge = (actionStr.includes('LOGIN') || actionStr.includes('APPROVED')) 
+              ? 'badge-success' 
+              : ((actionStr.includes('ROLE') || actionStr.includes('CHANGED')) ? 'badge-warning' : 'badge-primary');
+            return `
             <tr>
               <td><small style="color:var(--text-muted);">${log.timestamp || 'N/A'}</small></td>
-              <td><span class="badge ${log.action.includes('LOGIN')||log.action.includes('APPROVED') ? 'badge-success' : 'badge-primary'}">${log.action}</span></td>
-              <td><strong>${log.username}</strong></td>
-              <td><span class="badge ${log.role === 'Admin' ? 'badge-primary' : (log.role === 'Manager' ? 'badge-warning' : 'badge-success')}">${log.role}</span></td>
-              <td><small>${log.details || '-'}</small></td>
+              <td><span class="badge ${actionBadge}">${actionStr}</span></td>
+              <td><strong>${log.username || log.user || 'AMULPAPPU'}</strong></td>
+              <td><span class="badge ${log.role === 'Admin' ? 'badge-primary' : (log.role === 'Manager' ? 'badge-warning' : 'badge-success')}">${log.role || 'Employee'}</span></td>
+              <td><small style="color:#FFF;">${log.details || '-'}</small></td>
             </tr>
-          `).join('');
+          `;}).join('');
         } else {
           tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No security audit logs found.</td></tr>';
         }
