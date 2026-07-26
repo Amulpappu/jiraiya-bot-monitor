@@ -807,9 +807,13 @@ async def send_heartbeat_loop():
                 with urllib.request.urlopen(req, timeout=4) as resp:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     cmd = res_data.get("command")
-                    if cmd == "stop":
+                    bot_enabled = res_data.get("bot_enabled", True)
+                    if cmd == "stop" or not bot_enabled:
                         print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
-                        await bot.change_presence(status=discord.Status.offline)
+                        try:
+                            await bot.change_presence(status=discord.Status.offline)
+                            await asyncio.sleep(0.5)
+                        except Exception: pass
                         await bot.close()
                         sys.exit(0)
             except Exception:

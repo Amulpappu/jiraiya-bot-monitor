@@ -618,9 +618,9 @@
           <span style="font-size:12px; color:var(--text-muted);" id="invSummaryText">Total Stock Items: 0 | Total Inventory Asset Value: ₹0</span>
         </div>
 
-        <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px;">
+        <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px;" id="inventoryGridContainer">
           <!-- Left: Add / Update Form -->
-          <div class="chart-card">
+          <div class="chart-card" id="addInventoryCard">
             <h4 style="margin-bottom:16px; color:var(--primary);">➕ Add / Update Item</h4>
 
             <div class="form-group">
@@ -1303,14 +1303,18 @@
       const navInventory = document.querySelector("a[onclick*='inventory']");
       const botControls = document.querySelector('.sidebar-footer');
       const addEmpBtn = document.getElementById('addEmpBtn');
+      const addInvCard = document.getElementById('addInventoryCard');
+      const invGrid = document.getElementById('inventoryGridContainer');
 
       if (currentRole === 'Employee') {
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'none';
         if(navEmployees) navEmployees.style.display = 'flex';
-        if(navInventory) navInventory.style.display = 'none';
+        if(navInventory) navInventory.style.display = 'flex';
         if(botControls) botControls.style.display = 'none';
         if(addEmpBtn) addEmpBtn.style.display = 'none';
+        if(addInvCard) addInvCard.style.display = 'none';
+        if(invGrid) invGrid.style.gridTemplateColumns = '1fr';
       } else if (currentRole === 'Manager') {
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'flex';
@@ -1318,6 +1322,8 @@
         if(navInventory) navInventory.style.display = 'flex';
         if(botControls) botControls.style.display = 'none';
         if(addEmpBtn) addEmpBtn.style.display = 'inline-block';
+        if(addInvCard) addInvCard.style.display = 'block';
+        if(invGrid) invGrid.style.gridTemplateColumns = '320px 1fr';
       } else {
         if(navSettings) navSettings.style.display = 'flex';
         if(navUserSettings) navUserSettings.style.display = 'flex';
@@ -1325,6 +1331,8 @@
         if(navInventory) navInventory.style.display = 'flex';
         if(botControls) botControls.style.display = 'block';
         if(addEmpBtn) addEmpBtn.style.display = 'inline-block';
+        if(addInvCard) addInvCard.style.display = 'block';
+        if(invGrid) invGrid.style.gridTemplateColumns = '320px 1fr';
       }
     }
 
@@ -1744,6 +1752,9 @@
           return;
         }
 
+        const currentRole = localStorage.getItem('user_role') || 'Admin';
+        const isEmployee = currentRole === 'Employee';
+
         tbody.innerHTML = data.items.map(item => `
           <tr>
             <td><strong>${item.item_name}</strong></td>
@@ -1754,11 +1765,24 @@
             <td style="color:var(--primary); font-weight:700;">₹${Number(item.total_value).toLocaleString()}</td>
             <td style="color:var(--text-muted); font-size:11px;">${item.last_updated}</td>
             <td>
-              <button class="btn-ctrl btn-stop" onclick="deleteInventoryItem('${item.item_name}')" style="padding:4px 8px; font-size:11px;">🗑️ Delete</button>
+              ${isEmployee ? '<span style="color:var(--text-muted); font-size:11px;">👁️ View Only</span>' : `
+                <button class="btn-ctrl btn-start" onclick="editInventoryItem('${item.item_name}', ${item.qty}, ${item.unit_price}, ${item.bought}, '${item.restock_date}')" style="padding:4px 8px; font-size:11px; margin-right:4px;">✏️ Edit</button>
+                <button class="btn-ctrl btn-stop" onclick="deleteInventoryItem('${item.item_name}')" style="padding:4px 8px; font-size:11px;">🗑️ Delete</button>
+              `}
             </td>
           </tr>
         `).join('');
       } catch(e) {}
+    }
+
+    function editInventoryItem(itemName, qty, unitPrice, bought, restockDate) {
+      if(document.getElementById('invItemName')) document.getElementById('invItemName').value = itemName || '';
+      if(document.getElementById('invQty')) document.getElementById('invQty').value = qty || 0;
+      if(document.getElementById('invUnitPrice')) document.getElementById('invUnitPrice').value = unitPrice || 0;
+      if(document.getElementById('invBought') && bought !== undefined) document.getElementById('invBought').value = bought;
+      if(document.getElementById('invRestockDate') && restockDate) document.getElementById('invRestockDate').value = restockDate;
+      const card = document.getElementById('addInventoryCard');
+      if(card) card.scrollIntoView({ behavior: 'smooth' });
     }
 
     async function deleteInventoryItem(itemName) {

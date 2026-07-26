@@ -98,15 +98,19 @@ PENDING_BOT_COMMAND = None
 
 @app.route("/api/heartbeat", methods=["POST", "GET"])
 def heartbeat():
-    global LAST_HEARTBEAT_TIME, PENDING_BOT_COMMAND
+    global LAST_HEARTBEAT_TIME, PENDING_BOT_COMMAND, GLOBAL_BOT_ENABLED
     LAST_HEARTBEAT_TIME = time.time()
-    cmd = PENDING_BOT_COMMAND
-    PENDING_BOT_COMMAND = None
+    if not GLOBAL_BOT_ENABLED:
+        cmd = "stop"
+    else:
+        cmd = PENDING_BOT_COMMAND
+        PENDING_BOT_COMMAND = None
     return jsonify({
         "success": True,
         "status": "heartbeat_received",
         "timestamp": LAST_HEARTBEAT_TIME,
-        "command": cmd
+        "command": cmd,
+        "bot_enabled": GLOBAL_BOT_ENABLED
     })
 
 
