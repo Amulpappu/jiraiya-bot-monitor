@@ -341,7 +341,7 @@
           <span class="noti-badge"></span>
         </button>
         <div class="user-profile">
-          <div class="user-avatar" id="userAvatar">AP</div>
+          <div class="user-avatar" id="userAvatar" onclick="openLoginModal()" style="cursor:pointer;" title="Click to Switch Account / Sign In">AP</div>
           <div>
             <div class="user-name" id="displayUsername">AMULPAPPU</div>
             <select id="roleSelect" onchange="changeUserRole(this.value)" style="background:transparent; border:none; color:var(--primary); font-size:11px; font-weight:700; cursor:pointer; outline:none;">
@@ -1267,12 +1267,19 @@
     }
 
 
+    function openLoginModal() {
+      const loginOverlay = document.getElementById('loginModalOverlay');
+      if(loginOverlay) {
+        loginOverlay.setAttribute('style', 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at 50% 30%, rgba(108, 77, 255, 0.25), rgba(8, 11, 17, 0.98) 70%), linear-gradient(135deg, #0A0E1A 0%, #030509 100%); z-index:99999; display:flex !important; justify-content:center; align-items:center;');
+      }
+    }
+
     function performLogout() {
-      if(!confirm("Are you sure you want to log out?")) return;
+      if(!confirm("Are you sure you want to log out or switch account?")) return;
       localStorage.removeItem('auth_user');
       localStorage.removeItem('user_role');
       localStorage.removeItem('auth_expiry');
-      checkAuthSession();
+      openLoginModal();
     }
 
     function changeUserRole(role) {
