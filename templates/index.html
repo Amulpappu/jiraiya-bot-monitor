@@ -1110,12 +1110,14 @@
     }
 
     function dismissLoginModal() {
+      const authUser = localStorage.getItem('auth_user');
+      if(!authUser) {
+        alert('🔒 Sign in required to access workspace.');
+        openLoginModal();
+        return;
+      }
       const loginOverlay = document.getElementById('loginModalOverlay');
       if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
-      if(!localStorage.getItem('auth_user')) {
-        localStorage.setItem('auth_user', 'AMULPAPPU');
-        localStorage.setItem('user_role', 'Admin');
-      }
       applyRolePermissions(localStorage.getItem('user_role') || 'Admin');
       fetchLiveData();
     }
