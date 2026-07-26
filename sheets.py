@@ -213,39 +213,38 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
 
             return cached_data
 
-    # Cold startup or explicit force_refresh (when no cache exists yet)
-    try:
-        ss = get_spreadsheet()
-        if not ss:
-            with _CACHE_LOCK:
-                return _LAST_KNOWN_ROWS.get(ws_name, [])
-        try:
-            ws = ss.worksheet(ws_name)
-        except Exception:
-            ws = None
-            if ws_name in ("VIP Claim", "VIP Claims", "VIP Log"):
-                for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
-                    try:
-                        ws = ss.worksheet(alt)
-                        if ws: break
-                    except Exception: pass
-            if not ws:
-                with _CACHE_LOCK:
-                    return _LAST_KNOWN_ROWS.get(ws_name, [])
+    # If no cache exists yet, trigger background fetch so request doesn't hang!
+    with _CACHE_LOCK:
+        if ws_name not in _REFRESHING_SHEETS:
+            _REFRESHING_SHEETS.add(ws_name)
+            def _async_initial_fetch(w_name):
+                try:
+                    ss = get_spreadsheet()
+                    if ss:
+                        ws = None
+                        try:
+                            ws = ss.worksheet(w_name)
+                        except Exception:
+                            if w_name in ("VIP Claim", "VIP Claims", "VIP Log"):
+                                for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
+                                    try:
+                                        ws = ss.worksheet(alt)
+                                        if ws: break
+                                    except Exception: pass
+                        if ws:
+                            data = _with_retry(lambda: ws.get_all_values())[1:]
+                            with _CACHE_LOCK:
+                                _ROWS_CACHE[w_name] = (time.time(), data)
+                                _LAST_KNOWN_ROWS[w_name] = data
+                except Exception as ex:
+                    print(f"[Initial Fetch Warning] {w_name}: {ex}")
+                finally:
+                    with _CACHE_LOCK:
+                        _REFRESHING_SHEETS.discard(w_name)
 
-        data = _with_retry(lambda: ws.get_all_values())[1:]
-        with _CACHE_LOCK:
-            _ROWS_CACHE[ws_name] = (now, data)
-            _LAST_KNOWN_ROWS[ws_name] = data
-        return data
-    except Exception as e:
-        print(f"[Sheets _all_rows Error] {ws_name}: {e}")
-        with _CACHE_LOCK:
-            if ws_name in _LAST_KNOWN_ROWS:
-                return _LAST_KNOWN_ROWS[ws_name]
-            if ws_name in _ROWS_CACHE:
-                return _ROWS_CACHE[ws_name][1]
-            return []
+            threading.Thread(target=_async_initial_fetch, args=(ws_name,), daemon=True).start()
+
+        return _LAST_KNOWN_ROWS.get(ws_name, _ROWS_CACHE.get(ws_name, (0, []))[1] if ws_name in _ROWS_CACHE else [])
 
 
 def _with_retry(fn, attempts=6, base_delay=3):

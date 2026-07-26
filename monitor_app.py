@@ -895,8 +895,18 @@ def auto_start_bot_on_launch():
     except Exception as e:
         print(f"[Server Warning]: {e}")
 
+def prewarm_cache():
+    try:
+        print("[Server] Pre-warming Google Sheets cache in background...")
+        for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim"):
+            sheets._all_rows(sname)
+        print("[Server] Google Sheets cache pre-warmed successfully!")
+    except Exception as e:
+        print(f"[Pre-warm Warning]: {e}")
+
 try:
     threading.Thread(target=auto_start_bot_on_launch, daemon=True).start()
+    threading.Thread(target=prewarm_cache, daemon=True).start()
 except Exception as e:
     print(f"[WSGI Init Warning]: {e}")
 
