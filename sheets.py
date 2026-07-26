@@ -1063,27 +1063,44 @@ def get_dynamic_revenue_trend(rows_by_sheet, period="all"):
 
 
 def get_top_services_breakdown(rows_by_sheet):
-    """Calculates live category counts and revenue share from Google Sheets data matching Transactions by Type."""
-    svc_count = len(rows_by_sheet.get("Service", []))
+    """Calculates live category counts and revenue share from Google Sheets data separating Civilian vs Government services."""
+    civ_count = 0
+    govt_count = 0
+    civ_amt = 0.0
+    govt_amt = 0.0
+
+    col_svc_amt = _AMOUNT_COL.get("Service", 4)
+    for r in rows_by_sheet.get("Service", []):
+        amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else 3000.0
+        row_str = " ".join([str(cell).lower() for cell in r[:4]])
+        is_govt = any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic"))
+        if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
+            cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
+            govt_count += cnt
+            govt_amt += amt
+        else:
+            cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
+            civ_count += cnt
+            civ_amt += amt
+
     upg_count = len(rows_by_sheet.get("Upgrades", []))
     kit_count = len(rows_by_sheet.get("Kits", []))
     vip_count = len(rows_by_sheet.get("VIP Claim", []))
 
-    col_svc = _AMOUNT_COL.get("Service", 4)
     col_upg = _AMOUNT_COL.get("Upgrades", 2)
     col_kit = _AMOUNT_COL.get("Kits", 5)
     col_vip = _AMOUNT_COL.get("VIP Claim", 4)
 
-    svc_amt = _sum_numeric([r[col_svc] for r in rows_by_sheet.get("Service", []) if len(r) > col_svc])
     upg_amt = _sum_numeric([r[col_upg] for r in rows_by_sheet.get("Upgrades", []) if len(r) > col_upg])
     kit_amt = _sum_numeric([r[col_kit] for r in rows_by_sheet.get("Kits", []) if len(r) > col_kit])
     vip_amt = _sum_numeric([r[col_vip] for r in rows_by_sheet.get("VIP Claim", []) if len(r) > col_vip])
 
     raw_items = [
-        {"name": "Services Logged", "count": svc_count, "amount": svc_amt, "color": "#6C4DFF"},
+        {"name": "Civilian Service (₹3k)", "count": civ_count, "amount": civ_amt, "color": "#6C4DFF"},
+        {"name": "Govt Service (PD/EMS/₹5k)", "count": govt_count, "amount": govt_amt, "color": "#2A8DFF"},
         {"name": "Upgrades Installed", "count": upg_count, "amount": upg_amt, "color": "#19D96B"},
-        {"name": "Kits Issued", "count": kit_count, "amount": kit_amt, "color": "#2A8DFF"},
-        {"name": "VIP Claims", "count": vip_count, "amount": vip_amt, "color": "#F9A826"},
+        {"name": "Kits Issued", "count": kit_count, "amount": kit_amt, "color": "#F9A826"},
+        {"name": "VIP Claims", "count": vip_count, "amount": vip_amt, "color": "#E056FD"},
     ]
 
     raw_items.sort(key=lambda x: x["count"], reverse=True)
@@ -1115,7 +1132,7 @@ def resolve_employee(raw_name: str) -> str:
 
 
 def get_rich_leaderboard(rows_by_sheet):
-    """Generates detailed employee performance metrics per mechanic (Service, Kits, Upgrades, Total Logs, Ranks)."""
+    """Generates detailed employee performance metrics per mechanic (Civilian Services, Govt Services, Kits, Upgrades, Total Logs, Ranks)."""
     stats = {}
 
     emp_set = set(config.EMPLOYEE_MAPPING.values())
@@ -1127,6 +1144,8 @@ def get_rich_leaderboard(rows_by_sheet):
         stats[emp_name] = {
             "name": emp_name,
             "tag": tag,
+            "civilian_service": 0,
+            "govt_service": 0,
             "service": 0,
             "kits": 0,
             "upgrades": 0,
@@ -1134,20 +1153,54 @@ def get_rich_leaderboard(rows_by_sheet):
             "points": 0
         }
 
-    col_svc = _EMPLOYEE_COL.get("Service", 3)
+    col_svc = _EMPLOYEE_COL.get("Service", 5)
+    col_amt = _AMOUNT_COL.get("Service", 4)
+
     for r in rows_by_sheet.get("Service", []):
         if len(r) > col_svc and r[col_svc]:
             emp = resolve_employee(r[col_svc])
             if emp not in stats:
-                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
-            stats[emp]["service"] += 1
+                stats[emp] = {
+                    "name": emp,
+                    "tag": f"@{emp.lower().replace(' ', '')}",
+                    "civilian_service": 0,
+                    "govt_service": 0,
+                    "service": 0,
+                    "kits": 0,
+                    "upgrades": 0,
+                    "total_logs": 0,
+                    "points": 0
+                }
 
-    col_kit = _EMPLOYEE_COL.get("Kits", 3)
+            amt = _sum_numeric([r[col_amt]]) if len(r) > col_amt else 3000.0
+            row_str = " ".join([str(cell).lower() for cell in r[:4]])
+
+            is_govt = any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic"))
+            if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
+                cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
+                stats[emp]["govt_service"] += cnt
+                stats[emp]["service"] += cnt
+            else:
+                cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
+                stats[emp]["civilian_service"] += cnt
+                stats[emp]["service"] += cnt
+
+    col_kit = _EMPLOYEE_COL.get("Kits", 6)
     for r in rows_by_sheet.get("Kits", []):
         if len(r) > col_kit and r[col_kit]:
             emp = resolve_employee(r[col_kit])
             if emp not in stats:
-                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
+                stats[emp] = {
+                    "name": emp,
+                    "tag": f"@{emp.lower().replace(' ', '')}",
+                    "civilian_service": 0,
+                    "govt_service": 0,
+                    "service": 0,
+                    "kits": 0,
+                    "upgrades": 0,
+                    "total_logs": 0,
+                    "points": 0
+                }
             stats[emp]["kits"] += 1
 
     col_upg = _EMPLOYEE_COL.get("Upgrades", 3)
@@ -1155,11 +1208,21 @@ def get_rich_leaderboard(rows_by_sheet):
         if len(r) > col_upg and r[col_upg]:
             emp = resolve_employee(r[col_upg])
             if emp not in stats:
-                stats[emp] = {"name": emp, "tag": f"@{emp.lower().replace(' ', '')}", "service": 0, "kits": 0, "upgrades": 0, "total_logs": 0, "points": 0}
+                stats[emp] = {
+                    "name": emp,
+                    "tag": f"@{emp.lower().replace(' ', '')}",
+                    "civilian_service": 0,
+                    "govt_service": 0,
+                    "service": 0,
+                    "kits": 0,
+                    "upgrades": 0,
+                    "total_logs": 0,
+                    "points": 0
+                }
             stats[emp]["upgrades"] += 1
 
     for emp_info in stats.values():
-        tot = emp_info["service"] + emp_info["kits"] + emp_info["upgrades"]
+        tot = emp_info["civilian_service"] + emp_info["govt_service"] + emp_info["kits"] + emp_info["upgrades"]
         emp_info["total_logs"] = tot
         emp_info["points"] = tot
 

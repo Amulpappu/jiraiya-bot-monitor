@@ -485,7 +485,7 @@
             </div>
             <table class="custom-table" style="font-size:12px;">
               <thead>
-                <tr><th>Employee</th><th>Services</th><th>Kits</th><th>Upgrades</th><th>Points</th><th>Rank</th></tr>
+                <tr><th>Employee</th><th>Civilian (₹3k)</th><th>Govt (₹5k)</th><th>Kits</th><th>Upgrades</th><th>Points</th><th>Rank</th></tr>
               </thead>
               <tbody id="dashRosterBody">
                 <tr><td><strong>Eli</strong></td><td>154</td><td>34</td><td>62</td><td>255.5</td><td><span class="badge badge-primary">🥇 #1</span></td></tr>
@@ -687,7 +687,7 @@
         <div class="chart-card">
           <table class="custom-table">
             <thead>
-              <tr><th>Rank</th><th>Employee Name</th><th>Discord Tag</th><th>Services</th><th>Kits</th><th>Upgrades</th><th>Total Logs</th><th>Status</th></tr>
+              <tr><th>Rank</th><th>Employee Name</th><th>Discord Tag</th><th>Civilian Service (₹3k)</th><th>Govt Service (₹5k)</th><th>Kits</th><th>Upgrades</th><th>Total Logs</th><th>Status</th></tr>
             </thead>
             <tbody id="employeesTableBody">
               <tr><td colspan="8" style="text-align:center;">Loading employee roster from Google Sheets...</td></tr>
@@ -1500,6 +1500,21 @@
           }
 
           if(data.leaderboard) {
+            const dashRoster = document.getElementById('dashRosterBody');
+            if(dashRoster) {
+              dashRoster.innerHTML = data.leaderboard.slice(0, 8).map(e => `
+                <tr>
+                  <td><strong>${e.name}</strong></td>
+                  <td><span class="badge badge-primary" style="background:#6C4DFF; color:#FFF;">${e.civilian_service||0}</span></td>
+                  <td><span class="badge badge-secondary" style="background:#2A8DFF; color:#FFF;">${e.govt_service||0}</span></td>
+                  <td>${e.kits||0}</td>
+                  <td>${e.upgrades||0}</td>
+                  <td><strong>${e.points||0}</strong></td>
+                  <td><span class="badge badge-warning">${e.rank <= 3 ? ['🥇 #1', '🥈 #2', '🥉 #3'][e.rank-1] : '#'+e.rank}</span></td>
+                </tr>
+              `).join('');
+            }
+
             const empBody = document.getElementById('employeesTableBody');
             if(empBody) {
               empBody.innerHTML = data.leaderboard.map(e => `
@@ -1507,10 +1522,11 @@
                   <td><span class="badge badge-primary">${e.rank}</span></td>
                   <td><strong>${e.name}</strong></td>
                   <td>@${e.name.toLowerCase()}</td>
-                  <td>${e.service||0}</td>
+                  <td style="color:#6C4DFF; font-weight:700;">${e.civilian_service||0}</td>
+                  <td style="color:#2A8DFF; font-weight:700;">${e.govt_service||0}</td>
                   <td>${e.kits||0}</td>
                   <td>${e.upgrades||0}</td>
-                  <td><strong>${e.points||0}</strong></td>
+                  <td><strong style="color:var(--success);">${e.points||0} logs</strong></td>
                   <td><span class="badge badge-success">Active</span></td>
                 </tr>
               `).join('');
