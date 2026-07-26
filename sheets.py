@@ -69,7 +69,7 @@ VIP_CLAIM_HEADERS = ["Person Name", "Category", "Vehicle", "Staff", "Amount", "T
 TRANSACTIONS_HEADERS = ["Date", "Transaction Amount", "Description", "Transaction Type", "Employee Name"]
 EMPLOYEE_TRACKER_HEADERS = [
     "Employee Name",
-    "Kit Qty Sold",
+    "Kit Logs",
     "Civilian Service",
     "Govt Service",
     "Service Logs",
@@ -1235,10 +1235,7 @@ def get_rich_leaderboard(rows_by_sheet):
                     "total_logs": 0,
                     "points": 0
                 }
-            # Add actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3) instead of 1 per log
-            repair_qty = int(_sum_numeric([r[2]])) if len(r) > 2 else 0
-            cleaning_qty = int(_sum_numeric([r[3]])) if len(r) > 3 else 0
-            stats[emp]["kits"] += repair_qty + cleaning_qty
+            stats[emp]["kits"] += 1  # count kit log entries (not quantity)
 
     for r in rows_by_sheet.get("Upgrades", []):
         if not r or len(r) < 2:
@@ -1467,10 +1464,7 @@ def update_employee_tracker():
         if len(row) > 6 and row[6].strip():
             emp = resolve_name(row[6])
             if emp in valid_employees:
-                # Sum actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3)
-                repair_qty = int(_sum_numeric([row[2]])) if len(row) > 2 else 0
-                cleaning_qty = int(_sum_numeric([row[3]])) if len(row) > 3 else 0
-                tracker_data[emp]["kit"] += repair_qty + cleaning_qty
+                tracker_data[emp]["kit"] += 1  # count kit log entries (not quantity)
                 if row[0]:
                     tracker_data[emp]["last_date"] = row[0].split()[0]
 
