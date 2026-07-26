@@ -552,22 +552,36 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
         # ── Validate parsed fields ──
         customer = parsed.get("customer")
-        missing = [k for k, v in parsed.items() if v is None]
 
-        if missing:
-            ocr.logger.warning(
-                f"Missing fields {missing} for message {message.id} in #{channel_name}. "
-                f"Raw OCR text: {raw_text!r}"
-            )
-
-        # If quantity couldn't be read, fall back to amount; if amount also missing, use 0
         if "quantity" in cfg["fields"]:
             value = parsed.get("quantity")
             if value is None:
                 value = parsed.get("amount")
         else:
             value = parsed.get("amount")
-        value = value if value is not None else 0
+
+        # Fallback 1: Parse amount from message text content (e.g. caption in Discord)
+        if (value is None or value <= 0) and message.content:
+            value = parse_text_amount(message.content)
+
+        # Fallback 2: Parse amount from raw OCR text
+        if (value is None or value <= 0) and raw_text:
+            value = parse_text_amount(raw_text)
+
+        # Fallback 3: Parse customer name from message text content if missing
+        if not customer or customer == "Unknown":
+            if message.content:
+                m_cust = re.search(r"(?:customer|client|name|buyer|for)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})", message.content, re.IGNORECASE)
+                if m_cust and _is_valid_name(m_cust.group(1)):
+                    customer = m_cust.group(1).strip()
+
+        # REJECT ZERO AMOUNT: If amount is 0 or missing, DO NOT LOG A ZERO ROW TO GOOGLE SHEETS!
+        if value is None or value <= 0:
+            ocr.logger.warning(f"Amount missing or zero for message {message.id} in #{channel_name}. Skipping sheet log.")
+            await add_reaction_if_enabled(message, "❓")
+            continue
+
+        customer = customer or "Unknown / VIP"
 
         # ── Save to Google Sheets ──
         try:

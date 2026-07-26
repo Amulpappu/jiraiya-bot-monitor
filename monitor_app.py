@@ -362,15 +362,17 @@ def get_stats():
         for sname, srows in rows_by_sheet.items():
             col_amt = sheets._AMOUNT_COL.get(sname, 4)
             col_emp = sheets._EMPLOYEE_COL.get(sname, 3)
-            for r in reversed(srows[-20:]):
+            for r in reversed(srows[-30:]):
                 if len(r) > max(col_amt, col_emp):
-                    recent.append({
-                        "sheet": sname,
-                        "time": r[0] if len(r) > 0 else "",
-                        "customer": r[1] if len(r) > 1 else "Civilian / VIP",
-                        "amount": r[col_amt] if len(r) > col_amt else "0",
-                        "employee": r[col_emp] if len(r) > col_emp else "System",
-                    })
+                    amt_num = sheets._sum_numeric([r[col_amt]])
+                    if amt_num > 0:
+                        recent.append({
+                            "sheet": sname,
+                            "time": r[0] if len(r) > 0 else "",
+                            "customer": r[1] if len(r) > 1 else "Civilian / VIP",
+                            "amount": amt_num,
+                            "employee": r[col_emp] if len(r) > col_emp else "System",
+                        })
 
         recent.sort(key=lambda x: str(x["time"]), reverse=True)
 

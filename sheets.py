@@ -807,14 +807,55 @@ def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: floa
     add_logged_message_id(str(message_id))
 
 
+def clean_invalid_zero_rows():
+    """Purges zero-amount / invalid entries from all worksheets to maintain accurate financial ledgers."""
+    try:
+        for sname in ("Upgrades", "Service", "Kits", "Expenses", "VIP Claim"):
+            ws = _ensure_sheet(sname, REVENUE_HEADERS if sname == "Upgrades" else None)
+            if not ws:
+                continue
+            rows = _all_rows(sname, fast_cached_only=True)
+            if not rows:
+                continue
+            col_amt = _AMOUNT_COL.get(sname, 2 if sname == "Upgrades" else 4)
+
+            cleaned = []
+            removed_count = 0
+            for r in rows:
+                if not r or len(r) <= col_amt:
+                    continue
+                amt_val = _sum_numeric([r[col_amt]])
+                if amt_val <= 0:
+                    removed_count += 1
+                else:
+                    cleaned.append(r)
+
+            if removed_count > 0:
+                header = REVENUE_HEADERS if sname == "Upgrades" else (SERVICE_HEADERS if sname == "Service" else (KIT_HEADERS if sname == "Kits" else (EXPENSE_HEADERS if sname == "Expenses" else VIP_CLAIM_HEADERS)))
+                full_sheet_rows = [header] + cleaned
+                _with_retry(lambda: ws.clear())
+                _with_retry(lambda: ws.update("A1", full_sheet_rows))
+                clear_rows_cache(sname)
+                print(f"[Cleanup] Cleaned {removed_count} zero-amount row(s) from '{sname}' sheet.")
+    except Exception as e:
+        print(f"[Cleanup Warning]: {e}")
+
+
 def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str, created_at: datetime.datetime = None):
+    try:
+        val_float = float(value)
+        if val_float <= 0:
+            print(f"[Sheets Warning] Skipped logging zero/invalid entry ({value}) for {sheet_name}")
+            return
+    except (ValueError, TypeError):
+        print(f"[Sheets Warning] Skipped logging invalid entry ({value}) for {sheet_name}")
+        return
+
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    row = [timestamp, customer or "Unknown", value, employee, message_id]
+    row = [timestamp, customer or "Unknown", val_float, employee, message_id]
 
-    # The invoice row itself is the important part — save it first, and let
-    # any failure here surface to the caller (bot.py) as a real save failure.
     _with_retry(lambda: ws.append_row(row))
     clear_rows_cache(sheet_name)
     add_logged_message_id(str(message_id))
