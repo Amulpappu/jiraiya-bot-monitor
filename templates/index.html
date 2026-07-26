@@ -1695,17 +1695,18 @@
       const tbody = document.getElementById('employeesTableBody');
       if(!tbody) return;
       try {
-        const res = await fetch('/api/stats');
+        const res = await fetch('/api/stats?period=' + (currentSelectedPeriod || 'all'));
         const data = await res.json();
         if(data.success && data.leaderboard && data.leaderboard.length > 0) {
           tbody.innerHTML = data.leaderboard.map(e => {
-            const totLogs = e.total_logs !== undefined ? e.total_logs : (Number(e.service||0) + Number(e.kits||0) + Number(e.upgrades||0));
+            const totLogs = e.total_logs !== undefined ? e.total_logs : (e.points !== undefined ? e.points : (Number(e.civilian_service||0) + Number(e.govt_service||0) + Number(e.kits||0) + Number(e.upgrades||0)));
             return `
               <tr>
                 <td><span class="badge badge-primary">#${e.rank || 1}</span></td>
                 <td><strong>${e.name || 'Staff Member'}</strong></td>
                 <td><small style="color:var(--text-muted);">${e.tag || '@' + (e.name||'').toLowerCase()}</small></td>
-                <td>${Number(e.service || 0).toLocaleString()}</td>
+                <td style="color:#6C4DFF; font-weight:700;">${Number(e.civilian_service || 0).toLocaleString()}</td>
+                <td style="color:#2A8DFF; font-weight:700;">${Number(e.govt_service || 0).toLocaleString()}</td>
                 <td>${Number(e.kits || 0).toLocaleString()}</td>
                 <td>${Number(e.upgrades || 0).toLocaleString()}</td>
                 <td><strong style="color:var(--success);">${Number(totLogs).toLocaleString()} logs</strong></td>
@@ -1724,23 +1725,9 @@
           <td><span class="badge badge-primary">#1</span></td>
           <td><strong>AMULPAPPU</strong></td>
           <td><small style="color:var(--text-muted);">@amulpappu</small></td>
-          <td>0</td><td>0</td><td>0</td>
-          <td><strong style="color:var(--success);">0 logs</strong></td>
-          <td><span class="badge badge-success">Active</span></td>
-        </tr>
-        <tr>
-          <td><span class="badge badge-primary">#2</span></td>
-          <td><strong>Eli</strong></td>
-          <td><small style="color:var(--text-muted);">@eli</small></td>
-          <td>0</td><td>0</td><td>0</td>
-          <td><strong style="color:var(--success);">0 logs</strong></td>
-          <td><span class="badge badge-success">Active</span></td>
-        </tr>
-        <tr>
-          <td><span class="badge badge-primary">#3</span></td>
-          <td><strong>Meenu</strong></td>
-          <td><small style="color:var(--text-muted);">@meenu</small></td>
-          <td>0</td><td>0</td><td>0</td>
+          <td style="color:#6C4DFF; font-weight:700;">0</td>
+          <td style="color:#2A8DFF; font-weight:700;">0</td>
+          <td>0</td><td>0</td>
           <td><strong style="color:var(--success);">0 logs</strong></td>
           <td><span class="badge badge-success">Active</span></td>
         </tr>
