@@ -1678,10 +1678,57 @@ def get_security_audit_logs():
         return []
 
 
+OFFICIAL_TAG_MAP = {
+    "sandy": "@candy__07",
+    "sylas": "@jackzmf",
+    "benny": "@niveein_bex",
+    "lara": "@saron_jenish1923",
+    "maria": "@jarad007",
+    "abrar": "@demonwnl_1024",
+    "arivu": "@tamilazhagan",
+    "mr arivu": "@tamilazhagan",
+    "mrarivu": "@tamilazhagan",
+    "eli": "@astroeligaming",
+    "alexia": "@sandy.432",
+    "amul": "@amul_pappu",
+    "amulpappu": "@amul_pappu",
+    "mitchell": "@shuraim_ms",
+    "pete mitchell": "@shuraim_ms",
+    "petemitchell": "@shuraim_ms",
+    "shuraim": "@shuraim_ms",
+    "lissa": "@jeeva_rj_",
+    "nesuko": "@suriya2810",
+    "mikasa": "@evoff9595",
+    "tomcat": "@.tomcatgaming",
+    "mathew": "@balajisubramanian",
+    "jiyana shree": "@jiyana_shree",
+    "eve": "@tbkevil_44",
+    "meenu kutty": "@blari",
+    "robb": "@mohammedfarhaan",
+    "mohammed": "@mohammedfarhaan",
+}
+
+def resolve_official_discord_tag(username: str, fallback_tag: str = "") -> str:
+    """Resolves exact official Discord Tag for any in-game name or web login alias (e.g. Mr Arivu -> @tamilazhagan, Pete Mitchell -> @shuraim_ms)."""
+    if not username:
+        return fallback_tag or ""
+    u_clean = username.strip().lower()
+    if u_clean in OFFICIAL_TAG_MAP:
+        return OFFICIAL_TAG_MAP[u_clean]
+    for key, tag in OFFICIAL_TAG_MAP.items():
+        if key in u_clean or u_clean in key:
+            return tag
+    if fallback_tag and fallback_tag.startswith("@"):
+        return fallback_tag
+    rev_map = getattr(config, "REVERSE_MAPPING", {})
+    if username in rev_map:
+        return rev_map[username]
+    return f"@{username.lower().replace(' ', '')}"
+
+
 def get_user_roles():
     """Fetches system roles ONLY for active users (from User_Roles tab and web logins), respecting revoked/deleted users."""
     user_map = {}
-    rev_map = getattr(config, "REVERSE_MAPPING", {})
     revoked_users = set()
 
     # 1. Fetch revoked/deleted users from audit logs
@@ -1711,7 +1758,8 @@ def get_user_roles():
                             if u_name.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
                                 u_name = "Amul"
                             u_role = r[1].strip()
-                            u_tag = "@amul_pappu" if u_name == "Amul" else (r[2].strip() if len(r) > 2 else rev_map.get(u_name, f"@{u_name.lower().replace(' ', '')}"))
+                            given_tag = r[2].strip() if len(r) > 2 else ""
+                            u_tag = resolve_official_discord_tag(u_name, given_tag)
                             u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
                             key = u_name.lower()
                             user_map[key] = {
@@ -1742,7 +1790,7 @@ def get_user_roles():
                         user_map[key] = {
                             "username": u_clean,
                             "role": log.get("role") or "Employee",
-                            "tag": "@amul_pappu" if u_clean == "Amul" else rev_map.get(u_clean, f"@{u_clean.lower().replace(' ', '')}"),
+                            "tag": resolve_official_discord_tag(u_clean),
                             "updated": log.get("timestamp") or "Logged In"
                         }
     except Exception: pass
