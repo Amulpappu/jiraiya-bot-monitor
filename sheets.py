@@ -1625,7 +1625,7 @@ def get_inventory_items():
 
 
 def save_inventory_item(item_name: str, qty: int, bought: float, restock_date: str, unit_price: float):
-    """Saves or updates an inventory item in Google Sheets tab 'Inventory'."""
+    """Saves or updates an inventory item in Google Sheets tab 'Inventory' using single batch update."""
     try:
         sh = get_spreadsheet()
         if not sh:
@@ -1636,28 +1636,32 @@ def save_inventory_item(item_name: str, qty: int, bought: float, restock_date: s
             ws = sh.add_worksheet(title="Inventory", rows=100, cols=8)
             ws.append_row(["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Cost (₹)", "Total Value (₹)", "Last Updated"])
 
-        rows = ws.get_all_values()
+        rows = _with_retry(lambda: ws.get_all_values())
         now_str = now_ist().strftime(TIMESTAMP_FORMAT)
         total_val = qty * unit_price
-        u_lower = item_name.lower()
+        u_lower = item_name.strip().lower()
         updated = False
+
+        new_row = [item_name, qty, bought, restock_date, unit_price, total_val, now_str]
 
         for idx, r in enumerate(rows[1:], start=2):
             if len(r) > 0 and r[0].strip().lower() == u_lower:
-                ws.update_cell(idx, 2, qty)
-                ws.update_cell(idx, 3, bought)
-                ws.update_cell(idx, 4, restock_date)
-                ws.update_cell(idx, 5, unit_price)
-                ws.update_cell(idx, 6, total_val)
-                ws.update_cell(idx, 7, now_str)
+                try:
+                    _with_retry(lambda: ws.update(f"A{idx}:G{idx}", [new_row]))
+                except Exception:
+                    _with_retry(lambda: ws.update_cell(idx, 2, qty))
+                    _with_retry(lambda: ws.update_cell(idx, 5, unit_price))
+                    _with_retry(lambda: ws.update_cell(idx, 6, total_val))
                 updated = True
                 break
 
         if not updated:
-            ws.append_row([item_name, qty, bought, restock_date, unit_price, total_val, now_str])
+            _with_retry(lambda: ws.append_row(new_row))
 
         clear_rows_cache("Inventory")
-        log_security_audit("System", "Inventory", "INVENTORY_UPDATED", f"Item: {item_name}, Qty: {qty}, Value: ₹{total_val}")
+        try:
+            log_security_audit("System", "Inventory", "INVENTORY_UPDATED", f"Item: {item_name}, Qty: {qty}, Value: ₹{total_val}")
+        except Exception: pass
         return True
     except Exception as e:
         print(f"[Save Inventory Item Error]: {e}")
