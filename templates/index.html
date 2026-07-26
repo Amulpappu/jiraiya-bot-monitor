@@ -1068,10 +1068,26 @@
     }
 
     let revenueChart, distributionChart;
+    let isPollingActive = false;
+    function startLivePolling() {
+      if (isPollingActive) return;
+      isPollingActive = true;
+      async function poll() {
+        try {
+          await fetchLiveData();
+        } catch(e) {
+          console.warn("Polling error:", e);
+        } finally {
+          setTimeout(poll, 4000);
+        }
+      }
+      poll();
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       try { initCharts(); } catch(e) { console.error('initCharts error:', e); }
       try { checkAuthSession(); } catch(e) { console.error('checkAuthSession error:', e); }
-      setInterval(() => { try { fetchLiveData(); } catch(e){} }, 4000);
+      startLivePolling();
     });
 
     function applyRolePermissions(role) {
@@ -1583,16 +1599,25 @@
             }
           }
           if(data.charts) {
-            if(revenueChart && data.charts.revenue_trend && data.charts.revenue_trend.length > 0) {
-              revenueChart.data.labels = data.charts.revenue_trend.map(c => c.label);
-              revenueChart.data.datasets[0].data = data.charts.revenue_trend.map(c => c.revenue);
-              revenueChart.update('none');
-            }
-            if(distributionChart && data.charts.distribution && data.charts.distribution.length > 0) {
-              distributionChart.data.labels = data.charts.distribution.map(d => `${d.name} (${d.value||0})`);
-              distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
-              distributionChart.update('none');
-            }
+            try {
+              if(revenueChart && data.charts.revenue_trend && data.charts.revenue_trend.length > 0) {
+                revenueChart.data.labels = data.charts.revenue_trend.map(c => c.label);
+                if(revenueChart.data.datasets && revenueChart.data.datasets[0]) {
+                  revenueChart.data.datasets[0].data = data.charts.revenue_trend.map(c => c.revenue);
+                }
+                revenueChart.update('none');
+              }
+            } catch(e) { console.warn("revenueChart update warning:", e); }
+
+            try {
+              if(distributionChart && data.charts.distribution && data.charts.distribution.length > 0) {
+                distributionChart.data.labels = data.charts.distribution.map(d => `${d.name} (${d.value||0})`);
+                if(distributionChart.data.datasets && distributionChart.data.datasets[0]) {
+                  distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
+                }
+                distributionChart.update('none');
+              }
+            } catch(e) { console.warn("distributionChart update warning:", e); }
           }
 
           if(data.system_resources) {
@@ -1614,19 +1639,21 @@
           }
         }
 
-        const resLogs = await fetch('/api/logs');
-        const logsData = await resLogs.json();
-        const term = document.getElementById('terminalLogBox');
-        if(term) {
-          const logs = (logsData.console_logs && logsData.console_logs.length > 0) 
-            ? logsData.console_logs 
-            : ['[System Log] 🟢 Live server monitoring active on Render 24/7.', '[OCR Engine] Active and awaiting Discord mechanic invoices.'];
-          term.innerHTML = logs.map(l => {
-            const formatted = l.replace(/(https:\/\/discord\.com\/channels\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#2A8DFF; font-weight:700; text-decoration:underline;">🔗 Open Invoice in Discord</a>');
-            return `<div style="font-family:monospace; line-height:1.6; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03); padding:4px 0;">${formatted}</div>`;
-          }).join('');
-          term.scrollTop = term.scrollHeight;
-        }
+        try {
+          const resLogs = await fetch('/api/logs');
+          const logsData = await resLogs.json();
+          const term = document.getElementById('terminalLogBox');
+          if(term) {
+            const logs = (logsData.console_logs && logsData.console_logs.length > 0) 
+              ? logsData.console_logs 
+              : ['[System Log] 🟢 Live server monitoring active on Render 24/7.', '[OCR Engine] Active and awaiting Discord mechanic invoices.'];
+            term.innerHTML = logs.map(l => {
+              const formatted = l.replace(/(https:\/\/discord\.com\/channels\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#2A8DFF; font-weight:700; text-decoration:underline;">🔗 Open Invoice in Discord</a>');
+              return `<div style="font-family:monospace; line-height:1.6; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03); padding:4px 0;">${formatted}</div>`;
+            }).join('');
+            term.scrollTop = term.scrollHeight;
+          }
+        } catch(e) {}
 
     async function fetchAuditLogs() {
       const tbody = document.getElementById('auditLogsTableBody');
