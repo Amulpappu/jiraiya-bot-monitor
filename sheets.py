@@ -1132,7 +1132,7 @@ def resolve_employee(raw_name: str) -> str:
 
 
 def get_rich_leaderboard(rows_by_sheet):
-    """Generates detailed employee performance metrics per mechanic (Civilian Services, Govt Services, Kits, Upgrades, Total Logs, Ranks)."""
+    """Generates detailed employee performance metrics per mechanic with stable deterministic sorting."""
     stats = {}
 
     emp_set = set(config.EMPLOYEE_MAPPING.values())
@@ -1153,42 +1153,70 @@ def get_rich_leaderboard(rows_by_sheet):
             "points": 0
         }
 
-    col_svc = _EMPLOYEE_COL.get("Service", 5)
-    col_amt = _AMOUNT_COL.get("Service", 4)
-
     for r in rows_by_sheet.get("Service", []):
-        if len(r) > col_svc and r[col_svc]:
-            emp = resolve_employee(r[col_svc])
-            if emp not in stats:
-                stats[emp] = {
-                    "name": emp,
-                    "tag": f"@{emp.lower().replace(' ', '')}",
-                    "civilian_service": 0,
-                    "govt_service": 0,
-                    "service": 0,
-                    "kits": 0,
-                    "upgrades": 0,
-                    "total_logs": 0,
-                    "points": 0
-                }
+        if not r or len(r) < 2:
+            continue
 
-            amt = _sum_numeric([r[col_amt]]) if len(r) > col_amt else 3000.0
-            row_str = " ".join([str(cell).lower() for cell in r[:4]])
+        # Detect employee column index dynamically
+        emp_raw = ""
+        if len(r) > 5 and r[5].strip():
+            emp_raw = r[5]
+        elif len(r) > 3 and r[3].strip() and not r[3].strip().isdigit():
+            emp_raw = r[3]
+        elif len(r) > 1 and r[1].strip():
+            emp_raw = r[1]
 
-            is_govt = any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic"))
-            if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
-                cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
-                stats[emp]["govt_service"] += cnt
-                stats[emp]["service"] += cnt
-            else:
-                cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
-                stats[emp]["civilian_service"] += cnt
-                stats[emp]["service"] += cnt
+        if not emp_raw:
+            continue
 
-    col_kit = _EMPLOYEE_COL.get("Kits", 6)
+        emp = resolve_employee(emp_raw)
+        if emp not in stats:
+            stats[emp] = {
+                "name": emp,
+                "tag": f"@{emp.lower().replace(' ', '')}",
+                "civilian_service": 0,
+                "govt_service": 0,
+                "service": 0,
+                "kits": 0,
+                "upgrades": 0,
+                "total_logs": 0,
+                "points": 0
+            }
+
+        # Detect total amount
+        col_amt = _AMOUNT_COL.get("Service", 4)
+        amt = 3000.0
+        if len(r) > col_amt:
+            amt = _sum_numeric([r[col_amt]])
+        elif len(r) > 2 and _sum_numeric([r[2]]) > 0:
+            amt = _sum_numeric([r[2]])
+
+        if amt <= 0:
+            amt = 3000.0
+
+        # Check Category column (col 2) and row text
+        cat_val = str(r[2]).strip().lower() if len(r) > 2 else ""
+        row_str = " ".join([str(cell).lower() for cell in r[:5]])
+
+        is_govt = ("govt" in cat_val or "government" in cat_val or "pd" in cat_val or "ems" in cat_val or "taxi" in cat_val or
+                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")) or
+                   (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0))
+
+        if is_govt:
+            cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
+            stats[emp]["govt_service"] += cnt
+            stats[emp]["service"] += cnt
+        else:
+            cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
+            stats[emp]["civilian_service"] += cnt
+            stats[emp]["service"] += cnt
+
     for r in rows_by_sheet.get("Kits", []):
-        if len(r) > col_kit and r[col_kit]:
-            emp = resolve_employee(r[col_kit])
+        if not r or len(r) < 2:
+            continue
+        emp_raw = r[6] if len(r) > 6 and r[6].strip() else (r[3] if len(r) > 3 and r[3].strip() else "")
+        if emp_raw:
+            emp = resolve_employee(emp_raw)
             if emp not in stats:
                 stats[emp] = {
                     "name": emp,
@@ -1203,10 +1231,12 @@ def get_rich_leaderboard(rows_by_sheet):
                 }
             stats[emp]["kits"] += 1
 
-    col_upg = _EMPLOYEE_COL.get("Upgrades", 3)
     for r in rows_by_sheet.get("Upgrades", []):
-        if len(r) > col_upg and r[col_upg]:
-            emp = resolve_employee(r[col_upg])
+        if not r or len(r) < 2:
+            continue
+        emp_raw = r[3] if len(r) > 3 and r[3].strip() else (r[1] if len(r) > 1 and r[1].strip() else "")
+        if emp_raw:
+            emp = resolve_employee(emp_raw)
             if emp not in stats:
                 stats[emp] = {
                     "name": emp,
@@ -1226,7 +1256,8 @@ def get_rich_leaderboard(rows_by_sheet):
         emp_info["total_logs"] = tot
         emp_info["points"] = tot
 
-    sorted_list = sorted(stats.values(), key=lambda x: x["total_logs"], reverse=True)
+    # Stable deterministic sorting by (-total_logs, -service, name)
+    sorted_list = sorted(stats.values(), key=lambda x: (-x["total_logs"], -x["service"], x["name"]))
 
     for rank, item in enumerate(sorted_list, start=1):
         item["rank"] = rank
