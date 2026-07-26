@@ -70,6 +70,8 @@ TRANSACTIONS_HEADERS = ["Date", "Transaction Amount", "Description", "Transactio
 EMPLOYEE_TRACKER_HEADERS = [
     "Employee Name",
     "Kit Logs",
+    "Civilian Service",
+    "Govt Service",
     "Service Logs",
     "Upgrade Logs",
     "Total Transactions",
@@ -1386,7 +1388,7 @@ def resolve_name(raw_name: str) -> str:
 def update_employee_tracker():
     """
     Aggregates invoice counts across Service, Upgrades, and Kits sheets
-    and populates the Employee Tracker sheet with accurate counts and dates per employee.
+    and populates the Employee Tracker sheet with accurate Civilian/Govt service split.
     """
     rows_by_sheet = {
         "Service": _all_rows("Service"),
@@ -1396,26 +1398,57 @@ def update_employee_tracker():
 
     valid_employees = set(config.EMPLOYEE_MAPPING.values())
     tracker_data = {
-        emp: {"kit": 0, "service": 0, "upgrade": 0, "last_date": ""}
+        emp: {"kit": 0, "civilian_service": 0, "govt_service": 0, "upgrade": 0, "last_date": ""}
         for emp in valid_employees
     }
 
-    # Service Sheet: Col 0 = Timestamp, Col 5 = Employee
+    col_amt = _AMOUNT_COL.get("Service", 4)
+
+    # Service Sheet: Col 0 = Timestamp, Col 5 = Employee, Col 4 = Amount, Col 2 = Category
     for row in rows_by_sheet["Service"]:
+        if not row or len(row) < 2:
+            continue
+        # Detect employee column dynamically (priority: col5, col3, col1)
+        emp_raw = ""
         if len(row) > 5 and row[5].strip():
-            if row[0] and not (row[0].startswith("2026-07") or "/07/2026" in row[0] or "-07-2026" in row[0]):
-                continue
-            emp = resolve_name(row[5])
-            if emp in valid_employees:
-                tracker_data[emp]["service"] += 1
-                if row[0]:
-                    tracker_data[emp]["last_date"] = row[0].split()[0]
+            emp_raw = row[5]
+        elif len(row) > 3 and row[3].strip() and not row[3].strip().isdigit():
+            emp_raw = row[3]
+
+        if not emp_raw:
+            continue
+
+        emp = resolve_name(emp_raw)
+        if emp not in valid_employees:
+            continue
+
+        amt = 3000.0
+        if len(row) > col_amt:
+            amt = _sum_numeric([row[col_amt]])
+        if amt <= 0:
+            amt = 3000.0
+
+        cat_val = str(row[2]).strip().lower() if len(row) > 2 else ""
+        row_str = " ".join([str(cell).lower() for cell in row[:5]])
+
+        is_govt = ("govt" in cat_val or "government" in cat_val or "pd" in cat_val or
+                   "ems" in cat_val or "taxi" in cat_val or
+                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")) or
+                   (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0))
+
+        if is_govt:
+            cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
+            tracker_data[emp]["govt_service"] += cnt
+        else:
+            cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
+            tracker_data[emp]["civilian_service"] += cnt
+
+        if row[0]:
+            tracker_data[emp]["last_date"] = row[0].split()[0]
 
     # Upgrades Sheet: Col 0 = Timestamp, Col 3 = Employee
     for row in rows_by_sheet["Upgrades"]:
         if len(row) > 3 and row[3].strip():
-            if row[0] and not (row[0].startswith("2026-07") or "/07/2026" in row[0] or "-07-2026" in row[0]):
-                continue
             emp = resolve_name(row[3])
             if emp in valid_employees:
                 tracker_data[emp]["upgrade"] += 1
@@ -1425,31 +1458,37 @@ def update_employee_tracker():
     # Kits Sheet: Col 0 = Timestamp, Col 6 = Employee
     for row in rows_by_sheet["Kits"]:
         if len(row) > 6 and row[6].strip():
-            if row[0] and not (row[0].startswith("2026-07") or "/07/2026" in row[0] or "-07-2026" in row[0]):
-                continue
             emp = resolve_name(row[6])
             if emp in valid_employees:
                 tracker_data[emp]["kit"] += 1
                 if row[0]:
                     tracker_data[emp]["last_date"] = row[0].split()[0]
 
-    # Sort employees by Total Transactions descending
+    # Stable deterministic sorting: (-total, -civilian, -govt, name)
     sorted_emps = sorted(
         tracker_data.items(),
-        key=lambda item: (item[1]["kit"] + item[1]["service"] + item[1]["upgrade"]),
-        reverse=True,
+        key=lambda item: (
+            -(item[1]["kit"] + item[1]["civilian_service"] + item[1]["govt_service"] + item[1]["upgrade"]),
+            -item[1]["civilian_service"],
+            -item[1]["govt_service"],
+            item[0]
+        ),
     )
 
     tracker_rows = [EMPLOYEE_TRACKER_HEADERS]
     for emp_name, stats in sorted_emps:
         kit_cnt = stats["kit"]
-        svc_cnt = stats["service"]
+        civ_cnt = stats["civilian_service"]
+        govt_cnt = stats["govt_service"]
+        svc_cnt = civ_cnt + govt_cnt
         upg_cnt = stats["upgrade"]
         tot_cnt = kit_cnt + svc_cnt + upg_cnt
         last_date = stats["last_date"]
         tracker_rows.append([
             emp_name,
             kit_cnt,
+            civ_cnt,
+            govt_cnt,
             svc_cnt,
             upg_cnt,
             tot_cnt,
