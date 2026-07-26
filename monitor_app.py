@@ -611,8 +611,20 @@ def send_access_request_email(username: str, ign: str, email: str, role: str):
         admin_email = "lohithgamer12@gmail.com"
         smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        smtp_user = os.getenv("SMTP_USER", "")
+        smtp_user = os.getenv("SMTP_USER", "lohithgamer12@gmail.com")
         smtp_password = os.getenv("SMTP_PASSWORD", "")
+
+        if not smtp_password and os.path.exists(".env"):
+            try:
+                with open(".env", "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("SMTP_PASSWORD="):
+                            smtp_password = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        elif line.startswith("SMTP_USER="):
+                            u = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if u: smtp_user = u
+            except Exception:
+                pass
 
         subject = f"📬 Web Access Request: {ign or username} ({role})"
         body_text = f"""
