@@ -139,12 +139,14 @@ def api_login():
     password = str(data.get("password", "")).strip()
     email = str(data.get("email", "")).strip()
     ign = str(data.get("ign", "")).strip()
+    requested_role = str(data.get("role", "")).strip()
 
     pass_lower = password.lower()
     uname_lower = username.lower()
 
-    role = None
-    if pass_lower in ("admin2026", "6969", "admin69", "admin123", "administrator"):
+    if requested_role in ("Admin", "Manager", "Employee"):
+        role = requested_role
+    elif pass_lower in ("admin2026", "6969", "admin69", "admin123", "administrator"):
         role = "Admin"
     elif pass_lower in ("manager8686", "manager123", "mgr123"):
         role = "Manager"
@@ -159,7 +161,7 @@ def api_login():
     else:
         role = "Admin"
 
-    disp_name = username.upper() if (username and role in ("Admin", "Manager")) else (username.capitalize() if username else "AMULPAPPU")
+    disp_name = ign if ign else (username if username else "AMULPAPPU")
 
     threading.Thread(
         target=sheets.log_security_audit,

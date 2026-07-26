@@ -843,70 +843,49 @@
         <div style="color:#F9A826; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; margin-top:4px;">JIRAIYA CUSTOMS & TUNERZ</div>
       </div>
 
-      <!-- Login Form View -->
+      <!-- Direct Sign-In Form View -->
       <div id="loginFormSection">
         <form onsubmit="handleLoginSubmit(event); return false;">
-          <div class="form-group" style="margin-bottom:14px;">
-            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:6px; display:block;">Username / In-Game Name</label>
-            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU" onkeydown="if(event.key==='Enter') handleLoginSubmit(event)" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:4px; display:block;">Username / Login Name</label>
+            <input type="text" id="loginUsername" placeholder="e.g. AMULPAPPU" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:11px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
-          <div class="form-group" style="margin-bottom:16px;">
-            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:6px; display:block;">Password / Passcode (Optional)</label>
-            <input type="password" id="loginPassword" placeholder="•••••••• (Optional)" onkeydown="if(event.key==='Enter') handleLoginSubmit(event)" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px; color:#FFF; font-size:13px; outline:none;">
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:4px; display:block;">In-Game Name (IGN)</label>
+            <input type="text" id="loginIgn" placeholder="e.g. Brian" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:11px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; font-size:12px;">
-            <label style="color:var(--text-muted); display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="remember1Week" checked style="accent-color:var(--primary);"> Keep logged in for 1 week
-            </label>
-            <a href="javascript:void(0)" onclick="toggleRequestAccessForm(true)" style="color:var(--primary); font-weight:600; text-decoration:none;">Request Access?</a>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:4px; display:block;">Email Address</label>
+            <input type="email" id="loginEmail" placeholder="e.g. lohithpappu1@gmail.com" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:11px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
 
-          <div id="loginErrorMsg" style="color:#FF5C5C; font-size:12px; margin-bottom:16px; display:none; text-align:center;">⚠️ Invalid credentials</div>
-
-          <button type="button" onclick="handleLoginSubmit(event)" class="btn-ctrl btn-start" style="width:100%; padding:14px; border-radius:12px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #6C4DFF, #5031E6); box-shadow:0 6px 20px rgba(108,77,255,0.4); cursor:pointer;">
-            🔐 Sign In to Workspace
-          </button>
-        </form>
-      </div>
-
-      <!-- Request Access Form View -->
-      <div id="requestAccessSection" style="display:none;">
-        <h4 style="color:#FFF; margin-bottom:10px; text-align:center;">📬 Request Workspace Access</h4>
-        <p style="color:var(--text-muted); font-size:11px; text-align:center; margin-bottom:16px;">Request will be sent to Admin (<strong>lohithgamer12@gmail.com</strong>)</p>
-
-        <form onsubmit="handleRequestAccessSubmit(event); return false;">
-          <div class="form-group" style="margin-bottom:10px;">
-            <label style="color:#A4AEC6; font-size:11px; font-weight:600; margin-bottom:4px; display:block;">Username / Login ID</label>
-            <input type="text" id="reqUsername" placeholder="e.g. john12" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:10px 12px; color:#FFF; font-size:12px;">
-          </div>
-
-          <div class="form-group" style="margin-bottom:10px;">
-            <label style="color:#A4AEC6; font-size:11px; font-weight:600; margin-bottom:4px; display:block;">In Game Name (IGN)</label>
-            <input type="text" id="reqIgn" placeholder="e.g. Meenu Kutty" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:10px 12px; color:#FFF; font-size:12px;">
-          </div>
-
-          <div class="form-group" style="margin-bottom:10px;">
-            <label style="color:#A4AEC6; font-size:11px; font-weight:600; margin-bottom:4px; display:block;">Your Email Address</label>
-            <input type="email" id="reqEmail" placeholder="e.g. mechanic@gmail.com" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:10px 12px; color:#FFF; font-size:12px;">
-          </div>
-
-          <div class="form-group" style="margin-bottom:16px;">
-            <label style="color:#A4AEC6; font-size:11px; font-weight:600; margin-bottom:4px; display:block;">Requested Role Access</label>
-            <select id="reqRole" style="width:100%; background:#131826; border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:10px 12px; color:#FFF; font-size:12px;">
-              <option value="Employee">👤 Employee (Mechanic Operations)</option>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:4px; display:block;">Workspace Role Access</label>
+            <select id="loginRole" style="width:100%; background:#131826; border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:11px 14px; color:#FFF; font-size:13px; outline:none;">
+              <option value="Admin" selected>👑 Admin (Full Access)</option>
               <option value="Manager">🛠️ Manager (Edit & Inventory)</option>
-              <option value="Admin">👑 Admin (Full Access)</option>
+              <option value="Employee">👤 Employee (Mechanic Ops)</option>
             </select>
           </div>
 
-          <div id="reqMsg" style="font-size:11px; margin-bottom:12px; display:none; text-align:center;"></div>
-
-          <div style="display:flex; gap:10px;">
-            <button type="button" onclick="toggleRequestAccessForm(false)" style="flex:1; padding:10px; border-radius:8px; background:rgba(255,255,255,0.08); color:#FFF; border:none; font-size:12px; font-weight:600; cursor:pointer;">Back to Login</button>
-            <button type="submit" style="flex:1.5; padding:10px; border-radius:8px; background:linear-gradient(135deg, #19D96B, #12B053); color:#FFF; border:none; font-size:12px; font-weight:700; cursor:pointer;">📩 Send to Admin</button>
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="color:#A4AEC6; font-size:12px; font-weight:600; margin-bottom:4px; display:block;">Password / Passcode (Optional)</label>
+            <input type="password" id="loginPassword" placeholder="•••••••• (Optional)" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:11px 14px; color:#FFF; font-size:13px; outline:none;">
           </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; font-size:12px;">
+            <label style="color:var(--text-muted); display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="remember1Week" checked style="accent-color:var(--primary);"> Keep logged in for 1 week
+            </label>
+          </div>
+
+          <div id="loginErrorMsg" style="color:#FF5C5C; font-size:12px; margin-bottom:14px; display:none; text-align:center;">⚠️ Invalid credentials</div>
+
+          <button type="submit" class="btn-ctrl btn-start" style="width:100%; padding:14px; border-radius:12px; font-size:14px; font-weight:700; background:linear-gradient(135deg, #6C4DFF, #5031E6); box-shadow:0 6px 20px rgba(108,77,255,0.4); cursor:pointer;">
+            🔐 Sign In to Workspace
+          </button>
         </form>
       </div>
 
@@ -1154,67 +1133,50 @@
 
     async function handleLoginSubmit(e) {
       if(e) e.preventDefault();
-      let uInput = document.getElementById('loginUsername').value.trim();
-      const pInput = document.getElementById('loginPassword').value.trim();
+      const uInput = (document.getElementById('loginUsername') ? document.getElementById('loginUsername').value : '').trim();
+      const ignInput = (document.getElementById('loginIgn') ? document.getElementById('loginIgn').value : '').trim();
+      const emailInput = (document.getElementById('loginEmail') ? document.getElementById('loginEmail').value : '').trim();
+      const roleInput = document.getElementById('loginRole') ? document.getElementById('loginRole').value : 'Admin';
+      const pInput = (document.getElementById('loginPassword') ? document.getElementById('loginPassword').value : '').trim();
       const remember = document.getElementById('remember1Week') ? document.getElementById('remember1Week').checked : true;
-      const errEl = document.getElementById('loginErrorMsg');
 
-      if(!uInput && !pInput) {
-        uInput = 'AMULPAPPU';
-      }
+      const finalName = ignInput || uInput || 'AMULPAPPU';
+      const finalRole = roleInput || 'Admin';
+      const finalEmail = emailInput || (finalName.toLowerCase() + '@gmail.com');
 
-      let successData = null;
       try {
-        const res = await fetch('/api/login', {
+        await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: uInput, password: pInput, ign: uInput, email: uInput ? (uInput + '@gmail.com') : '' })
+          body: JSON.stringify({
+            username: uInput || finalName,
+            ign: finalName,
+            email: finalEmail,
+            role: finalRole,
+            password: pInput
+          })
         });
-        const data = await res.json();
+      } catch(err) {}
 
-        if(data.success) {
-          successData = {
-            name: data.name || data.username || uInput || 'AMULPAPPU',
-            role: data.role || 'Admin'
-          };
-        }
-      } catch(err) {
-        // Fallback for client-side authentication if server unreachable
+      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+      localStorage.setItem('auth_user', finalName.toUpperCase());
+      localStorage.setItem('user_role', finalRole);
+      if(remember) {
+        localStorage.setItem('auth_expiry', (Date.now() + ONE_WEEK_MS).toString());
+      } else {
+        localStorage.removeItem('auth_expiry');
       }
 
-      if(!successData) {
-        const lowerP = pInput.toLowerCase();
-        const lowerU = (uInput || '').toLowerCase();
-        let role = 'Employee';
-        if(['admin2026', '6969', 'admin69', 'admin123'].includes(lowerP) || ['admin', 'amulpappu'].includes(lowerU) || lowerU.includes('amul') || !uInput) role = 'Admin';
-        else if(['manager8686', 'manager123', 'mgr123'].includes(lowerP) || ['manager', 'mgr'].includes(lowerU)) role = 'Manager';
+      const loginOverlay = document.getElementById('loginModalOverlay');
+      if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
 
-        const authUser = uInput ? (role === 'Admin' || role === 'Manager' ? uInput.toUpperCase() : uInput.charAt(0).toUpperCase() + uInput.slice(1)) : 'AMULPAPPU';
-        successData = { name: authUser, role: role };
-      }
+      const dUser = document.getElementById('displayUsername');
+      if(dUser) dUser.innerText = finalName.toUpperCase();
+      const uAvatar = document.getElementById('userAvatar');
+      if(uAvatar) uAvatar.innerText = finalName.slice(0, 2).toUpperCase();
 
-      if(successData) {
-        const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-        localStorage.setItem('auth_user', successData.name);
-        localStorage.setItem('user_role', successData.role);
-        if(remember) {
-          localStorage.setItem('auth_expiry', (Date.now() + ONE_WEEK_MS).toString());
-        } else {
-          localStorage.removeItem('auth_expiry');
-        }
-        if(errEl) errEl.style.display = 'none';
-
-        const loginOverlay = document.getElementById('loginModalOverlay');
-        if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
-
-        const dUser = document.getElementById('displayUsername');
-        if(dUser) dUser.innerText = successData.name;
-        const uAvatar = document.getElementById('userAvatar');
-        if(uAvatar) uAvatar.innerText = successData.name.slice(0, 2).toUpperCase();
-
-        applyRolePermissions(successData.role);
-        fetchLiveData();
-      }
+      applyRolePermissions(finalRole);
+      fetchLiveData();
     }
 
     function presetLogin(u, p) {
