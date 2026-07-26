@@ -1088,62 +1088,12 @@
       document.getElementById('sidebar').classList.toggle('collapsed');
     }
 
-    // ── Chart.js Initialization ──
     let revenueChart, distributionChart;
     window.addEventListener('DOMContentLoaded', () => {
-      initCharts();
-      checkAuthSession();
-      setInterval(fetchLiveData, 4000);
+      try { initCharts(); } catch(e) { console.error('initCharts error:', e); }
+      try { checkAuthSession(); } catch(e) { console.error('checkAuthSession error:', e); }
+      setInterval(() => { try { fetchLiveData(); } catch(e){} }, 4000);
     });
-
-    function initCharts() {
-      const ctxRev = document.getElementById('revenueChart');
-      if(ctxRev) {
-        revenueChart = new Chart(ctxRev, {
-          type: 'line',
-          data: {
-            labels: ['Start', 'Today'],
-            datasets: [{
-              label: 'Revenue (₹)',
-              data: [0, 0],
-              borderColor: '#6C4DFF',
-              backgroundColor: 'rgba(108, 77, 255, 0.15)',
-              fill: true,
-              tension: 0.4
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8' } },
-              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8' } }
-            }
-          }
-        });
-      }
-
-      const ctxDist = document.getElementById('distributionChart');
-      if(ctxDist) {
-        distributionChart = new Chart(ctxDist, {
-          type: 'doughnut',
-          data: {
-            labels: ['Services', 'Kits', 'Upgrades', 'VIP Claims'],
-            datasets: [{
-              data: [0, 0, 0, 0],
-              backgroundColor: ['#6C4DFF', '#2A8DFF', '#19D96B', '#F9A826'],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { color: '#94A3B8', boxWidth: 12 } } }
-          }
-        });
-      }
-    }
 
     function applyRolePermissions(role) {
       const userRole = role || localStorage.getItem('user_role') || 'Employee';
@@ -1386,80 +1336,91 @@
     };
 
     function initCharts() {
-      const ctxRev = document.getElementById('revenueChart').getContext('2d');
-      const gradRev = ctxRev.createLinearGradient(0, 0, 0, 220);
-      gradRev.addColorStop(0, 'rgba(108, 77, 255, 0.45)');
-      gradRev.addColorStop(1, 'rgba(108, 77, 255, 0.0)');
+      const elRev = document.getElementById('revenueChart');
+      const elDist = document.getElementById('distributionChart');
+      if(!elRev || !elDist || typeof Chart === 'undefined') return;
 
-      if (typeof ChartDataLabels !== 'undefined') {
-        try { Chart.register(ChartDataLabels); } catch(e) {}
-      }
+      if(revenueChart) { try { revenueChart.destroy(); } catch(e){} }
+      if(distributionChart) { try { distributionChart.destroy(); } catch(e){} }
 
-      revenueChart = new Chart(ctxRev, {
-        type: 'line',
-        data: {
-          labels: allChartDailyData.labels,
-          datasets: [{
-            label: 'Daily Revenue (₹)',
-            data: allChartDailyData.values,
-            borderColor: '#6C4DFF',
-            borderWidth: 2.5,
-            pointBackgroundColor: '#2A8DFF',
-            pointBorderColor: '#FFFFFF',
-            pointRadius: 4.5,
-            pointHoverRadius: 7,
-            backgroundColor: gradRev,
-            fill: true,
-            tension: 0.35
-          }]
-        },
-        plugins: [typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : {}],
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          layout: { padding: { top: 20 } },
-          plugins: {
-            legend: { display: false },
-            datalabels: {
-              color: '#19D96B',
-              align: 'top',
-              anchor: 'end',
-              offset: 3,
-              font: { weight: '800', size: 9 },
-              formatter: function(val) {
-                if(!val) return '';
-                if(val >= 1000) return '₹' + (val / 1000).toFixed(1) + 'k';
-                return '₹' + val;
-              }
-            }
+      try {
+        const ctxRev = elRev.getContext('2d');
+        const gradRev = ctxRev.createLinearGradient(0, 0, 0, 220);
+        gradRev.addColorStop(0, 'rgba(108, 77, 255, 0.45)');
+        gradRev.addColorStop(1, 'rgba(108, 77, 255, 0.0)');
+
+        if (typeof ChartDataLabels !== 'undefined') {
+          try { Chart.register(ChartDataLabels); } catch(e) {}
+        }
+
+        revenueChart = new Chart(ctxRev, {
+          type: 'line',
+          data: {
+            labels: allChartDailyData.labels,
+            datasets: [{
+              label: 'Daily Revenue (₹)',
+              data: allChartDailyData.values,
+              borderColor: '#6C4DFF',
+              borderWidth: 2.5,
+              pointBackgroundColor: '#2A8DFF',
+              pointBorderColor: '#FFFFFF',
+              pointRadius: 4.5,
+              pointHoverRadius: 7,
+              backgroundColor: gradRev,
+              fill: true,
+              tension: 0.35
+            }]
           },
-          scales: {
-            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8F9BBA', font: { size: 10, weight: '700' } } },
-            y: { display: false, grid: { display: false } }
+          plugins: [typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : {}],
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: '#19D96B',
+                align: 'top',
+                anchor: 'end',
+                offset: 3,
+                font: { weight: '800', size: 9 },
+                formatter: function(val) {
+                  if(!val) return '';
+                  if(val >= 1000) return '₹' + (val / 1000).toFixed(1) + 'k';
+                  return '₹' + val;
+                }
+              }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8F9BBA', font: { size: 10, weight: '700' } } },
+              y: { display: false, grid: { display: false } }
+            }
           }
-        }
-      });
+        });
+      } catch(e) { console.error('Revenue chart init error:', e); }
 
-      const ctxDist = document.getElementById('distributionChart').getContext('2d');
-      distributionChart = new Chart(ctxDist, {
-        type: 'doughnut',
-        data: {
-          labels: ['Services (191)', 'Kits (62)', 'Upgrades (184)', 'VIP Claims (27)'],
-          datasets: [{
-            data: [191, 62, 184, 27],
-            backgroundColor: ['#6C4DFF', '#2A8DFF', '#19D96B', '#F9A826'],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#A4AEC6', font: { size: 11 } } },
-            datalabels: { display: false }
+      try {
+        const ctxDist = elDist.getContext('2d');
+        distributionChart = new Chart(ctxDist, {
+          type: 'doughnut',
+          data: {
+            labels: ['Services (191)', 'Kits (62)', 'Upgrades (184)', 'VIP Claims (27)'],
+            datasets: [{
+              data: [191, 62, 184, 27],
+              backgroundColor: ['#6C4DFF', '#2A8DFF', '#19D96B', '#F9A826'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#A4AEC6', font: { size: 11 } } },
+              datalabels: { display: false }
+            }
           }
-        }
-      });
+        });
+      } catch(e) { console.error('Distribution chart init error:', e); }
     }
 
     function applyRevenueFilter(range) {
@@ -1562,6 +1523,8 @@
               distributionChart.data.datasets[0].data = data.charts.distribution.map(d => d.value || 0);
               distributionChart.update('none');
             }
+          }
+
           if(data.system_resources) {
             const sr = data.system_resources;
             if(document.getElementById('resCpuVal')) document.getElementById('resCpuVal').innerText = sr.cpu + '%';
