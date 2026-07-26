@@ -154,47 +154,71 @@ _ROWS_CACHE = {}
 _LAST_KNOWN_ROWS = {}
 _CACHE_TTL = 30  # seconds cache validity for monitor/dashboard reads
 _WORKSHEET_CACHE = {}
-
-
+_REFRESHING_SHEETS = set()
+_CACHE_LOCK = threading.Lock()
 _LOGGED_IDS_CACHE = None
 
 
 def clear_rows_cache(ws_name=None):
     """Invalidates cached row data when a new invoice is logged or sheets are wiped."""
-    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE
-    _LOGGED_IDS_CACHE = None
-    _ROWS_CACHE.clear()
-    _LAST_KNOWN_ROWS.clear()
-    _WORKSHEET_CACHE.clear()
+    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE, _REFRESHING_SHEETS
+    with _CACHE_LOCK:
+        _LOGGED_IDS_CACHE = None
+        _ROWS_CACHE.clear()
+        _LAST_KNOWN_ROWS.clear()
+        _WORKSHEET_CACHE.clear()
+        _REFRESHING_SHEETS.clear()
 
 
 def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
-    global _ROWS_CACHE, _LAST_KNOWN_ROWS
+    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _REFRESHING_SHEETS
     now = time.time()
 
     # Fast instant non-blocking lookup if cached data exists
-    if not force_refresh and (ws_name in _ROWS_CACHE or ws_name in _LAST_KNOWN_ROWS):
-        cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS.get(ws_name, [])))
-        if now - cached_time > 15 and not fast_cached_only:
-            def _async_bg_refresh(w_name):
-                try:
-                    ss = get_spreadsheet()
-                    if ss:
-                        ws = ss.worksheet(w_name)
-                        if ws:
-                            d = ws.get_all_values()[1:]
-                            _ROWS_CACHE[w_name] = (time.time(), d)
-                            _LAST_KNOWN_ROWS[w_name] = d
-                except Exception:
-                    pass
-            threading.Thread(target=_async_bg_refresh, args=(ws_name,), daemon=True).start()
-        return cached_data
+    with _CACHE_LOCK:
+        has_cache = (ws_name in _ROWS_CACHE or ws_name in _LAST_KNOWN_ROWS)
+        if has_cache and not force_refresh:
+            cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS.get(ws_name, [])))
+            if now - cached_time > 20 and not fast_cached_only:
+                if ws_name not in _REFRESHING_SHEETS:
+                    _REFRESHING_SHEETS.add(ws_name)
+                    _ROWS_CACHE[ws_name] = (now, cached_data)
 
-    # Cold startup or explicit force_refresh
+                    def _async_bg_refresh(w_name):
+                        try:
+                            ss = get_spreadsheet()
+                            if ss:
+                                ws = None
+                                try:
+                                    ws = ss.worksheet(w_name)
+                                except Exception:
+                                    if w_name in ("VIP Claim", "VIP Claims", "VIP Log"):
+                                        for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
+                                            try:
+                                                ws = ss.worksheet(alt)
+                                                if ws: break
+                                            except Exception: pass
+                                if ws:
+                                    data = _with_retry(lambda: ws.get_all_values())[1:]
+                                    with _CACHE_LOCK:
+                                        _ROWS_CACHE[w_name] = (time.time(), data)
+                                        _LAST_KNOWN_ROWS[w_name] = data
+                        except Exception as ex:
+                            print(f"[BG Refresh Warning] {w_name}: {ex}")
+                        finally:
+                            with _CACHE_LOCK:
+                                _REFRESHING_SHEETS.discard(w_name)
+
+                    threading.Thread(target=_async_bg_refresh, args=(ws_name,), daemon=True).start()
+
+            return cached_data
+
+    # Cold startup or explicit force_refresh (when no cache exists yet)
     try:
         ss = get_spreadsheet()
         if not ss:
-            return _LAST_KNOWN_ROWS.get(ws_name, _ROWS_CACHE.get(ws_name, (0, []))[1] if ws_name in _ROWS_CACHE else [])
+            with _CACHE_LOCK:
+                return _LAST_KNOWN_ROWS.get(ws_name, [])
         try:
             ws = ss.worksheet(ws_name)
         except Exception:
@@ -206,18 +230,22 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
                         if ws: break
                     except Exception: pass
             if not ws:
-                return _LAST_KNOWN_ROWS.get(ws_name, [])
+                with _CACHE_LOCK:
+                    return _LAST_KNOWN_ROWS.get(ws_name, [])
 
-        data = ws.get_all_values()[1:]
-        _ROWS_CACHE[ws_name] = (now, data)
-        _LAST_KNOWN_ROWS[ws_name] = data
+        data = _with_retry(lambda: ws.get_all_values())[1:]
+        with _CACHE_LOCK:
+            _ROWS_CACHE[ws_name] = (now, data)
+            _LAST_KNOWN_ROWS[ws_name] = data
         return data
     except Exception as e:
-        if ws_name in _LAST_KNOWN_ROWS:
-            return _LAST_KNOWN_ROWS[ws_name]
-        if ws_name in _ROWS_CACHE:
-            return _ROWS_CACHE[ws_name][1]
-        return []
+        print(f"[Sheets _all_rows Error] {ws_name}: {e}")
+        with _CACHE_LOCK:
+            if ws_name in _LAST_KNOWN_ROWS:
+                return _LAST_KNOWN_ROWS[ws_name]
+            if ws_name in _ROWS_CACHE:
+                return _ROWS_CACHE[ws_name][1]
+            return []
 
 
 def _with_retry(fn, attempts=6, base_delay=3):
