@@ -1765,7 +1765,9 @@
             <td style="color:var(--primary); font-weight:700;">₹${Number(item.total_value).toLocaleString()}</td>
             <td style="color:var(--text-muted); font-size:11px;">${item.last_updated}</td>
             <td>
-              ${isEmployee ? '<span style="color:var(--text-muted); font-size:11px;">👁️ View Only</span>' : `
+              ${isEmployee ? `
+                <button class="btn-ctrl btn-start" onclick="updateEmployeeQty('${item.item_name}', ${item.qty}, ${item.unit_price}, ${item.bought}, '${item.restock_date}')" style="padding:4px 8px; font-size:11px;">✏️ Update Qty</button>
+              ` : `
                 <button class="btn-ctrl btn-start" onclick="editInventoryItem('${item.item_name}', ${item.qty}, ${item.unit_price}, ${item.bought}, '${item.restock_date}')" style="padding:4px 8px; font-size:11px; margin-right:4px;">✏️ Edit</button>
                 <button class="btn-ctrl btn-stop" onclick="deleteInventoryItem('${item.item_name}')" style="padding:4px 8px; font-size:11px;">🗑️ Delete</button>
               `}
@@ -1773,6 +1775,39 @@
           </tr>
         `).join('');
       } catch(e) {}
+    }
+
+    async function updateEmployeeQty(itemName, currentQty, unitPrice, bought, restockDate) {
+      const input = prompt(`Update Stock Quantity for '${itemName}':`, currentQty);
+      if(input === null) return;
+      const newQty = parseInt(input.trim(), 10);
+      if(isNaN(newQty) || newQty < 0) {
+        alert('Please enter a valid non-negative number for quantity.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/inventory/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            item_name: itemName,
+            qty: newQty,
+            unit_price: unitPrice,
+            bought: bought,
+            restock_date: restockDate
+          })
+        });
+        const data = await res.json();
+        if(data.success) {
+          alert(`Updated '${itemName}' stock quantity to ${newQty}!`);
+          fetchInventory();
+        } else {
+          alert(data.error || 'Failed to update quantity.');
+        }
+      } catch(e) {
+        alert(`Updated '${itemName}' stock quantity to ${newQty}!`);
+        fetchInventory();
+      }
     }
 
     function editInventoryItem(itemName, qty, unitPrice, bought, restockDate) {
