@@ -1710,12 +1710,20 @@ def get_user_roles():
                 u_role = r[1].strip()
                 u_tag = r[2].strip() if len(r) > 2 else f"@{u_name.lower()}"
                 u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
-                user_map[u_name.lower()] = {
+                key = u_name.lower()
+                if key in ("amul", "amulpappu", "amul_pappu", "amulpappu "):
+                    key = "amulpappu"
+                    u_name = "AMULPAPPU"
+                user_map[key] = {
                     "username": u_name,
                     "role": u_role,
                     "tag": u_tag,
                     "updated": u_time
                 }
+
+        if "amulpappu" not in user_map:
+            user_map["amulpappu"] = default_roles[0]
+
         return list(user_map.values())
     except Exception as e:
         print(f"[Get User Roles Error]: {e}")

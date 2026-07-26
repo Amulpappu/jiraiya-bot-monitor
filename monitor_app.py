@@ -599,8 +599,19 @@ def update_user_role():
     new_role = data.get("new_role", "Employee").strip()
     tag = data.get("tag", "").strip()
 
-    if not admin_user or admin_user.upper() != "AMULPAPPU":
-        return jsonify({"success": False, "error": "🔒 Only Admin (AMULPAPPU) can assign or modify user roles!"})
+    admin_clean = admin_user.upper()
+    is_admin = (admin_clean in ("AMULPAPPU", "AMUL", "AMUL PAPPU", "ADMIN"))
+    if not is_admin:
+        try:
+            user_roles = sheets.get_user_roles()
+            for ur in user_roles:
+                if ur.get("username", "").strip().upper() == admin_clean and ur.get("role") == "Admin":
+                    is_admin = True
+                    break
+        except Exception: pass
+
+    if not is_admin:
+        return jsonify({"success": False, "error": "🔒 Only Admin can assign or modify user roles!"})
 
     if not target_user:
         return jsonify({"success": False, "error": "Specify target user"})
@@ -613,7 +624,7 @@ def update_user_role():
         args=(target_user, new_role, "ROLE_CHANGED", target_user, f"{target_user.lower()}@gmail.com", f"Role updated to {new_role} by Admin {admin_user}"),
         daemon=True
     ).start()
-    return jsonify({"success": True, "message": f"Role updated to {new_role} for {target_user} in Google Sheets!"})
+    return jsonify({"success": True, "message": f"✅ Role updated to {new_role} for {target_user}!"})
 
 
 @app.route("/api/roles/change", methods=["POST"])
@@ -838,11 +849,21 @@ def remove_user_access():
     admin_user = data.get("admin", "").strip()
     target_user = data.get("target_user", "").strip()
 
-    role = data.get("role", "").strip()
-    if role != "Admin" and admin_user.upper() not in ("AMULPAPPU", "AMUL", "ADMIN"):
+    admin_clean = admin_user.upper()
+    is_admin = (admin_clean in ("AMULPAPPU", "AMUL", "AMUL PAPPU", "ADMIN"))
+    if not is_admin:
+        try:
+            user_roles = sheets.get_user_roles()
+            for ur in user_roles:
+                if ur.get("username", "").strip().upper() == admin_clean and ur.get("role") == "Admin":
+                    is_admin = True
+                    break
+        except Exception: pass
+
+    if not is_admin:
         return jsonify({"success": False, "error": "🔒 Only Admin can revoke user access!"})
 
-    if target_user.upper() == "AMULPAPPU":
+    if target_user.upper() in ("AMULPAPPU", "AMUL"):
         return jsonify({"success": False, "error": "Cannot remove primary Admin AMULPAPPU!"})
 
     import database
