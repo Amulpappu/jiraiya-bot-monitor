@@ -1062,6 +1062,46 @@ def get_dynamic_revenue_trend(rows_by_sheet, period="all"):
     return trend
 
 
+def get_top_services_breakdown(rows_by_sheet):
+    """Calculates live category counts and revenue share from Google Sheets data."""
+    categories = defaultdict(lambda: {"count": 0, "amount": 0.0})
+    colors = ["#6C4DFF", "#2A8DFF", "#19D96B", "#F9A826", "#E056FD", "#FF5C5C", "#00CEC9"]
+    
+    for sname in ("Service", "Upgrades", "Kits", "VIP Claim"):
+        col_amt = _AMOUNT_COL.get(sname, 4)
+        srows = rows_by_sheet.get(sname, [])
+        for r in srows:
+            if len(r) >= 2:
+                cat_name = str(r[2]).strip() if len(r) > 2 and r[2].strip() and not r[2].strip().isdigit() and len(r[2].strip()) > 2 else sname
+                amt = _sum_numeric([r[col_amt]]) if len(r) > col_amt else 0.0
+                categories[cat_name]["count"] += 1
+                categories[cat_name]["amount"] += amt
+
+    if not categories:
+        return [
+            {"name": "Services Logged", "count": len(rows_by_sheet.get("Service", [])), "amount": 0.0, "color": "#6C4DFF", "percent": 75},
+            {"name": "Kits Issued", "count": len(rows_by_sheet.get("Kits", [])), "amount": 0.0, "color": "#2A8DFF", "percent": 60},
+            {"name": "Upgrades Installed", "count": len(rows_by_sheet.get("Upgrades", [])), "amount": 0.0, "color": "#19D96B", "percent": 50},
+            {"name": "VIP Claims", "count": len(rows_by_sheet.get("VIP Claim", [])), "amount": 0.0, "color": "#F9A826", "percent": 30},
+        ]
+
+    sorted_cats = sorted(categories.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
+    max_count = max([c[1]["count"] for c in sorted_cats]) if sorted_cats else 1
+
+    result = []
+    for idx, (cat_name, data) in enumerate(sorted_cats):
+        percent = int((data["count"] / max(1, max_count)) * 100)
+        result.append({
+            "name": cat_name,
+            "count": data["count"],
+            "amount": data["amount"],
+            "color": colors[idx % len(colors)],
+            "percent": max(15, percent)
+        })
+
+    return result
+
+
 # Column index (0-based) of "Employee" and "Total Amount" per sheet
 _EMPLOYEE_COL = {"Service": 5, "Upgrades": 3, "Kits": 6, "Expenses": 2, "VIP Claim": 3}
 _AMOUNT_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 1, "VIP Claim": 4}

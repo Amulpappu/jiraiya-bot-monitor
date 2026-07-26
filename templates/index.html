@@ -469,25 +469,11 @@
               <span>Top Services</span>
               <span class="badge badge-primary">Category Share</span>
             </div>
-            <div class="meter-item">
-              <div class="meter-label"><span>Car Service (Civilian)</span><span>40</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 80%; background: var(--primary);"></div></div>
-            </div>
-            <div class="meter-item">
-              <div class="meter-label"><span>Car Service (Government)</span><span>34</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 68%; background: var(--secondary);"></div></div>
-            </div>
-            <div class="meter-item">
-              <div class="meter-label"><span>Repair Kit</span><span>4,483</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 95%; background: var(--success);"></div></div>
-            </div>
-            <div class="meter-item">
-              <div class="meter-label"><span>Cleaning Kit</span><span>2,922</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 75%; background: var(--warning);"></div></div>
-            </div>
-            <div class="meter-item">
-              <div class="meter-label"><span>Upgrade Installation</span><span>184</span></div>
-              <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 50%; background: #E056FD;"></div></div>
+            <div id="topServicesMeterContainer">
+              <div class="meter-item">
+                <div class="meter-label"><span>Services Logged</span><span>0</span></div>
+                <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: 100%; background: var(--primary);"></div></div>
+              </div>
             </div>
           </div>
 
@@ -1487,6 +1473,18 @@
           if(botStatusText) {
             botStatusText.innerText = f.bot_online ? 'ALL SYSTEMS OPERATIONAL' : 'BOT SERVICE OFFLINE';
             botStatusText.style.color = f.bot_online ? 'var(--success)' : 'var(--danger)';
+          }
+
+          if(data.top_services && data.top_services.length > 0) {
+            const topSvcContainer = document.getElementById('topServicesMeterContainer');
+            if(topSvcContainer) {
+              topSvcContainer.innerHTML = data.top_services.map(item => `
+                <div class="meter-item">
+                  <div class="meter-label"><span>${item.name}</span><span>${Number(item.count).toLocaleString()}</span></div>
+                  <div class="meter-bar-bg"><div class="meter-bar-fill" style="width: ${item.percent}%; background: ${item.color};"></div></div>
+                </div>
+              `).join('');
+            }
           }
 
           if(data.recent_activity) {

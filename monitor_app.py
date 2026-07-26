@@ -402,6 +402,7 @@ def get_stats():
             },
             "recent_activity": recent[:25],
             "leaderboard": leaderboard,
+            "top_services": sheets.get_top_services_breakdown(rows_by_sheet),
             "employees": config.EMPLOYEE_MAPPING,
             "charts": {
                 "revenue_trend": sheets.get_dynamic_revenue_trend(rows_by_sheet, period),
