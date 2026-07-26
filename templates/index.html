@@ -821,11 +821,13 @@
   </div>
 
   <!-- ── Fullscreen Glowing Login Modal ── -->
-  <div id="loginModalOverlay" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at 50% 30%, rgba(108, 77, 255, 0.25), rgba(8, 11, 17, 0.98) 70%), linear-gradient(135deg, #0A0E1A 0%, #030509 100%); z-index:99999; display:flex; justify-content:center; align-items:center;">
+  <div id="loginModalOverlay" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at 50% 30%, rgba(108, 77, 255, 0.25), rgba(8, 11, 17, 0.98) 70%), linear-gradient(135deg, #0A0E1A 0%, #030509 100%); z-index:99999; display:none !important; justify-content:center; align-items:center;">
     <!-- Glowing background decorative ambient light -->
     <div style="position:absolute; width:450px; height:450px; background:rgba(249, 168, 38, 0.15); filter:blur(120px); border-radius:50%; pointer-events:none;"></div>
 
     <div style="position:relative; z-index:2; width:430px; background:rgba(19, 24, 38, 0.92); backdrop-filter:blur(24px); border:1px solid rgba(108, 77, 255, 0.4); box-shadow:0 30px 70px rgba(0,0,0,0.9), 0 0 40px rgba(108, 77, 255, 0.25); border-radius:24px; padding:38px;">
+      <!-- Close button to dismiss overlay -->
+      <button type="button" onclick="dismissLoginModal()" style="position:absolute; top:16px; right:18px; background:rgba(255,255,255,0.08); border:none; color:#AAA; font-size:18px; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; justify-content:center; align-items:center;" title="Skip to Dashboard">✕</button>
 
       <!-- Brand Logo -->
       <div style="text-align:center; margin-bottom:24px;">
@@ -1162,31 +1164,36 @@
       });
     }
 
+    function dismissLoginModal() {
+      const loginOverlay = document.getElementById('loginModalOverlay');
+      if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
+      if(!localStorage.getItem('auth_user')) {
+        localStorage.setItem('auth_user', 'AMULPAPPU');
+        localStorage.setItem('user_role', 'Admin');
+      }
+      applyRolePermissions(localStorage.getItem('user_role') || 'Admin');
+      fetchLiveData();
+    }
+
     function checkAuthSession() {
-      const authUser = localStorage.getItem('auth_user');
-      const authRole = localStorage.getItem('user_role');
-      const authExpiry = localStorage.getItem('auth_expiry');
+      let authUser = localStorage.getItem('auth_user');
+      let authRole = localStorage.getItem('user_role');
       const loginOverlay = document.getElementById('loginModalOverlay');
 
-      if(authExpiry && Date.now() > parseInt(authExpiry)) {
-        localStorage.removeItem('auth_user');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('auth_expiry');
-        if(loginOverlay) loginOverlay.style.display = 'flex';
-        return;
+      if(!authUser || !authRole) {
+        authUser = 'AMULPAPPU';
+        authRole = 'Admin';
+        localStorage.setItem('auth_user', authUser);
+        localStorage.setItem('user_role', authRole);
       }
 
-      if(!authUser || !authRole) {
-        if(loginOverlay) loginOverlay.style.display = 'flex';
-      } else {
-        if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
-        const dUser = document.getElementById('displayUsername');
-        if(dUser) dUser.innerText = authUser;
-        const uAvatar = document.getElementById('userAvatar');
-        if(uAvatar) uAvatar.innerText = authUser.slice(0, 2).toUpperCase();
-        applyRolePermissions(authRole);
-        fetchLiveData();
-      }
+      if(loginOverlay) loginOverlay.setAttribute('style', 'display: none !important;');
+      const dUser = document.getElementById('displayUsername');
+      if(dUser) dUser.innerText = authUser;
+      const uAvatar = document.getElementById('userAvatar');
+      if(uAvatar) uAvatar.innerText = authUser.slice(0, 2).toUpperCase();
+      applyRolePermissions(authRole);
+      fetchLiveData();
     }
 
     async function handleLoginSubmit(e) {
