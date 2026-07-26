@@ -1733,3 +1733,27 @@ def get_access_requests():
     except Exception as e:
         print(f"[Get Access Requests Error]: {e}")
         return []
+
+
+def update_access_request_status(username: str, status: str):
+    """Updates status for a user access request in Google Sheets tab 'Access_Requests'."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return False
+        try:
+            ws = sh.worksheet("Access_Requests")
+            rows = _with_retry(lambda: ws.get_all_values())
+            u_clean = username.strip().lower()
+            for idx, r in enumerate(rows[1:], start=2):
+                if len(r) >= 2 and (r[1].strip().lower() == u_clean or r[2].strip().lower() == u_clean):
+                    ws.update_cell(idx, 6, status)
+                    clear_rows_cache("Access_Requests")
+                    return True
+        except Exception:
+            return False
+        return False
+    except Exception as e:
+        print(f"[Update Access Request Status Error]: {e}")
+        return False
+

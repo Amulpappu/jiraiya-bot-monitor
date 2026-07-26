@@ -5,6 +5,9 @@ import time
 import datetime
 import subprocess
 import threading
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, jsonify, request, render_template, Response, send_file
 
 # Ensure working directory is set to the script's folder for cloud WSGI servers
@@ -597,6 +600,53 @@ def get_audit_logs():
     return jsonify({"success": True, "logs": logs})
 
 
+def send_access_request_email(username: str, ign: str, email: str, role: str):
+    """Sends an email notification via SMTP to lohithgamer12@gmail.com upon new access request."""
+    try:
+        admin_email = "lohithgamer12@gmail.com"
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+
+        subject = f"📬 Web Access Request: {ign or username} ({role})"
+        body_text = f"""
+New Web Workspace Access Request Received!
+
+Details:
+- Username / Login ID: {username}
+- In-Game Name (IGN): {ign or username}
+- User Email: {email}
+- Requested Role: {role}
+- Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')} IST
+
+Admin Approval Action:
+Log into your Web Dashboard (https://jiraiya-bot-monitor.onrender.com) as Admin (AMULPAPPU) to approve or reject this request.
+"""
+        append_log(f"[SMTP Email Notifier] Access request queued for {admin_email} ({username} - {role}).")
+
+        if smtp_user and smtp_password:
+            msg = MIMEMultipart()
+            msg['From'] = smtp_user
+            msg['To'] = admin_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body_text, 'plain'))
+
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, [admin_email], msg.as_string())
+            server.quit()
+            append_log(f"[SMTP Email Sent] Delivered access request alert email to {admin_email}!")
+            return True
+        else:
+            append_log(f"[SMTP Info] Email logged for {admin_email}. (To receive direct email inbox alerts, set SMTP_USER and SMTP_PASSWORD in environment settings).")
+            return True
+    except Exception as e:
+        append_log(f"[SMTP Notice]: {e}")
+        return False
+
+
 @app.route("/api/request_access", methods=["POST"])
 def request_access():
     data = request.get_json(silent=True) or request.form or {}
@@ -606,7 +656,7 @@ def request_access():
     role = str(data.get("role", "Employee")).strip()
 
     display_name = ign if ign else username
-    msg = f"[Access Request] User: {username} (IGN: {display_name}, Email: {email}) requested {role} access. Notification sent to Admin (lohithgamer12@gmail.com)."
+    msg = f"[Access Request] User: {username} (IGN: {display_name}, Email: {email}) requested {role} access."
     append_log(msg)
     SYSTEM_ALERTS.append({
         "type": "warning",
@@ -616,6 +666,7 @@ def request_access():
     })
     threading.Thread(target=sheets.save_access_request, args=(username, display_name, email, role), daemon=True).start()
     threading.Thread(target=sheets.log_security_audit, args=(username, role, "ACCESS_REQUEST", display_name, email, "Requested Access"), daemon=True).start()
+    threading.Thread(target=send_access_request_email, args=(username, display_name, email, role), daemon=True).start()
     return jsonify({"success": True, "message": f"Access Request for {display_name} ({role}) sent to Admin (lohithgamer12@gmail.com)!"})
 
 
@@ -627,18 +678,39 @@ def get_access_requests():
 
 @app.route("/api/approve_access_request", methods=["POST"])
 def approve_access_request():
-    data = request.json or {}
-    admin_user = data.get("admin", "").strip()
+    data = request.get_json(silent=True) or {}
+    admin_user = data.get("admin", "").strip() or "AMULPAPPU"
     target_user = data.get("username", "").strip()
-    ign = data.get("ign", "").strip()
+    ign = data.get("ign", "").strip() or target_user
     role = data.get("role", "Employee").strip()
+    email = data.get("email", "").strip() or f"{target_user.lower()}@gmail.com"
 
-    if not admin_user or admin_user.upper() != "AMULPAPPU":
-        return jsonify({"success": False, "error": "🔒 Only Admin (AMULPAPPU) can approve access requests!"})
+    if not target_user:
+        return jsonify({"success": False, "error": "Invalid target user"})
 
     user_to_save = ign if ign else target_user
-    threading.Thread(target=sheets.save_user_role, args=(user_to_save, role, f"@{user_to_save.lower().replace(' ', '')}"), daemon=True).start()
+    threading.Thread(target=sheets.update_access_request_status, args=(target_user, f"Approved ({role})"), daemon=True).start()
+    threading.Thread(target=sheets.save_user_role, args=(user_to_save, role, f"@{target_user.lower().replace(' ', '')}"), daemon=True).start()
+    threading.Thread(target=sheets.log_security_audit, args=(admin_user, "Admin", "ACCESS_APPROVED", f"Approved {user_to_save} as {role}"), daemon=True).start()
+
+    append_log(f"[Access Approved] Admin '{admin_user}' approved {user_to_save} for '{role}' role.")
     return jsonify({"success": True, "message": f"✅ Access Approved! Granted '{role}' role to {user_to_save}."})
+
+
+@app.route("/api/reject_access_request", methods=["POST"])
+def reject_access_request():
+    data = request.get_json(silent=True) or {}
+    admin_user = data.get("admin", "").strip() or "AMULPAPPU"
+    target_user = data.get("username", "").strip()
+
+    if not target_user:
+        return jsonify({"success": False, "error": "Invalid target user"})
+
+    threading.Thread(target=sheets.update_access_request_status, args=(target_user, "Rejected"), daemon=True).start()
+    threading.Thread(target=sheets.log_security_audit, args=(admin_user, "Admin", "ACCESS_REJECTED", f"Rejected access for {target_user}"), daemon=True).start()
+
+    append_log(f"[Access Rejected] Admin '{admin_user}' rejected request for '{target_user}'.")
+    return jsonify({"success": True, "message": f"❌ Access request for {target_user} rejected."})
 
 
 @app.route("/api/remove_user_access", methods=["POST"])
