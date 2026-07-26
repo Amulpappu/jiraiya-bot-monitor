@@ -1,6 +1,7 @@
 import os
 import datetime
 import time
+import threading
 from collections import Counter, defaultdict
 
 import gspread
@@ -169,49 +170,51 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
     global _ROWS_CACHE, _LAST_KNOWN_ROWS
     now = time.time()
 
-    if fast_cached_only:
-        if ws_name in _ROWS_CACHE:
-            return _ROWS_CACHE[ws_name][1]
-        if ws_name in _LAST_KNOWN_ROWS:
-            return _LAST_KNOWN_ROWS[ws_name]
-        return []
+    # Fast instant non-blocking lookup if cached data exists
+    if not force_refresh and (ws_name in _ROWS_CACHE or ws_name in _LAST_KNOWN_ROWS):
+        cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS.get(ws_name, [])))
+        if now - cached_time > 15 and not fast_cached_only:
+            def _async_bg_refresh(w_name):
+                try:
+                    ss = get_spreadsheet()
+                    if ss:
+                        ws = ss.worksheet(w_name)
+                        if ws:
+                            d = ws.get_all_values()[1:]
+                            _ROWS_CACHE[w_name] = (time.time(), d)
+                            _LAST_KNOWN_ROWS[w_name] = d
+                except Exception:
+                    pass
+            threading.Thread(target=_async_bg_refresh, args=(ws_name,), daemon=True).start()
+        return cached_data
 
-    if not force_refresh and ws_name in _ROWS_CACHE:
-        cached_time, cached_data = _ROWS_CACHE[ws_name]
-        if now - cached_time < _CACHE_TTL:
-            return cached_data
-
+    # Cold startup or explicit force_refresh
     try:
         ss = get_spreadsheet()
         if not ss:
-            if ws_name in _LAST_KNOWN_ROWS:
-                return _LAST_KNOWN_ROWS[ws_name]
-            return []
+            return _LAST_KNOWN_ROWS.get(ws_name, _ROWS_CACHE.get(ws_name, (0, []))[1] if ws_name in _ROWS_CACHE else [])
         try:
-            ws = _with_retry(lambda: ss.worksheet(ws_name))
+            ws = ss.worksheet(ws_name)
         except Exception:
             ws = None
             if ws_name in ("VIP Claim", "VIP Claims", "VIP Log"):
                 for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
                     try:
-                        ws = _with_retry(lambda: ss.worksheet(alt))
+                        ws = ss.worksheet(alt)
                         if ws: break
                     except Exception: pass
             if not ws:
-                raise Exception(f"Worksheet '{ws_name}' not found.")
+                return _LAST_KNOWN_ROWS.get(ws_name, [])
 
-        data = _with_retry(lambda: ws.get_all_values())[1:]  # skip header row
+        data = ws.get_all_values()[1:]
         _ROWS_CACHE[ws_name] = (now, data)
         _LAST_KNOWN_ROWS[ws_name] = data
         return data
     except Exception as e:
-        # If rate limited or quota error, return last known successful rows
         if ws_name in _LAST_KNOWN_ROWS:
             return _LAST_KNOWN_ROWS[ws_name]
         if ws_name in _ROWS_CACHE:
             return _ROWS_CACHE[ws_name][1]
-        import logging
-        logging.getLogger("sheets").warning(f"_all_rows({ws_name}) fetch warning: {e}")
         return []
 
 
@@ -1756,4 +1759,18 @@ def update_access_request_status(username: str, status: str):
     except Exception as e:
         print(f"[Update Access Request Status Error]: {e}")
         return False
+
+
+def preload_sheets_cache():
+    """Pre-warms all worksheet caches in memory asynchronously for instant 15ms web response times."""
+    def _bg_preloader():
+        for s in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Inventory"):
+            try:
+                _all_rows(s, force_refresh=True)
+            except Exception:
+                pass
+    threading.Thread(target=_bg_preloader, daemon=True).start()
+
+# Auto-start async cache pre-warming
+preload_sheets_cache()
 

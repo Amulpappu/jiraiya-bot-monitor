@@ -696,7 +696,7 @@
       <div id="view-employees" class="page-view">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <h3>👥 Employee Directory & Performance Monitor</h3>
-          <button class="btn-ctrl btn-start" onclick="openAddEmpModal()">➕ Add New Employee</button>
+          <button class="btn-ctrl btn-start" id="addEmpBtn" onclick="openAddEmpModal()">➕ Add New Employee</button>
         </div>
         <div class="chart-card">
           <table class="custom-table">
@@ -1302,25 +1302,29 @@
       const navEmployees = document.querySelector("a[onclick*='employees']");
       const navInventory = document.querySelector("a[onclick*='inventory']");
       const botControls = document.querySelector('.sidebar-footer');
+      const addEmpBtn = document.getElementById('addEmpBtn');
 
       if (currentRole === 'Employee') {
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'none';
-        if(navEmployees) navEmployees.style.display = 'none';
+        if(navEmployees) navEmployees.style.display = 'flex';
         if(navInventory) navInventory.style.display = 'none';
         if(botControls) botControls.style.display = 'none';
+        if(addEmpBtn) addEmpBtn.style.display = 'none';
       } else if (currentRole === 'Manager') {
         if(navSettings) navSettings.style.display = 'none';
         if(navUserSettings) navUserSettings.style.display = 'flex';
         if(navEmployees) navEmployees.style.display = 'flex';
         if(navInventory) navInventory.style.display = 'flex';
         if(botControls) botControls.style.display = 'none';
+        if(addEmpBtn) addEmpBtn.style.display = 'inline-block';
       } else {
         if(navSettings) navSettings.style.display = 'flex';
         if(navUserSettings) navUserSettings.style.display = 'flex';
         if(navEmployees) navEmployees.style.display = 'flex';
         if(navInventory) navInventory.style.display = 'flex';
         if(botControls) botControls.style.display = 'block';
+        if(addEmpBtn) addEmpBtn.style.display = 'inline-block';
       }
     }
 
