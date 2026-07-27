@@ -160,13 +160,17 @@ _LOGGED_IDS_CACHE = None
 
 
 def clear_rows_cache(ws_name=None):
-    """Invalidates cached row data when a new invoice is logged or sheets are wiped."""
-    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE, _REFRESHING_SHEETS
+    """Invalidates cached row timestamps when a new invoice is logged or roles are updated.
+    Preserves _LAST_KNOWN_ROWS so totals never drop or fluctuate on reads/logins."""
+    global _ROWS_CACHE, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE, _REFRESHING_SHEETS
     with _CACHE_LOCK:
         _LOGGED_IDS_CACHE = None
-        _ROWS_CACHE.clear()
-        _LAST_KNOWN_ROWS.clear()
-        _WORKSHEET_CACHE.clear()
+        if ws_name:
+            _ROWS_CACHE.pop(ws_name, None)
+            _WORKSHEET_CACHE.pop(ws_name, None)
+        else:
+            _ROWS_CACHE.clear()
+            _WORKSHEET_CACHE.clear()
         _REFRESHING_SHEETS.clear()
 
 
@@ -174,12 +178,11 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
     global _ROWS_CACHE, _LAST_KNOWN_ROWS, _REFRESHING_SHEETS
     now = time.time()
 
-    # Fast instant non-blocking lookup if cached data exists
     with _CACHE_LOCK:
-        has_cache = (ws_name in _ROWS_CACHE or ws_name in _LAST_KNOWN_ROWS)
-        if has_cache and not force_refresh:
-            cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS.get(ws_name, [])))
-            if now - cached_time > 20 and not fast_cached_only:
+        # If valid cache or last known data exists, use it
+        if ws_name in _LAST_KNOWN_ROWS and len(_LAST_KNOWN_ROWS[ws_name]) > 0 and not force_refresh:
+            cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS[ws_name]))
+            if now - cached_time > 30 and not fast_cached_only:
                 if ws_name not in _REFRESHING_SHEETS:
                     _REFRESHING_SHEETS.add(ws_name)
                     _ROWS_CACHE[ws_name] = (now, cached_data)
@@ -199,10 +202,12 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
                                                 if ws: break
                                             except Exception: pass
                                 if ws:
-                                    data = _with_retry(lambda: ws.get_all_values())[1:]
-                                    with _CACHE_LOCK:
-                                        _ROWS_CACHE[w_name] = (time.time(), data)
-                                        _LAST_KNOWN_ROWS[w_name] = data
+                                    rows_raw = _with_retry(lambda: ws.get_all_values())
+                                    if rows_raw and len(rows_raw) > 1:
+                                        data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)]
+                                        with _CACHE_LOCK:
+                                            _ROWS_CACHE[w_name] = (time.time(), data)
+                                            _LAST_KNOWN_ROWS[w_name] = data
                         except Exception as ex:
                             print(f"[BG Refresh Warning] {w_name}: {ex}")
                         finally:
@@ -213,38 +218,33 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
 
             return cached_data
 
-    # If no cache exists yet, trigger background fetch so request doesn't hang!
-    with _CACHE_LOCK:
-        if ws_name not in _REFRESHING_SHEETS:
-            _REFRESHING_SHEETS.add(ws_name)
-            def _async_initial_fetch(w_name):
-                try:
-                    ss = get_spreadsheet()
-                    if ss:
-                        ws = None
+    # If no data in memory at all, fetch synchronously so the first read is 100% complete!
+    try:
+        ss = get_spreadsheet()
+        if ss:
+            ws = None
+            try:
+                ws = ss.worksheet(ws_name)
+            except Exception:
+                if ws_name in ("VIP Claim", "VIP Claims", "VIP Log"):
+                    for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
                         try:
-                            ws = ss.worksheet(w_name)
-                        except Exception:
-                            if w_name in ("VIP Claim", "VIP Claims", "VIP Log"):
-                                for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
-                                    try:
-                                        ws = ss.worksheet(alt)
-                                        if ws: break
-                                    except Exception: pass
-                        if ws:
-                            data = _with_retry(lambda: ws.get_all_values())[1:]
-                            with _CACHE_LOCK:
-                                _ROWS_CACHE[w_name] = (time.time(), data)
-                                _LAST_KNOWN_ROWS[w_name] = data
-                except Exception as ex:
-                    print(f"[Initial Fetch Warning] {w_name}: {ex}")
-                finally:
+                            ws = ss.worksheet(alt)
+                            if ws: break
+                        except Exception: pass
+            if ws:
+                rows_raw = _with_retry(lambda: ws.get_all_values())
+                if rows_raw and len(rows_raw) > 1:
+                    data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)]
                     with _CACHE_LOCK:
-                        _REFRESHING_SHEETS.discard(w_name)
+                        _ROWS_CACHE[ws_name] = (time.time(), data)
+                        _LAST_KNOWN_ROWS[ws_name] = data
+                    return data
+    except Exception as ex:
+        print(f"[Synchronous Fetch Warning] {ws_name}: {ex}")
 
-            threading.Thread(target=_async_initial_fetch, args=(ws_name,), daemon=True).start()
-
-        return _LAST_KNOWN_ROWS.get(ws_name, _ROWS_CACHE.get(ws_name, (0, []))[1] if ws_name in _ROWS_CACHE else [])
+    with _CACHE_LOCK:
+        return _LAST_KNOWN_ROWS.get(ws_name, [])
 
 
 def _with_retry(fn, attempts=6, base_delay=3):
@@ -1030,13 +1030,30 @@ def filter_rows_by_period(rows, period="all"):
     period = period.lower()
     filtered = []
 
+    DATE_FORMATS = (
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %I:%M %p",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %I:%M %p",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %I:%M %p",
+        "%d-%m-%Y",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y %I:%M %p",
+        "%m/%d/%Y",
+    )
+
     for r in rows:
         if not r or len(r) == 0 or not r[0]:
             continue
 
         raw_ts = str(r[0]).strip()
         dt = None
-        for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT, "%Y-%m-%d"):
+        for fmt in DATE_FORMATS:
             try:
                 dt = datetime.datetime.strptime(raw_ts, fmt).replace(tzinfo=IST)
                 break
