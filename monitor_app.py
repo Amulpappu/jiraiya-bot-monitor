@@ -631,7 +631,9 @@ def update_user_role():
 def change_user_role_audit():
     try:
         data = request.json or {}
-        username = str(data.get("username", "AMULPAPPU")).strip()
+        username = str(data.get("username", "Amul")).strip()
+        if username.upper() in ("AMULPAPPU", "AMUL PAPPU"):
+            username = "Amul"
         old_role = str(data.get("old_role", "Employee")).strip()
         new_role = str(data.get("new_role", "Manager")).strip()
 
@@ -643,11 +645,11 @@ def change_user_role_audit():
 
         threading.Thread(
             target=sheets.log_security_audit,
-            args=(username, new_role, "ROLE_CHANGED", username, f"{username.lower()}@gmail.com", f"Role changed from {old_role} to {new_role}"),
+            args=(username, new_role, "ROLE_CHANGED", username, f"{username.lower()}@gmail.com", f"Role changed from {old_role} to {new_role} by {username}"),
             daemon=True
         ).start()
 
-        return jsonify({"success": True, "message": f"Role change logged for {username}"})
+        return jsonify({"success": True, "message": f"Role change to {new_role} logged for {username}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 

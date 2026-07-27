@@ -1767,10 +1767,15 @@ def get_user_roles():
                             if u_name.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
                                 u_name = "Amul"
                             u_role = r[1].strip()
+                            key = u_name.strip().lower()
+                            # If audit logs have a newer role change for this user, use the latest audit role!
+                            if key in latest_user_status and latest_user_status[key].get("role"):
+                                audit_role = latest_user_status[key]["role"]
+                                if audit_role and audit_role in ("Admin", "Manager", "Employee"):
+                                    u_role = audit_role
                             given_tag = r[2].strip() if len(r) > 2 else ""
                             u_tag = resolve_official_discord_tag(u_name, given_tag)
                             u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
-                            key = u_name.lower()
                             user_map[key] = {
                                 "username": u_name,
                                 "role": u_role,
