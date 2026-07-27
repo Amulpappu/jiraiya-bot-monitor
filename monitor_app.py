@@ -552,6 +552,10 @@ def get_inventory():
 def add_inventory():
     try:
         data = request.json or {}
+        user = str(data.get("username") or data.get("user") or "Amul").strip()
+        if user.upper() in ("AMULPAPPU", "AMUL PAPPU"): user = "Amul"
+        role = str(data.get("role") or "Admin").strip()
+
         name = data.get("item_name", "").strip()
         if not name:
             return jsonify({"success": False, "error": "Please enter valid Item Name"})
@@ -573,7 +577,12 @@ def add_inventory():
 
         res = sheets.save_inventory_item(name, qty, bought, restock, price)
         if res:
-            append_log(f"[Inventory] Saved item '{name}' (Qty: {qty}, Unit Price: ₹{price:,.2f})")
+            threading.Thread(
+                target=sheets.log_security_audit,
+                args=(user, role, "INVENTORY_EDIT", user, f"{user.lower()}@gmail.com", f"Updated inventory item '{name}' (Stock Qty: {qty}, Bought: {bought}, Unit Price: ₹{price:,.2f}) by {user}"),
+                daemon=True
+            ).start()
+            append_log(f"[Inventory Edit] {user} updated '{name}' (Qty: {qty}, Price: ₹{price:,.2f})")
             return jsonify({"success": True, "message": f"Successfully updated inventory for {name}!"})
         else:
             return jsonify({"success": False, "error": "Failed to save inventory item into Google Sheets."})
@@ -895,6 +904,9 @@ def dismiss_alert():
 @app.route("/api/inventory/delete", methods=["POST"])
 def delete_inventory():
     data = request.json or {}
+    user = str(data.get("username") or data.get("user") or "Amul").strip()
+    if user.upper() in ("AMULPAPPU", "AMUL PAPPU"): user = "Amul"
+    role = str(data.get("role") or "Admin").strip()
     item_name = data.get("item_name", "").strip()
 
     if not item_name:
@@ -902,7 +914,12 @@ def delete_inventory():
 
     res = sheets.delete_inventory_item(item_name)
     if res:
-        append_log(f"[Inventory] Deleted item '{item_name}' from Google Sheets.")
+        threading.Thread(
+            target=sheets.log_security_audit,
+            args=(user, role, "INVENTORY_DELETE", user, f"{user.lower()}@gmail.com", f"Deleted inventory item '{item_name}' from warehouse stock by {user}"),
+            daemon=True
+        ).start()
+        append_log(f"[Inventory Delete] {user} deleted '{item_name}' from Google Sheets.")
         return jsonify({"success": True, "message": f"🗑️ Item '{item_name}' deleted from Google Sheets Inventory!"})
     else:
         return jsonify({"success": False, "error": "Failed to delete item from Google Sheets."})
@@ -911,6 +928,9 @@ def delete_inventory():
 @app.route("/api/employees/add", methods=["POST"])
 def add_employee():
     data = request.json or {}
+    user = str(data.get("username") or data.get("user") or "Amul").strip()
+    if user.upper() in ("AMULPAPPU", "AMUL PAPPU"): user = "Amul"
+    role = str(data.get("role") or "Admin").strip()
     name = data.get("name", "").strip()
     tag = data.get("tag", "").strip()
 
@@ -920,7 +940,12 @@ def add_employee():
     added = config.add_employee_mapping(name, tag)
     if added:
         threading.Thread(target=sheets.update_employee_tracker, daemon=True).start()
-        append_log(f"[Web API] Added employee mapping: {name} -> @{tag.lstrip('@')} (Google Sheets updated).")
+        threading.Thread(
+            target=sheets.log_security_audit,
+            args=(user, role, "EMPLOYEE_EDIT", user, f"{user.lower()}@gmail.com", f"Added/Updated employee mapping: '{name}' -> @{tag.lstrip('@')} by {user}"),
+            daemon=True
+        ).start()
+        append_log(f"[Employee Edit] {user} updated employee mapping: {name} -> @{tag.lstrip('@')}")
         return jsonify({"success": True, "message": f"Successfully added {name} (@{tag.lstrip('@')})!"})
     else:
         return jsonify({"success": False, "message": "Failed to add employee."})

@@ -1026,17 +1026,27 @@
         const body = document.getElementById('auditLogsTableBody');
         if(body) {
           if(data.success && data.logs && data.logs.length > 0) {
-            body.innerHTML = data.logs.map(l => `
-              <tr>
-                <td><small style="color:var(--text-muted);">${l.timestamp}</small></td>
-                <td><span class="badge ${l.action === 'USER_LOGIN' ? 'badge-success' : (l.action === 'USER_LOGOUT' ? 'badge-warning' : 'badge-primary')}">${l.action}</span></td>
-                <td><strong>${l.user}</strong></td>
-                <td>${l.role}</td>
-                <td><small>${l.details||''}</small></td>
-              </tr>
-            `).join('');
+            body.innerHTML = data.logs.map(l => {
+              const actStr = String(l.action || '').toUpperCase();
+              const badgeClass = (actStr.includes('LOGIN') || actStr.includes('APPROVED')) 
+                ? 'badge-success' 
+                : ((actStr.includes('EDIT') || actStr.includes('ROLE') || actStr.includes('LOGOUT')) 
+                    ? 'badge-warning' 
+                    : ((actStr.includes('DELETE') || actStr.includes('REVOKED') || actStr.includes('REJECTED')) 
+                        ? 'badge-danger' 
+                        : 'badge-primary'));
+              return `
+                <tr>
+                  <td><small style="color:var(--text-muted);">${l.timestamp}</small></td>
+                  <td><span class="badge ${badgeClass}">${l.action}</span></td>
+                  <td><strong>${l.user}</strong></td>
+                  <td>${l.role}</td>
+                  <td><small>${l.details||''}</small></td>
+                </tr>
+              `;
+            }).join('');
           } else {
-            body.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No audit logs recorded yet. Logins, Logouts & Role changes write automatically to Google Sheets tab 'User_Audit_Logs'!</td></tr>`;
+            body.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No audit logs recorded yet. Logins, Logouts, Role changes, Inventory & Employee edits write automatically to Google Sheets tab 'User_Audit_Logs'!</td></tr>`;
           }
         }
       } catch(e) {}
@@ -1886,11 +1896,15 @@
         alert('Please enter a valid non-negative number for quantity.');
         return;
       }
+      const authUser = localStorage.getItem('auth_user') || 'Amul';
+      const authRole = localStorage.getItem('user_role') || 'Admin';
       try {
         const res = await fetch('/api/inventory/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            username: authUser,
+            role: authRole,
             item_name: itemName,
             qty: newQty,
             unit_price: unitPrice,
@@ -1902,6 +1916,7 @@
         if(data.success) {
           alert(`Updated '${itemName}' stock quantity to ${newQty}!`);
           fetchInventory();
+          if(typeof fetchAuditLogs === 'function') fetchAuditLogs();
         } else {
           alert(data.error || 'Failed to update quantity.');
         }
@@ -1923,15 +1938,18 @@
 
     async function deleteInventoryItem(itemName) {
       if(!confirm(`Are you sure you want to delete '${itemName}' from Google Sheets Inventory?`)) return;
+      const authUser = localStorage.getItem('auth_user') || 'Amul';
+      const authRole = localStorage.getItem('user_role') || 'Admin';
       try {
         const res = await fetch('/api/inventory/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item_name: itemName })
+          body: JSON.stringify({ username: authUser, role: authRole, item_name: itemName })
         });
         const data = await res.json();
         alert(data.message || (data.success ? 'Item deleted!' : data.error));
         fetchInventory();
+        if(typeof fetchAuditLogs === 'function') fetchAuditLogs();
       } catch(e) {
         alert(`Deleted '${itemName}'!`);
         fetchInventory();
@@ -1958,13 +1976,19 @@
         }
         return;
       }
+
       if(errEl) errEl.style.display = 'none';
+
+      const authUser = localStorage.getItem('auth_user') || 'Amul';
+      const authRole = localStorage.getItem('user_role') || 'Admin';
 
       try {
         const res = await fetch('/api/inventory/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            username: authUser,
+            role: authRole,
             item_name: name,
             qty: qty,
             bought: bought,
@@ -1981,6 +2005,7 @@
             errEl.style.display = 'block';
           }
           fetchInventory();
+          if(typeof fetchAuditLogs === 'function') fetchAuditLogs();
         } else {
           if(errEl) {
             errEl.innerText = "⚠️ " + (data.error || "Failed to save item");
