@@ -1210,11 +1210,10 @@ def get_rich_leaderboard(rows_by_sheet):
     stats = {}
 
     emp_set = set(config.EMPLOYEE_MAPPING.values())
-    emp_set.update(["Eli", "Meenu", "AMULPAPPU"])
+    emp_set.update(["Eli", "Meenu", "AMULPAPPU", "Amul"])
 
     for emp_name in emp_set:
-        rev_map = getattr(config, "REVERSE_MAPPING", {})
-        tag = rev_map.get(emp_name, f"@{emp_name.lower().replace(' ', '')}")
+        tag = resolve_official_discord_tag(emp_name)
         stats[emp_name] = {
             "name": emp_name,
             "tag": tag,
@@ -1238,7 +1237,7 @@ def get_rich_leaderboard(rows_by_sheet):
         if emp not in stats:
             stats[emp] = {
                 "name": emp,
-                "tag": f"@{emp.lower().replace(' ', '')}",
+                "tag": resolve_official_discord_tag(emp),
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
@@ -1276,7 +1275,7 @@ def get_rich_leaderboard(rows_by_sheet):
         if emp not in stats:
             stats[emp] = {
                 "name": emp,
-                "tag": f"@{emp.lower().replace(' ', '')}",
+                "tag": resolve_official_discord_tag(emp),
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
@@ -1296,7 +1295,7 @@ def get_rich_leaderboard(rows_by_sheet):
         if emp not in stats:
             stats[emp] = {
                 "name": emp,
-                "tag": f"@{emp.lower().replace(' ', '')}",
+                "tag": resolve_official_discord_tag(emp),
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
@@ -1311,6 +1310,7 @@ def get_rich_leaderboard(rows_by_sheet):
         tot = emp_info["civilian_service"] + emp_info["govt_service"] + emp_info["kits"] + emp_info["upgrades"]
         emp_info["total_logs"] = tot
         emp_info["points"] = tot
+        emp_info["tag"] = resolve_official_discord_tag(emp_info["name"], emp_info.get("tag", ""))
 
     # Stable deterministic sorting: (-total_logs, -civilian_service, -govt_service, name)
     sorted_list = sorted(stats.values(), key=lambda x: (-x["total_logs"], -x["civilian_service"], -x["govt_service"], x["name"]))
