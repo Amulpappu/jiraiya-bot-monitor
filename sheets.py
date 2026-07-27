@@ -1727,23 +1727,32 @@ def resolve_official_discord_tag(username: str, fallback_tag: str = "") -> str:
 
 
 def get_user_roles():
-    """Fetches system roles ONLY for active users (from User_Roles tab and web logins), respecting revoked/deleted users."""
+    """Fetches system roles for active web users based on User_Roles tab and LATEST audit log status."""
     user_map = {}
-    revoked_users = set()
+    latest_user_status = {}
 
-    # 1. Fetch revoked/deleted users from audit logs
+    # 1. Inspect audit logs (newest first) to determine each user's LATEST state
     try:
         audit_logs = get_security_audit_logs()
         for log in audit_logs:
-            act = str(log.get("action", "")).upper()
-            det = str(log.get("details", "")).lower()
-            if "REVOKED" in act or "deleted" in det or "revoked" in det:
-                u_rev = (log.get("user") or log.get("username") or "").strip().lower()
-                if u_rev:
-                    revoked_users.add(u_rev)
-    except Exception: pass
+            u_name = (log.get("user") or log.get("username") or "").strip()
+            if not u_name:
+                continue
+            if u_name.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
+                u_name = "Amul"
+            key = u_name.lower()
+            if key not in latest_user_status:
+                latest_user_status[key] = {
+                    "username": u_name,
+                    "action": str(log.get("action", "")).upper(),
+                    "role": log.get("role") or "Employee",
+                    "details": str(log.get("details", "")).lower(),
+                    "timestamp": log.get("timestamp") or ""
+                }
+    except Exception as e:
+        print(f"[Audit Log Status Error]: {e}")
 
-    # 2. Add active users from User_Roles sheet in Google Sheets (primary source of truth)
+    # 2. Add active users from User_Roles tab in Google Sheets (explicit overrides)
     roles_sheet_users = set()
     try:
         sh = get_spreadsheet()
@@ -1773,27 +1782,21 @@ def get_user_roles():
     except Exception as e:
         print(f"[Get User Roles Error]: {e}")
 
-    # 3. Add users from User_Audit_Logs (only web logged-in users who have NOT been revoked/deleted)
-    try:
-        if 'audit_logs' in locals() and audit_logs:
-            for log in audit_logs:
-                u_name = log.get("user") or log.get("username")
-                if u_name and u_name.strip():
-                    u_clean = u_name.strip()
-                    if u_clean.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
-                        u_clean = "Amul"
-                    key = u_clean.lower()
-                    # Skip if user was deleted/revoked by Admin
-                    if key in revoked_users and key not in roles_sheet_users:
-                        continue
-                    if key not in user_map:
-                        user_map[key] = {
-                            "username": u_clean,
-                            "role": log.get("role") or "Employee",
-                            "tag": resolve_official_discord_tag(u_clean),
-                            "updated": log.get("timestamp") or "Logged In"
-                        }
-    except Exception: pass
+    # 3. Add users from audit logs whose LATEST action is NOT REVOKED
+    for key, info in latest_user_status.items():
+        act = info["action"]
+        det = info["details"]
+        # Skip if their LATEST action was REVOKED/deleted and they are not explicitly in User_Roles sheet
+        if ("REVOKED" in act or "deleted" in det or "revoked" in det) and key not in roles_sheet_users:
+            continue
+        if key not in user_map:
+            u_clean = info["username"]
+            user_map[key] = {
+                "username": u_clean,
+                "role": info["role"],
+                "tag": resolve_official_discord_tag(u_clean),
+                "updated": info["timestamp"] or "Logged In"
+            }
 
     if "amul" not in user_map:
         user_map["amul"] = {
