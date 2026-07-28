@@ -63,7 +63,7 @@ KIT_HEADERS = [
     "Timestamp", "Customer Name", "Repair Kit Qty", "Cleaning Kit Qty",
     "Discount %", "Total Amount", "Employee", "Message ID",
 ]
-EXPENSE_HEADERS = ["Timestamp", "Amount", "Employee", "Category", "Description", "Message ID"]
+EXPENSE_HEADERS = ["Timestamp", "Amount", "Employee", "Message ID"]
 INVENTORY_HEADERS = ["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Price", "Total Value", "Last Updated"]
 VIP_CLAIM_HEADERS = ["Person Name", "Category", "Vehicle", "Staff", "Amount", "Timestamp", "Message ID"]
 TRANSACTIONS_HEADERS = ["Date", "Transaction Amount", "Description", "Transaction Type", "Employee Name"]
@@ -927,10 +927,14 @@ def get_all_logged_message_ids(force_refresh=False) -> set:
         return _LOGGED_IDS_CACHE
 
     logged = set()
-    for ws_name, msg_col in [("Service", 6), ("Upgrades", 4), ("Kits", 7), ("Expenses", 3), ("VIP Claim", 6)]:
+    for ws_name in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim"):
         for r in _all_rows(ws_name):
-            if len(r) > msg_col and r[msg_col].strip():
-                logged.add(r[msg_col].strip())
+            if not r: continue
+            for cell in reversed(r):
+                c_str = str(cell).strip()
+                if c_str and (c_str.isdigit() or c_str.startswith("MANUAL")):
+                    logged.add(c_str)
+                    break
     _LOGGED_IDS_CACHE = logged
     return logged
 

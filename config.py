@@ -32,8 +32,25 @@ SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 EXISTING_SPREADSHEET_ID = os.getenv("Code69-Employee Tracker", None)
 
 # ── Tesseract OCR ───────────────────────────────────────
-default_tesseract = "tesseract" if os.name == "posix" else r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-TESSERACT_CMD = os.getenv("TESSERACT_CMD", default_tesseract)
+def find_tesseract_cmd():
+    if os.getenv("TESSERACT_CMD"):
+        return os.getenv("TESSERACT_CMD")
+    if os.name == "posix":
+        for p in ("/usr/bin/tesseract", "/usr/local/bin/tesseract", "tesseract"):
+            if os.path.exists(p) or p == "tesseract":
+                return p
+    else:
+        candidates = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expanduser(r"~\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"),
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                return c
+    return "tesseract"
+
+TESSERACT_CMD = find_tesseract_cmd()
 
 # ── Local storage ────────────────────────────────────────
 PROCESSED_HASHES_FILE = "processed_images.json"

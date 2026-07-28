@@ -642,8 +642,6 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500)
         async for message in channel.history(limit=limit, oldest_first=False):
             if message.author.bot:
                 continue
-            if message.created_at.year != 2026 or message.created_at.month != 7:
-                continue
             if not message.attachments and not cfg.get("expense_channel"):
                 continue
 
