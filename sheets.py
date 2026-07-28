@@ -191,8 +191,8 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
     now = time.time()
 
     with _CACHE_LOCK:
-        # If valid cache or last known data exists, use it
-        if ws_name in _LAST_KNOWN_ROWS and len(_LAST_KNOWN_ROWS[ws_name]) > 0 and not force_refresh:
+        # If valid cache exists, use it
+        if ws_name in _LAST_KNOWN_ROWS and not force_refresh:
             cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS[ws_name]))
             if now - cached_time > 30 and not fast_cached_only:
                 if ws_name not in _REFRESHING_SHEETS:
@@ -215,11 +215,10 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
                                             except Exception: pass
                                 if ws:
                                     rows_raw = _with_retry(lambda: ws.get_all_values())
-                                    if rows_raw and len(rows_raw) > 1:
-                                        data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)]
-                                        with _CACHE_LOCK:
-                                            _ROWS_CACHE[w_name] = (time.time(), data)
-                                            _LAST_KNOWN_ROWS[w_name] = data
+                                    data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
+                                    with _CACHE_LOCK:
+                                        _ROWS_CACHE[w_name] = (time.time(), data)
+                                        _LAST_KNOWN_ROWS[w_name] = data
                         except Exception as ex:
                             print(f"[BG Refresh Warning] {w_name}: {ex}")
                         finally:
@@ -230,7 +229,7 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
 
             return cached_data
 
-    # If no data in memory at all, fetch synchronously so the first read is 100% complete!
+    # Fetch synchronously from Google Sheets
     try:
         ss = get_spreadsheet()
         if ss:
@@ -246,12 +245,11 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
                         except Exception: pass
             if ws:
                 rows_raw = _with_retry(lambda: ws.get_all_values())
-                if rows_raw and len(rows_raw) > 1:
-                    data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)]
-                    with _CACHE_LOCK:
-                        _ROWS_CACHE[ws_name] = (time.time(), data)
-                        _LAST_KNOWN_ROWS[ws_name] = data
-                    return data
+                data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
+                with _CACHE_LOCK:
+                    _ROWS_CACHE[ws_name] = (time.time(), data)
+                    _LAST_KNOWN_ROWS[ws_name] = data
+                return data
     except Exception as ex:
         print(f"[Synchronous Fetch Warning] {ws_name}: {ex}")
 
@@ -998,7 +996,7 @@ def reset_all_data_sheets():
         except Exception as e:
             import logging
             logging.getLogger("sheets").error(f"Failed to reset sheet {ws_name}: {e}")
-    clear_rows_cache()
+    clear_rows_cache(hard=True)
     try:
         update_dashboard()
     except Exception:
