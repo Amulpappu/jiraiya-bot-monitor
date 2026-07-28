@@ -114,9 +114,6 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     to confirm the exact subtype and to break ties on ambiguous amounts that
     are a clean multiple of both 3000 and 5000.
     """
-    if not message.attachments:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
@@ -125,17 +122,18 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         (a for a in message.attachments if a.content_type and "image" in a.content_type),
         None,
     )
-    if image_attachment is None:
-        return
 
-    try:
-        image_hash, parsed, _raw_text = await ocr.process_invoice_image(
-            image_attachment.url, ["customer", "amount"]
-        )
-    except Exception as e:
-        ocr.logger.error(f"OCR failed for service message {message.id}: {e}")
-        await add_reaction_if_enabled(message, "❓")
-        return
+    image_hash = None
+    parsed = {}
+    raw_text = ""
+
+    if image_attachment is not None:
+        try:
+            image_hash, parsed, raw_text = await ocr.process_invoice_image(
+                image_attachment.url, ["customer", "amount"]
+            )
+        except Exception as e:
+            ocr.logger.error(f"OCR failed for service message {message.id}: {e}")
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
         if str(message.id) in sheets.get_all_logged_message_ids():
@@ -143,27 +141,30 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
             return
 
     amount = parsed.get("amount")
-    if amount and amount > 100000:
-        # Ignore invalid 6-digit/7-digit misreads (e.g. 2,118,064)
+    if (amount is None or amount <= 0) and message.content:
+        amount = parse_text_amount(message.content)
+
+    if amount is None or amount <= 0:
         await add_reaction_if_enabled(message, "❓")
         return
 
     keyword_category = service_pricing.parse_service_category(message.content)
-    result = service_pricing.resolve_category_and_count(amount, keyword_category)
+    if not keyword_category and raw_text:
+        keyword_category = service_pricing.parse_service_category(raw_text)
 
-    if not result["confident"] or not result["category"] or result["category"] == "Unspecified":
-        await add_reaction_if_enabled(message, "❓")
-        return
+    result = service_pricing.resolve_category_and_count(amount, keyword_category)
+    service_cat = result.get("category") or ("government" if "pd" in (message.content or "").lower() or "ems" in (message.content or "").lower() else "civilian")
+    service_cnt = result.get("count") or max(1, int(round(amount / 3000.0)))
 
     try:
         await asyncio.to_thread(
             sheets.append_service_entry,
-            customer=parsed.get("customer"),
-            category=result["category"],
-            total=amount if amount is not None else 0,
+            customer=parsed.get("customer") or "Unknown / VIP",
+            category=service_cat,
+            total=amount,
             employee=resolve_employee_name(message.author),
             message_id=str(message.id),
-            count=result["count"],
+            count=service_cnt,
             created_at=message.created_at,
         )
     except Exception as e:
@@ -174,24 +175,23 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    if result["confident"]:
-        txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
-        txn_desc = f"{result['count']}x" if result.get("count") else "1x"
-        try:
-            await asyncio.to_thread(
-                sheets.append_transaction_entry,
-                amount,
-                resolve_employee_name(message.author),
-                txn_category,
-                description=txn_desc,
-                created_at=message.created_at,
-                skip_tracker_update=is_backfill,
-            )
-        except Exception as e:
-            ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
+    txn_category = "Service-Government" if service_cat == "government" else "Service-Civilian"
+    txn_desc = f"{service_cnt}x"
+    try:
+        await asyncio.to_thread(
+            sheets.append_transaction_entry,
+            amount,
+            resolve_employee_name(message.author),
+            txn_category,
+            description=txn_desc,
+            created_at=message.created_at,
+            skip_tracker_update=is_backfill,
+        )
+    except Exception as e:
+        ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
-        await add_reaction_if_enabled(message, "✅")
-        return
+    await add_reaction_if_enabled(message, "✅")
+    return
 
     # ── Not confident — flag for manual review, but still logged so nothing gets lost ──
     await add_reaction_if_enabled(message, "❓")
@@ -647,7 +647,7 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500)
 
             await process_invoice_message(message, effective_name, is_backfill=True)
             scanned += 1
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.02)
     except Exception as e:
         ocr.logger.error(f"Error backfilling history for channel {channel_name}: {e}")
 
@@ -750,25 +750,34 @@ async def send_heartbeat_loop():
                 pass
 
 
-async def _do_recent_scan(limit=50):
-    """Scans only the most recent N messages per channel for missed invoices."""
+async def scan_one_channel(channel, limit):
+    channel_name = getattr(channel, "name", "channel")
+    try:
+        count = await backfill_channel_history(channel, channel_name, limit=limit)
+        print(f"  [Parallel Scan] #{channel_name}: {count} message(s) processed")
+        return count
+    except Exception as e:
+        print(f"  [Parallel Scan] #{channel_name}: error ({e})")
+        return 0
+
+
+async def _do_recent_scan(limit=200):
+    """Scans recent N messages across all channels concurrently in parallel."""
+    print("[Recent Scan] Starting parallel channel scan...")
     for guild in bot.guilds:
         targets = await collect_target_channels(guild)
-        for channel in targets:
-            channel_name = getattr(channel, "name", "channel")
-            try:
-                count = await backfill_channel_history(channel, channel_name, limit=limit)
-                print(f"  [Recent Scan] #{channel_name}: {count} message(s)")
-            except Exception as e:
-                print(f"  [Recent Scan] #{channel_name}: error ({e})")
+        tasks = [scan_one_channel(ch, limit) for ch in targets]
+        await asyncio.gather(*tasks, return_exceptions=True)
     try:
+        sheets.force_refresh_all()
+        await asyncio.to_thread(sheets.update_employee_tracker)
         await asyncio.to_thread(sheets.update_dashboard)
     except Exception:
         pass
 
 
 async def _do_full_scan(limit=2000):
-    """Full scan from the beginning of channel history (used after wipe)."""
+    """Full scan from the beginning of channel history across all channels in parallel."""
     global processed_hashes
     processed_hashes = set()
     if os.path.exists(config.PROCESSED_HASHES_FILE):
@@ -777,16 +786,14 @@ async def _do_full_scan(limit=2000):
                 f.write("[]")
         except Exception: pass
 
-    print("[Full Wipe Scan] Starting scan of all configured channels from message #1...")
+    print("[Full Wipe Scan] Starting PARALLEL scan of all configured channels from message #1...")
     for guild in bot.guilds:
         targets = await collect_target_channels(guild)
-        for channel in targets:
-            channel_name = getattr(channel, "name", "channel")
-            try:
-                count = await backfill_channel_history(channel, channel_name, limit=limit)
-                print(f"  [Full Scan] #{channel_name}: {count} message(s) processed")
-            except Exception as e:
-                print(f"  [Full Scan] #{channel_name}: error ({e})")
+        tasks = [scan_one_channel(ch, limit) for ch in targets]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        total_scanned = sum(r for r in results if isinstance(r, int))
+        print(f"[Full Wipe Scan] Finished scanning {total_scanned} total messages across {len(targets)} channels.")
+
     try:
         sheets.force_refresh_all()
         await asyncio.to_thread(sheets.update_employee_tracker)
