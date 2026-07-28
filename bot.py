@@ -117,9 +117,6 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     if not message.attachments:
         return
 
-    if message.created_at.year != 2026 or message.created_at.month != 7:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
@@ -141,8 +138,9 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         return
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
-        await add_reaction_if_enabled(message, "🔁")
-        return
+        if str(message.id) in sheets.get_all_logged_message_ids():
+            await add_reaction_if_enabled(message, "🔁")
+            return
 
     amount = parsed.get("amount")
     if amount and amount > 100000:
@@ -226,9 +224,6 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     if not message.attachments:
         return
 
-    if message.created_at.year != 2026 or message.created_at.month != 7:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
@@ -249,8 +244,9 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         image_hash, parsed, raw_text = None, {"customer": None, "amount": None}, ""
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
-        await add_reaction_if_enabled(message, "🔁")
-        return
+        if str(message.id) in sheets.get_all_logged_message_ids():
+            await add_reaction_if_enabled(message, "🔁")
+            return
 
     qty = kit_pricing.parse_kit_quantities(message.content)
     if qty is None and raw_text:
@@ -353,9 +349,6 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
     For the bill_claim channel: reads the total expense amount off the order/supply bill.
     Logs to the Expenses sheet and the consolidated Transactions ledger (category='Order').
     """
-    if message.created_at.year != 2026 or message.created_at.month != 7:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
@@ -388,8 +381,9 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
         return
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
-        await add_reaction_if_enabled(message, "🔁")
-        return
+        if str(message.id) in sheets.get_all_logged_message_ids():
+            await add_reaction_if_enabled(message, "🔁")
+            return
 
     emp_name = resolve_employee_name(message.author)
 
@@ -432,17 +426,9 @@ def normalize_vip_category(raw_cat: str) -> str:
 
 async def process_vip_claim_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """
-    For the vip-claim-logs channel: parses text-format claim details:
-    Person Name : ...
-    Vehicle Category : ...
-    Vehicle Name : ...
-    Staff Name : ...
-    Amount : ...
+    For the vip-claim-logs channel: parses text-format claim details.
     Logs to the VIP Claim sheet tab.
     """
-    if message.created_at.year != 2026 or message.created_at.month != 7:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
@@ -500,9 +486,6 @@ async def process_vip_claim_message(message: discord.Message, cfg: dict, is_back
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False):
     """Runs OCR + sheet logging for one message's image attachments or text.
     Shared by on_message (live) and the startup history scan (backfill)."""
-    if message.created_at.year != 2026 or message.created_at.month != 7:
-        return
-
     cfg, _key = config.get_channel_config(channel_name)
     if not cfg:
         return
@@ -547,8 +530,9 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
         # ── Duplicate check ──
         if config.IGNORE_DUPLICATE_IMAGES and image_hash in processed_hashes:
-            await add_reaction_if_enabled(message, "🔁")
-            continue
+            if str(message.id) in sheets.get_all_logged_message_ids():
+                await add_reaction_if_enabled(message, "🔁")
+                continue
 
         # ── Validate parsed fields ──
         customer = parsed.get("customer")
