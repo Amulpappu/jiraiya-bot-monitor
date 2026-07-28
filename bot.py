@@ -499,16 +499,48 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         return
 
     if cfg.get("category_channel"):
-        await process_service_message(message, cfg, is_backfill)
+        await process_service_message(message, is_backfill)
         return
 
     if cfg.get("expense_channel"):
-        await process_expense_message(message, cfg, is_backfill)
+        await process_expense_message(message, is_backfill)
         return
 
-    for attachment in message.attachments:
-        if not attachment.content_type or "image" not in attachment.content_type:
-            continue
+    image_attachments = [a for a in message.attachments if a.content_type and "image" in a.content_type]
+    if not image_attachments and message.content:
+        # Fallback for text-based upgrade invoice messages
+        if is_backfill and str(message.id) in sheets.get_all_logged_message_ids():
+            return
+        val = parse_text_amount(message.content)
+        if val and val > 0:
+            m_cust = re.search(r"(?:customer|client|name|buyer|for)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})", message.content, re.IGNORECASE)
+            cust = m_cust.group(1).strip() if (m_cust and _is_valid_name(m_cust.group(1))) else "Unknown / VIP"
+            try:
+                await asyncio.to_thread(
+                    sheets.append_entry,
+                    sheet_name=cfg["sheet_name"],
+                    customer=cust,
+                    value=val,
+                    employee=resolve_employee_name(message.author),
+                    message_id=str(message.id),
+                    created_at=message.created_at,
+                )
+                txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(cfg["sheet_name"], "Upgrades")
+                await asyncio.to_thread(
+                    sheets.append_transaction_entry,
+                    val,
+                    resolve_employee_name(message.author),
+                    txn_category,
+                    description="1x UpGrade",
+                    created_at=message.created_at,
+                    skip_tracker_update=is_backfill,
+                )
+                await add_reaction_if_enabled(message, "✅")
+            except Exception as e:
+                ocr.logger.error(f"Failed to write text upgrade entry for {message.id}: {e}")
+        return
+
+    for attachment in image_attachments:
 
         # ── Skip messages already handled (logged in Google Sheets) ──
         if is_backfill:

@@ -63,17 +63,35 @@ EXCLUDED_CATEGORIES = ["mj fuels", "mj_fuels", "mjfuels", "no usage", "no_usage"
 # ── Channel → Category mapping ──────────────────────────
 # "fields" tells the OCR parser what data to look for in that channel's invoices.
 CHANNEL_CONFIG = {
-    "services": {
-        "category": "Car Service",
-        "sheet_name": "Service",
-        "fields": ["customer", "amount"],
-        "category_channel": True,  # triggers text-based civ/pd/ems/gov/taxi category parsing
-    },
-    "upgrades": {
-        "category": "Car Upgrade",
-        "sheet_name": "Upgrades",
-        "fields": ["customer", "amount"],
-    },
+    "services": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "service": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "service-log": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "service-logs": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "car-service": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "car-services": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆services": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆service": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆service-log": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆service-logs": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆ꜱᴇʀᴠɪᴄᴇꜱ": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "🛠️┆ꜱᴇʀᴠɪᴄᴇ": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "ꜱᴇʀᴠɪᴄᴇꜱ": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+    "ꜱᴇʀᴠɪᴄᴇ": {"category": "Car Service", "sheet_name": "Service", "fields": ["customer", "amount"], "category_channel": True},
+
+    "upgrades": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "upgrade": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "upgrade-log": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "upgrade-logs": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "car-upgrade": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "car-upgrades": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆upgrades": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆upgrade": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆upgrade-log": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆upgrade-logs": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆ᴜᴘɢʀᴀᴅᴇꜱ": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "🔧┆ᴜᴘɢʀᴀᴅᴇ": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "ᴜᴘɢʀᴀᴅᴇꜱ": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
+    "ᴜᴘɢʀᴀᴅᴇ": {"category": "Car Upgrade", "sheet_name": "Upgrades", "fields": ["customer", "amount"]},
     "🧰┆july-ᴋɪᴛꜱ": {
         "category": "Kit",
         "sheet_name": "Kits",
