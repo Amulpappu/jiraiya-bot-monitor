@@ -787,16 +787,26 @@ async def _do_recent_scan(limit=50):
 
 async def _do_full_scan(limit=2000):
     """Full scan from the beginning of channel history (used after wipe)."""
+    global processed_hashes
+    processed_hashes = set()
+    if os.path.exists(config.PROCESSED_HASHES_FILE):
+        try:
+            with open(config.PROCESSED_HASHES_FILE, "w") as f:
+                f.write("[]")
+        except Exception: pass
+
+    print("[Full Wipe Scan] Starting scan of all configured channels from message #1...")
     for guild in bot.guilds:
         targets = await collect_target_channels(guild)
         for channel in targets:
             channel_name = getattr(channel, "name", "channel")
             try:
                 count = await backfill_channel_history(channel, channel_name, limit=limit)
-                print(f"  [Full Scan] #{channel_name}: {count} message(s)")
+                print(f"  [Full Scan] #{channel_name}: {count} message(s) processed")
             except Exception as e:
                 print(f"  [Full Scan] #{channel_name}: error ({e})")
     try:
+        sheets.force_refresh_all()
         await asyncio.to_thread(sheets.update_employee_tracker)
         await asyncio.to_thread(sheets.update_dashboard)
     except Exception:
@@ -822,7 +832,16 @@ async def send_heartbeat_loop():
                     res_data = json.loads(resp.read().decode("utf-8"))
                     cmd = res_data.get("command")
                     bot_enabled = res_data.get("bot_enabled", True)
-                    if cmd == "stop" or not bot_enabled:
+                    
+                    if cmd == "rescan":
+                        print("[Heartbeat] ⚡ Received RESCAN command from Dashboard! Scanning recent Discord invoices...")
+                        sheets.clear_rows_cache(hard=True)
+                        asyncio.run_coroutine_threadsafe(_do_recent_scan(limit=200), bot.loop)
+                    elif cmd == "wipe":
+                        print("[Heartbeat] ⚠️ Received FULL WIPE command from Dashboard! Erasing data & performing FULL scan of all channels...")
+                        sheets.clear_rows_cache(hard=True)
+                        asyncio.run_coroutine_threadsafe(_do_full_scan(limit=2000), bot.loop)
+                    elif cmd == "stop" or not bot_enabled:
                         print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
                         try:
                             await bot.change_presence(status=discord.Status.offline)
