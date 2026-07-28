@@ -95,6 +95,31 @@ def log_discord_error(message: discord.Message, error_desc: str):
         pass
 
 
+def resolve_customer_name(parsed_cust: str, message: discord.Message, raw_text: str = "") -> str:
+    """Extracts customer name from OCR, message text caption, or raw text.
+    If none found, returns 'VIP Client' instead of 'Unknown'."""
+    if parsed_cust and _is_valid_name(parsed_cust):
+        return parsed_cust.strip()
+
+    patterns = [
+        r"(?:customer|client|name|buyer|sold to|recipient|billed to|billed|target|patient|paid by|player|citizen|receiver|person|for|bill to|bill for|invoice to)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})",
+    ]
+
+    if message and message.content:
+        for p in patterns:
+            m = re.search(p, message.content, re.IGNORECASE)
+            if m and _is_valid_name(m.group(1)):
+                return m.group(1).strip()
+
+    if raw_text:
+        for p in patterns:
+            m = re.search(p, raw_text, re.IGNORECASE)
+            if m and _is_valid_name(m.group(1)):
+                return m.group(1).strip()
+
+    return "VIP Client"
+
+
 async def add_reaction_if_enabled(message: discord.Message, emoji: str):
     """Adds an emoji reaction to a message only if ENABLE_DISCORD_REACTIONS is True in config.py."""
     if getattr(config, "ENABLE_DISCORD_REACTIONS", False):
@@ -104,7 +129,7 @@ async def add_reaction_if_enabled(message: discord.Message, emoji: str):
             pass
 
 
-async def process_service_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
+async def process_service_message(message: discord.Message, is_backfill: bool = False):
     """
     For the services channel: category and how many services were billed
     together are worked out from the invoice's OWN amount (e.g. 6000 =
@@ -159,7 +184,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     try:
         await asyncio.to_thread(
             sheets.append_service_entry,
-            customer=parsed.get("customer") or "Unknown / VIP",
+            customer=resolve_customer_name(parsed.get("customer"), message, raw_text),
             category=service_cat,
             total=amount,
             employee=resolve_employee_name(message.author),
@@ -271,7 +296,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     try:
         await asyncio.to_thread(
             sheets.append_kit_entry,
-            customer=parsed.get("customer"),
+            customer=resolve_customer_name(parsed.get("customer"), message, raw_text),
             rk_qty=qty["rk"],
             ck_qty=qty["ck"],
             discount_pct=discount,

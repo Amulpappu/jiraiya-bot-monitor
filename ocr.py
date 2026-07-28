@@ -90,7 +90,7 @@ def extract_text(image_bytes: bytes) -> str:
 # ── Field parsers ────────────────────────────────────────
 
 NAME_PATTERNS = [
-    r"(?:customer|client|name|buyer|sold to|recipient)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})",
+    r"(?:customer|client|name|buyer|sold to|recipient|billed to|billed|target|patient|paid by|player|citizen|receiver|person|for|bill to|bill for|invoice to)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})",
 ]
 
 AMOUNT_PATTERNS = [
