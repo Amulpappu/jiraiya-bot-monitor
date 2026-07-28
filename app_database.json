@@ -160,5 +160,15 @@
       "desc": "Pneumatic wrench & cleaning supplies"
     }
   ],
-  "last_sync": "2026-07-26 02:27:05 IST"
+  "last_sync": "2026-07-26 02:27:05 IST",
+  "access_requests": [
+    {
+      "timestamp": "2026-07-26 15:30:14",
+      "username": "testuser",
+      "ign": "Test User",
+      "email": "test@gmail.com",
+      "role": "Employee",
+      "status": "Pending Approval"
+    }
+  ]
 }

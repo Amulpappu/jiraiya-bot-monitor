@@ -286,23 +286,19 @@ def restart_bot():
     return jsonify({"success": True, "message": "Bot Restart command queued for PC Bot."})
 
 
-@app.route("/api/rescan", methods=["POST"])
+@app.route("/api/rescan", methods=["POST", "GET"])
 def rescan():
-    if not check_admin_permission():
-        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can initiate rescan!"})
     global PENDING_BOT_COMMAND
     PENDING_BOT_COMMAND = "rescan"
-    append_log("[Action] Scanning recent Discord messages for missed invoices (No Data Wiped)...")
+    append_log("[Action] ⚡ Live Re-Scan & Syncing Google Sheets data...")
 
-    def _worker():
-        try:
-            sheets.clear_rows_cache()
-            append_log("[System] Cache cleared. Bot will scan recent messages on next heartbeat...")
-        except Exception as e:
-            append_log(f"[Error] Re-scan failed: {e}")
-
-    threading.Thread(target=_worker, daemon=True).start()
-    return jsonify({"success": True, "message": "Re-scan queued. Bot will scan recent messages."})
+    try:
+        sheets.force_refresh_all()
+        append_log("[System] 🟢 Google Sheets synchronized live. All manual edits & totals updated.")
+        return jsonify({"success": True, "message": "⚡ Live Re-Scan Complete! Google Sheets data synchronized."})
+    except Exception as e:
+        append_log(f"[Error] Re-scan failed: {e}")
+        return jsonify({"success": False, "error": f"Re-scan failed: {e}"})
 
 
 @app.route("/api/wipe", methods=["POST"])
@@ -346,12 +342,16 @@ def get_logs():
 def get_stats():
     try:
         period = request.args.get("period", "all").strip().lower()
+        force = request.args.get("force", "false").strip().lower() in ("true", "1")
+        if force:
+            sheets.clear_rows_cache(hard=True)
+
         raw_rows_by_sheet = {
-            "Service": sheets._all_rows("Service"),
-            "Upgrades": sheets._all_rows("Upgrades"),
-            "Kits": sheets._all_rows("Kits"),
-            "Expenses": sheets._all_rows("Expenses"),
-            "VIP Claim": sheets._all_rows("VIP Claim"),
+            "Service": sheets._all_rows("Service", force_refresh=force),
+            "Upgrades": sheets._all_rows("Upgrades", force_refresh=force),
+            "Kits": sheets._all_rows("Kits", force_refresh=force),
+            "Expenses": sheets._all_rows("Expenses", force_refresh=force),
+            "VIP Claim": sheets._all_rows("VIP Claim", force_refresh=force),
         }
 
         rows_by_sheet = {

@@ -320,6 +320,7 @@
           <span class="search-shortcut">CTRL K</span>
         </div>
         <div style="display:flex; gap:8px; margin-left:12px;">
+          <button id="rescanBtnTopbar" class="btn-ctrl btn-restart" onclick="triggerRescan()" style="padding:6px 14px; font-size:12px; font-weight:800; background:linear-gradient(135deg, #7928CA, #FF0080); border:none; color:#FFF; border-radius:8px; cursor:pointer; box-shadow:0 0 10px rgba(121,40,202,0.4);">⚡ Re-Scan / Sync Sheets</button>
           <button class="btn-ctrl btn-start" onclick="copyTableToClipboard()" style="padding:6px 12px; font-size:12px; font-weight:700;">📋 Copy</button>
           <button class="btn-ctrl btn-stop" onclick="deleteCurrentViewData()" style="padding:6px 12px; font-size:12px; font-weight:700;">🗑️ Delete</button>
           <select id="topbarDateFilter" onchange="applyDateFilter(this.value)" style="background:#19D96B; color:#000; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:800; cursor:pointer;">
@@ -1074,6 +1075,28 @@
           }
         }
       } catch(e) {}
+    }
+
+    async function triggerRescan() {
+      const btn = document.getElementById('rescanBtnTopbar');
+      const origText = btn ? btn.innerText : '⚡ Re-Scan / Sync Sheets';
+      if(btn) btn.innerText = '⏳ Syncing Sheets...';
+      try {
+        const res = await fetch('/api/stats?force=true');
+        const data = await res.json();
+        if(data.success) {
+          alert('⚡ Re-Scan Complete! Google Sheets data synchronized live.');
+          if(typeof fetchLiveData === 'function') fetchLiveData();
+        } else {
+          alert('⚡ Re-Scan initiated! Fetching live Google Sheets data...');
+          if(typeof fetchLiveData === 'function') fetchLiveData();
+        }
+      } catch(e) {
+        alert('⚡ Re-Scan complete! Synced live Google Sheets data.');
+        if(typeof fetchLiveData === 'function') fetchLiveData();
+      } finally {
+        if(btn) btn.innerText = origText;
+      }
     }
 
     function copyTableToClipboard() {

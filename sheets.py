@@ -159,19 +159,31 @@ _CACHE_LOCK = threading.Lock()
 _LOGGED_IDS_CACHE = None
 
 
-def clear_rows_cache(ws_name=None):
+def clear_rows_cache(ws_name=None, hard=False):
     """Invalidates cached row timestamps when a new invoice is logged or roles are updated.
-    Preserves _LAST_KNOWN_ROWS so totals never drop or fluctuate on reads/logins."""
-    global _ROWS_CACHE, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE, _REFRESHING_SHEETS
+    If hard=True, also clears _LAST_KNOWN_ROWS to force a fresh synchronous fetch from Google Sheets."""
+    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _LOGGED_IDS_CACHE, _WORKSHEET_CACHE, _REFRESHING_SHEETS
     with _CACHE_LOCK:
         _LOGGED_IDS_CACHE = None
         if ws_name:
             _ROWS_CACHE.pop(ws_name, None)
             _WORKSHEET_CACHE.pop(ws_name, None)
+            if hard:
+                _LAST_KNOWN_ROWS.pop(ws_name, None)
         else:
             _ROWS_CACHE.clear()
             _WORKSHEET_CACHE.clear()
+            if hard:
+                _LAST_KNOWN_ROWS.clear()
         _REFRESHING_SHEETS.clear()
+
+
+def force_refresh_all():
+    """Clears all caches and re-fetches all sheet data synchronously from Google Sheets."""
+    clear_rows_cache(hard=True)
+    sheets_to_load = ["Service", "Upgrades", "Kits", "Expenses", "VIP Claim"]
+    for s in sheets_to_load:
+        _all_rows(s, force_refresh=True)
 
 
 def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
