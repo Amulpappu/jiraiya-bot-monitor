@@ -487,44 +487,65 @@ def normalize_vip_category(raw_cat: str) -> str:
 
 async def process_vip_claim_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """
-    For the vip-claim-logs channel: parses text-format claim details.
-    Logs to the VIP Claim sheet tab.
+    For the vip-claim-logs channel: parses claim details from text or OCR images.
+    Logs ONLY to the VIP Claim sheet tab (never added to gross sales ledger).
     """
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
 
     text = message.content or ""
+    img_urls = extract_image_urls(message)
+    image_url = img_urls[0] if img_urls else None
+
+    raw_text = ""
+    parsed = {}
+    if image_url:
+        try:
+            image_hash, parsed, raw_text = await ocr.process_invoice_image(
+                image_url, ["customer", "amount"]
+            )
+        except Exception as e:
+            ocr.logger.error(f"OCR failed for VIP claim message {message.id}: {e}")
+
+    full_text = f"{text}\n{raw_text}".strip()
 
     # Parse Person Name
-    m_person = re.search(r"Person\s*Name\s*[:\-]\s*(.+)", text, re.IGNORECASE)
-    person_name = m_person.group(1).strip() if m_person else "Unknown"
+    m_person = re.search(r"(?:Person\s*Name|Customer|Client|Name|Target|Billed\s*To|Paid\s*By)\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
+    if m_person and _is_valid_name(m_person.group(1)):
+        person_name = m_person.group(1).strip()
+    elif parsed.get("customer") and _is_valid_name(parsed.get("customer")):
+        person_name = parsed["customer"].strip()
+    else:
+        person_name = resolve_customer_name(parsed.get("customer"), message, raw_text)
 
     # Parse Vehicle Category
-    m_cat = re.search(r"(?:Vehicle\s*)?Category\s*[:\-]\s*(.+)", text, re.IGNORECASE)
+    m_cat = re.search(r"(?:Vehicle\s*)?Category\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
     category_raw = m_cat.group(1).strip() if m_cat else "VIP"
     category = normalize_vip_category(category_raw)
 
     # Parse Vehicle Name
-    m_veh = re.search(r"Vehicle(?:\s*Name)?\s*[:\-]\s*(.+)", text, re.IGNORECASE)
+    m_veh = re.search(r"Vehicle(?:\s*Name)?\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
     vehicle_name = m_veh.group(1).strip() if m_veh else "Unknown"
 
     # Parse Staff Name
-    m_staff = re.search(r"Staff(?:\s*Name)?\s*[:\-]\s*(.+)", text, re.IGNORECASE)
+    m_staff = re.search(r"Staff(?:\s*Name)?\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
     if m_staff and m_staff.group(1).strip():
         staff_name = resolve_employee_name(m_staff.group(1).strip())
     else:
         staff_name = resolve_employee_name(message.author)
 
     # Parse Amount
-    m_amt = re.search(r"Amount\s*[:\-]\s*[\$₹§€£]?\s*([\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
-    if m_amt:
-        try:
-            amount = float(m_amt.group(1).replace(",", ""))
-        except ValueError:
-            amount = parse_text_amount(text) or 0.0
-    else:
-        amount = parse_text_amount(text) or 0.0
+    amount = parsed.get("amount")
+    if amount is None or amount <= 0:
+        m_amt = re.search(r"Amount\s*[:\-]\s*[\$₹§€£]?\s*([\d,]+(?:\.\d+)?)", full_text, re.IGNORECASE)
+        if m_amt:
+            try:
+                amount = float(m_amt.group(1).replace(",", ""))
+            except ValueError:
+                amount = parse_text_amount(full_text) or 0.0
+        else:
+            amount = parse_text_amount(full_text) or 0.0
 
     try:
         await asyncio.to_thread(
