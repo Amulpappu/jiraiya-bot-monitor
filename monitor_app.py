@@ -158,7 +158,7 @@ def api_login():
 
     disp_name = ign if ign else (username if username else "AMULPAPPU")
 
-    # Look up assigned role in User_Roles sheet to automatically enforce assigned promotions (e.g. Eli -> Manager)
+    # Look up assigned role from user security logs (e.g. Eli -> Manager)
     assigned_role = None
     try:
         user_roles = sheets.get_user_roles()

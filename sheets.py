@@ -596,6 +596,23 @@ def wipe_all_data_sheets():
         return False
 
 
+def remove_deprecated_user_roles_and_access_sheets():
+    """Removes User_Roles and Access_Requests tabs from Google Sheets if present."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return
+        for tab_name in ("User_Roles", "Access_Requests"):
+            try:
+                ws = sh.worksheet(tab_name)
+                sh.del_worksheet(ws)
+                print(f"[Sheets Cleanup] Successfully deleted deprecated sheet '{tab_name}'.")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[Sheets Cleanup Warning]: {e}")
+
+
 def setup_all_sheets():
     """Call once at startup — makes sure every sheet + dashboard + employee tracker exist."""
     _ensure_sheet("Service", SERVICE_HEADERS)
@@ -606,6 +623,7 @@ def setup_all_sheets():
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
     _ensure_employee_tracker()
     _ensure_dashboard()
+    remove_deprecated_user_roles_and_access_sheets()
     clean_non_july_logs()
     clean_invalid_customer_names()
     clean_invalid_service_amounts()
@@ -1818,11 +1836,10 @@ def resolve_official_discord_tag(username: str, fallback_tag: str = "") -> str:
 
 
 def get_user_roles():
-    """Fetches system roles for active web users based on User_Roles tab and LATEST audit log status."""
+    """Fetches system roles for active web users based on LATEST audit log status."""
     user_map = {}
     latest_user_status = {}
 
-    # 1. Inspect audit logs (newest first) to determine each user's LATEST state
     try:
         audit_logs = get_security_audit_logs()
         for log in audit_logs:
@@ -1843,47 +1860,10 @@ def get_user_roles():
     except Exception as e:
         print(f"[Audit Log Status Error]: {e}")
 
-    # 2. Add active users from User_Roles tab in Google Sheets (explicit overrides)
-    roles_sheet_users = set()
-    try:
-        sh = get_spreadsheet()
-        if sh:
-            try:
-                ws = sh.worksheet("User_Roles")
-                rows = _with_retry(lambda: ws.get_all_values())
-                if rows and len(rows) > 1:
-                    for r in rows[1:]:
-                        if len(r) >= 2 and r[0].strip():
-                            u_name = r[0].strip()
-                            if u_name.upper() in ("AMULPAPPU", "AMUL PAPPU", "AMUL"):
-                                u_name = "Amul"
-                            u_role = r[1].strip()
-                            key = u_name.strip().lower()
-                            # If audit logs have a newer role change for this user, use the latest audit role!
-                            if key in latest_user_status and latest_user_status[key].get("role"):
-                                audit_role = latest_user_status[key]["role"]
-                                if audit_role and audit_role in ("Admin", "Manager", "Employee"):
-                                    u_role = audit_role
-                            given_tag = r[2].strip() if len(r) > 2 else ""
-                            u_tag = resolve_official_discord_tag(u_name, given_tag)
-                            u_time = r[3].strip() if len(r) > 3 else now_ist().strftime(TIMESTAMP_FORMAT)
-                            user_map[key] = {
-                                "username": u_name,
-                                "role": u_role,
-                                "tag": u_tag,
-                                "updated": u_time
-                            }
-                            roles_sheet_users.add(key)
-            except Exception: pass
-    except Exception as e:
-        print(f"[Get User Roles Error]: {e}")
-
-    # 3. Add users from audit logs whose LATEST action is NOT REVOKED
     for key, info in latest_user_status.items():
         act = info["action"]
         det = info["details"]
-        # Skip if their LATEST action was REVOKED/deleted and they are not explicitly in User_Roles sheet
-        if ("REVOKED" in act or "deleted" in det or "revoked" in det) and key not in roles_sheet_users:
+        if "REVOKED" in act or "deleted" in det or "revoked" in det:
             continue
         if key not in user_map:
             u_clean = info["username"]
@@ -1906,37 +1886,9 @@ def get_user_roles():
 
 
 def save_user_role(username: str, role: str, discord_tag: str = ""):
-    """Updates or inserts a user's role in Google Sheets tab 'User_Roles'."""
+    """Logs role assignment event to security audit log."""
     try:
-        sh = get_spreadsheet()
-        if not sh:
-            return False
-        try:
-            ws = sh.worksheet("User_Roles")
-        except Exception:
-            ws = sh.add_worksheet(title="User_Roles", rows=50, cols=5)
-            ws.append_row(["Username", "Role", "Discord Tag", "Last Updated (IST)"])
-
-        rows = _with_retry(lambda: ws.get_all_values())
-        updated = False
-        now_str = now_ist().strftime(TIMESTAMP_FORMAT)
-        u_lower = username.lower()
-
-        for idx, r in enumerate(rows[1:], start=2):
-            if len(r) > 0 and r[0].strip().lower() == u_lower:
-                tag_val = discord_tag if discord_tag else (r[2].strip() if len(r) > 2 else f"@{username.lower()}")
-                ws.update_cell(idx, 2, role)
-                ws.update_cell(idx, 3, tag_val)
-                ws.update_cell(idx, 4, now_str)
-                updated = True
-                break
-
-        if not updated:
-            tag_val = discord_tag if discord_tag else f"@{username.lower()}"
-            ws.append_row([username, role, tag_val, now_str])
-
         log_security_audit(username, role, "ROLE_ASSIGNED", ign=username, details=f"Assigned {role} role in User Settings")
-        clear_rows_cache("User_Roles")
         return True
     except Exception as e:
         print(f"[Save User Role Error]: {e}")
@@ -1944,36 +1896,10 @@ def save_user_role(username: str, role: str, discord_tag: str = ""):
 
 
 def remove_user_role(username: str):
-    """Removes a user's role entry from Google Sheets tab 'User_Roles' and records ACCESS_REVOKED."""
+    """Logs user access revoked event to security audit log."""
     try:
         u_clean = username.strip()
-        log_security_audit(u_clean, "None", "ACCESS_REVOKED", ign=u_clean, details="User access revoked and deleted from Google Sheets")
-
-        sh = get_spreadsheet()
-        if not sh:
-            return True
-        try:
-            ws = sh.worksheet("User_Roles")
-            rows = _with_retry(lambda: ws.get_all_values())
-            if rows and len(rows) > 1:
-                u_lower = u_clean.lower()
-                header = rows[0]
-                new_rows = [header]
-                removed = False
-                for r in rows[1:]:
-                    if len(r) > 0 and r[0].strip():
-                        row_u = r[0].strip().lower()
-                        if row_u == u_lower or u_lower in row_u or row_u in u_lower:
-                            removed = True
-                            continue
-                    new_rows.append(r)
-                if removed:
-                    _with_retry(lambda: ws.clear())
-                    _with_retry(lambda: ws.update("A1", new_rows))
-        except Exception: pass
-
-        clear_rows_cache()
-        print(f"[Sheets Security] Revoked access and deleted user '{u_clean}'.")
+        log_security_audit(u_clean, "None", "ACCESS_REVOKED", ign=u_clean, details="User access revoked")
         return True
     except Exception as e:
         print(f"[Remove User Role Error]: {e}")
@@ -2108,20 +2034,8 @@ def delete_inventory_item(item_name: str):
 
 
 def save_access_request(username: str, ign: str, email: str, role: str):
-    """Saves a user access request into Google Sheets tab 'Access_Requests'."""
+    """Logs user access request to security audit log."""
     try:
-        sh = get_spreadsheet()
-        if not sh:
-            return False
-        try:
-            ws = sh.worksheet("Access_Requests")
-        except Exception:
-            ws = sh.add_worksheet(title="Access_Requests", rows=50, cols=6)
-            ws.append_row(["Timestamp (IST)", "Username", "In Game Name", "Email", "Requested Role", "Status"])
-
-        now_str = now_ist().strftime(TIMESTAMP_FORMAT)
-        ws.append_row([now_str, username, ign, email, role, "Pending Approval"])
-        clear_rows_cache("Access_Requests")
         log_security_audit(username, role, "ACCESS_REQUESTED", f"IGN: {ign}, Email: {email}")
         return True
     except Exception as e:
@@ -2130,57 +2044,13 @@ def save_access_request(username: str, ign: str, email: str, role: str):
 
 
 def get_access_requests():
-    """Fetches all pending access requests from Google Sheets tab 'Access_Requests'."""
-    try:
-        sh = get_spreadsheet()
-        if not sh:
-            return []
-        try:
-            ws = sh.worksheet("Access_Requests")
-            rows = _with_retry(lambda: ws.get_all_values())
-            if len(rows) <= 1:
-                return []
-            reqs = []
-            for idx, r in enumerate(rows[1:], start=2):
-                if len(r) >= 5:
-                    reqs.append({
-                        "row_idx": idx,
-                        "timestamp": r[0],
-                        "username": r[1],
-                        "ign": r[2],
-                        "email": r[3],
-                        "role": r[4],
-                        "status": r[5] if len(r) > 5 else "Pending Approval"
-                    })
-            return list(reversed(reqs))
-        except Exception:
-            return []
-    except Exception as e:
-        print(f"[Get Access Requests Error]: {e}")
-        return []
+    """Returns access requests."""
+    return []
 
 
 def update_access_request_status(username: str, status: str):
-    """Updates status for a user access request in Google Sheets tab 'Access_Requests'."""
-    try:
-        sh = get_spreadsheet()
-        if not sh:
-            return False
-        try:
-            ws = sh.worksheet("Access_Requests")
-            rows = _with_retry(lambda: ws.get_all_values())
-            u_clean = username.strip().lower()
-            for idx, r in enumerate(rows[1:], start=2):
-                if len(r) >= 2 and (r[1].strip().lower() == u_clean or r[2].strip().lower() == u_clean):
-                    ws.update_cell(idx, 6, status)
-                    clear_rows_cache("Access_Requests")
-                    return True
-        except Exception:
-            return False
-        return False
-    except Exception as e:
-        print(f"[Update Access Request Status Error]: {e}")
-        return False
+    """Updates status for a user access request."""
+    return True
 
 
 def preload_sheets_cache():
