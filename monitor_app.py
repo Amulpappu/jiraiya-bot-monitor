@@ -365,7 +365,7 @@ def get_stats():
         expenses_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["Expenses"]] for r in rows_by_sheet["Expenses"] if len(r) > sheets._AMOUNT_COL["Expenses"]])
         vip_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["VIP Claim"]] for r in rows_by_sheet["VIP Claim"] if len(r) > sheets._AMOUNT_COL["VIP Claim"]])
 
-        total_sales = service_total + upgrade_total + kits_total + vip_total
+        total_sales = service_total + upgrade_total + kits_total
         net_profit = total_sales - expenses_total
 
         total_txns = len(rows_by_sheet["Service"]) + len(rows_by_sheet["Upgrades"]) + len(rows_by_sheet["Kits"]) + len(rows_by_sheet["VIP Claim"])
@@ -422,9 +422,10 @@ def get_stats():
                 "revenue_trend": sheets.get_dynamic_revenue_trend(rows_by_sheet, period),
                 "distribution": [
                     {"name": "Services", "value": len(rows_by_sheet["Service"]), "amount": service_total, "color": "#6C4DFF"},
-                    {"name": "Kits", "value": len(rows_by_sheet["Kits"]), "amount": kits_total, "color": "#2A8DFF"},
                     {"name": "Upgrades", "value": len(rows_by_sheet["Upgrades"]), "amount": upgrade_total, "color": "#19D96B"},
+                    {"name": "Kits", "value": len(rows_by_sheet["Kits"]), "amount": kits_total, "color": "#2A8DFF"},
                     {"name": "VIP Claims", "value": len(rows_by_sheet["VIP Claim"]), "amount": vip_total, "color": "#F9A826"},
+                    {"name": "Bill Claims", "value": len(rows_by_sheet["Expenses"]), "amount": expenses_total, "color": "#FF3B3B"},
                 ]
             },
             "system_resources": {

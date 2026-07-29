@@ -1260,13 +1260,15 @@ def get_rich_leaderboard(rows_by_sheet):
             "civilian_service": 0,
             "govt_service": 0,
             "service": 0,
-            "kits": 0,
             "upgrades": 0,
+            "kits": 0,
+            "vip_claims": 0,
+            "expenses": 0,
             "total_logs": 0,
             "points": 0
         }
 
-    # SERVICE SHEET: Col 5 = Employee (strict, no wrong fallbacks)
+    # 1. SERVICE SHEET: Col 5 = Employee
     col_svc_emp = _EMPLOYEE_COL.get("Service", 5)
     col_svc_amt = _AMOUNT_COL.get("Service", 4)
     for r in rows_by_sheet.get("Service", []):
@@ -1281,8 +1283,10 @@ def get_rich_leaderboard(rows_by_sheet):
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
-                "kits": 0,
                 "upgrades": 0,
+                "kits": 0,
+                "vip_claims": 0,
+                "expenses": 0,
                 "total_logs": 0,
                 "points": 0
             }
@@ -1291,7 +1295,6 @@ def get_rich_leaderboard(rows_by_sheet):
         if amt <= 0:
             amt = 3000.0
 
-        # Category column (col 2) tells us if govt service
         cat_val = str(r[2]).strip().lower() if len(r) > 2 else ""
         is_govt = (cat_val in ("government", "govt", "pd", "ems", "taxi") or
                    any(g in cat_val for g in ("pd", "ems", "taxi", "govt", "government")) or
@@ -1306,27 +1309,7 @@ def get_rich_leaderboard(rows_by_sheet):
             stats[emp]["civilian_service"] += cnt
             stats[emp]["service"] += cnt
 
-    # KITS SHEET: Col 6 = Employee (strict, no fallback to numeric kit qty columns)
-    col_kit_emp = _EMPLOYEE_COL.get("Kits", 6)
-    for r in rows_by_sheet.get("Kits", []):
-        if not r or len(r) <= col_kit_emp or not r[col_kit_emp].strip():
-            continue
-        emp = resolve_employee(r[col_kit_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
-                "civilian_service": 0,
-                "govt_service": 0,
-                "service": 0,
-                "kits": 0,
-                "upgrades": 0,
-                "total_logs": 0,
-                "points": 0
-            }
-        stats[emp]["kits"] += 1
-
-    # UPGRADES SHEET: Col 3 = Employee (strict, no fallback to customer name col 1)
+    # 2. UPGRADES SHEET: Col 3 = Employee
     col_upg_emp = _EMPLOYEE_COL.get("Upgrades", 3)
     for r in rows_by_sheet.get("Upgrades", []):
         if not r or len(r) <= col_upg_emp or not r[col_upg_emp].strip():
@@ -1339,15 +1322,83 @@ def get_rich_leaderboard(rows_by_sheet):
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
-                "kits": 0,
                 "upgrades": 0,
+                "kits": 0,
+                "vip_claims": 0,
+                "expenses": 0,
                 "total_logs": 0,
                 "points": 0
             }
         stats[emp]["upgrades"] += 1
 
+    # 3. KITS SHEET: Col 6 = Employee
+    col_kit_emp = _EMPLOYEE_COL.get("Kits", 6)
+    for r in rows_by_sheet.get("Kits", []):
+        if not r or len(r) <= col_kit_emp or not r[col_kit_emp].strip():
+            continue
+        emp = resolve_employee(r[col_kit_emp])
+        if emp not in stats:
+            stats[emp] = {
+                "name": emp,
+                "tag": resolve_official_discord_tag(emp),
+                "civilian_service": 0,
+                "govt_service": 0,
+                "service": 0,
+                "upgrades": 0,
+                "kits": 0,
+                "vip_claims": 0,
+                "expenses": 0,
+                "total_logs": 0,
+                "points": 0
+            }
+        stats[emp]["kits"] += 1
+
+    # 4. VIP CLAIM SHEET: Col 3 = Staff
+    col_vip_emp = _EMPLOYEE_COL.get("VIP Claim", 3)
+    for r in rows_by_sheet.get("VIP Claim", []):
+        if not r or len(r) <= col_vip_emp or not r[col_vip_emp].strip():
+            continue
+        emp = resolve_employee(r[col_vip_emp])
+        if emp not in stats:
+            stats[emp] = {
+                "name": emp,
+                "tag": resolve_official_discord_tag(emp),
+                "civilian_service": 0,
+                "govt_service": 0,
+                "service": 0,
+                "upgrades": 0,
+                "kits": 0,
+                "vip_claims": 0,
+                "expenses": 0,
+                "total_logs": 0,
+                "points": 0
+            }
+        stats[emp]["vip_claims"] += 1
+
+    # 5. EXPENSES / BILL CLAIM SHEET: Col 2 = Employee
+    col_exp_emp = _EMPLOYEE_COL.get("Expenses", 2)
+    for r in rows_by_sheet.get("Expenses", []):
+        if not r or len(r) <= col_exp_emp or not r[col_exp_emp].strip():
+            continue
+        emp = resolve_employee(r[col_exp_emp])
+        if emp not in stats:
+            stats[emp] = {
+                "name": emp,
+                "tag": resolve_official_discord_tag(emp),
+                "civilian_service": 0,
+                "govt_service": 0,
+                "service": 0,
+                "upgrades": 0,
+                "kits": 0,
+                "vip_claims": 0,
+                "expenses": 0,
+                "total_logs": 0,
+                "points": 0
+            }
+        stats[emp]["expenses"] += 1
+
     for emp_info in stats.values():
-        tot = emp_info["civilian_service"] + emp_info["govt_service"] + emp_info["kits"] + emp_info["upgrades"]
+        tot = emp_info["service"] + emp_info["upgrades"] + emp_info["kits"] + emp_info["vip_claims"] + emp_info["expenses"]
         emp_info["total_logs"] = tot
         emp_info["points"] = tot
         emp_info["tag"] = resolve_official_discord_tag(emp_info["name"], emp_info.get("tag", ""))

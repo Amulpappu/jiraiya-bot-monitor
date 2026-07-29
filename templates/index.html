@@ -484,14 +484,10 @@
             </div>
             <table class="custom-table" style="font-size:12px;">
               <thead>
-                <tr><th>Employee</th><th>Civilian (₹3k)</th><th>Govt (₹5k)</th><th>Kits</th><th>Upgrades</th><th>Points</th><th>Rank</th></tr>
+                <tr><th>Employee</th><th>Civ (₹3k)</th><th>Govt (₹5k)</th><th>Upgrades</th><th>Kits</th><th>VIP Claims</th><th>Total Logs</th><th>Rank</th></tr>
               </thead>
               <tbody id="dashRosterBody">
-                <tr><td><strong>Eli</strong></td><td>154</td><td>34</td><td>62</td><td>255.5</td><td><span class="badge badge-primary">🥇 #1</span></td></tr>
-                <tr><td><strong>Amul</strong></td><td>21</td><td>17</td><td>48</td><td>92.2</td><td><span class="badge badge-success">🥈 #2</span></td></tr>
-                <tr><td><strong>Benny</strong></td><td>2</td><td>2</td><td>27</td><td>36.0</td><td><span class="badge badge-warning">🥉 #3</span></td></tr>
-                <tr><td><strong>Lisa</strong></td><td>4</td><td>1</td><td>8</td><td>16.0</td><td>#4</td></tr>
-                <tr><td><strong>Maria</strong></td><td>2</td><td>0</td><td>6</td><td>12.0</td><td>#5</td></tr>
+                <tr><td><strong>Eli</strong></td><td>154</td><td>34</td><td>255</td><td>62</td><td>24</td><td><strong style="color:var(--success);">529 logs</strong></td><td><span class="badge badge-primary">🥇 #1</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -686,7 +682,7 @@
         <div class="chart-card">
           <table class="custom-table">
             <thead>
-              <tr><th>Rank</th><th>Employee Name</th><th>Discord Tag</th><th>Civilian Service (₹3k)</th><th>Govt Service (₹5k)</th><th>Kits</th><th>Upgrades</th><th>Total Logs</th><th>Status</th></tr>
+              <tr><th>Rank</th><th>Employee Name</th><th>Discord Tag</th><th>Civ Service (₹3k)</th><th>Govt Service (₹5k)</th><th>Upgrades</th><th>Kits</th><th>VIP Claims</th><th>Total Logs</th><th>Status</th></tr>
             </thead>
             <tbody id="employeesTableBody">
               <tr><td colspan="8" style="text-align:center;">Loading employee roster from Google Sheets...</td></tr>
@@ -1616,15 +1612,16 @@
           if(data.leaderboard) {
             const dashRoster = document.getElementById('dashRosterBody');
             if(dashRoster) {
-              dashRoster.innerHTML = data.leaderboard.slice(0, 8).map(e => `
+              dashRoster.innerHTML = data.leaderboard.slice(0, 10).map(e => `
                 <tr>
                   <td><strong>${e.name}</strong></td>
                   <td><span class="badge badge-primary" style="background:#6C4DFF; color:#FFF;">${e.civilian_service||0}</span></td>
                   <td><span class="badge badge-secondary" style="background:#2A8DFF; color:#FFF;">${e.govt_service||0}</span></td>
-                  <td>${e.kits||0}</td>
                   <td>${e.upgrades||0}</td>
-                  <td><strong>${e.points||0}</strong></td>
-                  <td><span class="badge badge-warning">${e.rank <= 3 ? ['🥇 #1', '🥈 #2', '🥉 #3'][e.rank-1] : '#'+e.rank}</span></td>
+                  <td>${e.kits||0}</td>
+                  <td><span class="badge badge-warning" style="background:#F9A826; color:#000;">${e.vip_claims||0}</span></td>
+                  <td><strong style="color:var(--success);">${e.total_logs||0} logs</strong></td>
+                  <td><span class="badge badge-success">${e.rank <= 3 ? ['🥇 #1', '🥈 #2', '🥉 #3'][e.rank-1] : '#'+e.rank}</span></td>
                 </tr>
               `).join('');
             }
@@ -1638,9 +1635,10 @@
                   <td>${e.tag || '@' + (e.name||'').toLowerCase()}</td>
                   <td style="color:#6C4DFF; font-weight:700;">${e.civilian_service||0}</td>
                   <td style="color:#2A8DFF; font-weight:700;">${e.govt_service||0}</td>
-                  <td>${e.kits||0}</td>
                   <td>${e.upgrades||0}</td>
-                  <td><strong style="color:var(--success);">${e.points||0} logs</strong></td>
+                  <td>${e.kits||0}</td>
+                  <td style="color:#F9A826; font-weight:700;">${e.vip_claims||0}</td>
+                  <td><strong style="color:var(--success);">${e.total_logs||0} logs</strong></td>
                   <td><span class="badge badge-success">Active</span></td>
                 </tr>
               `).join('');
