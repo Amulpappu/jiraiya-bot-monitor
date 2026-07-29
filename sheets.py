@@ -1263,6 +1263,36 @@ def resolve_employee(raw_name: str) -> str:
     return cleaned
 
 
+def _extract_employee_from_row(row, sheet_name):
+    """Extracts employee name from any row format (legacy 4-col, 5-col, or full header length)."""
+    if not row:
+        return None
+
+    hints = {
+        "Service": [5, 3, 1],
+        "Upgrades": [3, 1],
+        "Kits": [6, 3, 1],
+        "VIP Claim": [3, 1, 0],
+        "Expenses": [2, 1, 0],
+    }
+    cols = hints.get(sheet_name, [3, 1, 0])
+
+    for c_idx in cols:
+        if len(row) > c_idx and row[c_idx].strip():
+            val = row[c_idx].strip()
+            if not val.replace('.', '', 1).isdigit() and not re.match(r"^\d{4}-\d{2}-\d{2}", val) and not re.match(r"^\$?[\d,.]+$", val):
+                if val.lower() not in ("service", "car service", "upgrades", "kits", "expenses", "vip claim", "order", "civilian", "government", "unknown"):
+                    return resolve_employee(val)
+
+    for cell in reversed(row):
+        c_str = str(cell).strip()
+        if c_str and not c_str.isdigit() and not c_str.startswith("MANUAL") and not re.match(r"^\d{4}-\d{2}-\d{2}", c_str) and not re.match(r"^\$?[\d,.]+$", c_str):
+            if c_str.lower() not in ("service", "car service", "upgrades", "kits", "expenses", "vip claim", "order", "civilian", "government", "unknown"):
+                return resolve_employee(c_str)
+
+    return None
+
+
 def get_rich_leaderboard(rows_by_sheet):
     """Generates detailed employee performance metrics per mechanic with stable deterministic sorting."""
     stats = {}
@@ -1286,18 +1316,11 @@ def get_rich_leaderboard(rows_by_sheet):
             "points": 0
         }
 
-    # 1. SERVICE SHEET: Col 5 = Employee
-    col_svc_emp = _EMPLOYEE_COL.get("Service", 5)
-    col_svc_amt = _AMOUNT_COL.get("Service", 4)
-    for r in rows_by_sheet.get("Service", []):
-        if not r or len(r) <= col_svc_emp or not r[col_svc_emp].strip():
-            continue
-
-        emp = resolve_employee(r[col_svc_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
+    def _ensure_emp(emp_name):
+        if emp_name not in stats:
+            stats[emp_name] = {
+                "name": emp_name,
+                "tag": resolve_official_discord_tag(emp_name),
                 "civilian_service": 0,
                 "govt_service": 0,
                 "service": 0,
@@ -1308,6 +1331,15 @@ def get_rich_leaderboard(rows_by_sheet):
                 "total_logs": 0,
                 "points": 0
             }
+        return stats[emp_name]
+
+    # 1. SERVICE SHEET
+    col_svc_amt = _AMOUNT_COL.get("Service", 4)
+    for r in rows_by_sheet.get("Service", []):
+        emp_name = _extract_employee_from_row(r, "Service")
+        if not emp_name:
+            continue
+        emp_stat = _ensure_emp(emp_name)
 
         amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else 3000.0
         if amt <= 0:
@@ -1320,108 +1352,51 @@ def get_rich_leaderboard(rows_by_sheet):
 
         if is_govt:
             cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
-            stats[emp]["govt_service"] += cnt
-            stats[emp]["service"] += cnt
+            emp_stat["govt_service"] += cnt
+            emp_stat["service"] += cnt
         else:
             cnt = max(1, int(round(amt / 3000.0))) if amt >= 3000 else 1
-            stats[emp]["civilian_service"] += cnt
-            stats[emp]["service"] += cnt
+            emp_stat["civilian_service"] += cnt
+            emp_stat["service"] += cnt
 
-    # 2. UPGRADES SHEET: Col 3 = Employee
-    col_upg_emp = _EMPLOYEE_COL.get("Upgrades", 3)
+    # 2. UPGRADES SHEET
     for r in rows_by_sheet.get("Upgrades", []):
-        if not r or len(r) <= col_upg_emp or not r[col_upg_emp].strip():
+        emp_name = _extract_employee_from_row(r, "Upgrades")
+        if not emp_name:
             continue
-        emp = resolve_employee(r[col_upg_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
-                "civilian_service": 0,
-                "govt_service": 0,
-                "service": 0,
-                "upgrades": 0,
-                "kits": 0,
-                "vip_claims": 0,
-                "expenses": 0,
-                "total_logs": 0,
-                "points": 0
-            }
-        stats[emp]["upgrades"] += 1
+        emp_stat = _ensure_emp(emp_name)
+        emp_stat["upgrades"] += 1
 
-    # 3. KITS SHEET: Col 6 = Employee
-    col_kit_emp = _EMPLOYEE_COL.get("Kits", 6)
+    # 3. KITS SHEET
     for r in rows_by_sheet.get("Kits", []):
-        if not r or len(r) <= col_kit_emp or not r[col_kit_emp].strip():
+        emp_name = _extract_employee_from_row(r, "Kits")
+        if not emp_name:
             continue
-        emp = resolve_employee(r[col_kit_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
-                "civilian_service": 0,
-                "govt_service": 0,
-                "service": 0,
-                "upgrades": 0,
-                "kits": 0,
-                "vip_claims": 0,
-                "expenses": 0,
-                "total_logs": 0,
-                "points": 0
-            }
-        stats[emp]["kits"] += 1
+        emp_stat = _ensure_emp(emp_name)
+        emp_stat["kits"] += 1
 
-    # 4. VIP CLAIM SHEET: Col 3 = Staff
-    col_vip_emp = _EMPLOYEE_COL.get("VIP Claim", 3)
+    # 4. VIP CLAIM SHEET
     for r in rows_by_sheet.get("VIP Claim", []):
-        if not r or len(r) <= col_vip_emp or not r[col_vip_emp].strip():
+        emp_name = _extract_employee_from_row(r, "VIP Claim")
+        if not emp_name:
             continue
-        emp = resolve_employee(r[col_vip_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
-                "civilian_service": 0,
-                "govt_service": 0,
-                "service": 0,
-                "upgrades": 0,
-                "kits": 0,
-                "vip_claims": 0,
-                "expenses": 0,
-                "total_logs": 0,
-                "points": 0
-            }
-        stats[emp]["vip_claims"] += 1
+        emp_stat = _ensure_emp(emp_name)
+        emp_stat["vip_claims"] += 1
 
-    # 5. EXPENSES / BILL CLAIM SHEET: Col 2 = Employee
-    col_exp_emp = _EMPLOYEE_COL.get("Expenses", 2)
+    # 5. EXPENSES / BILL CLAIM SHEET
     for r in rows_by_sheet.get("Expenses", []):
-        if not r or len(r) <= col_exp_emp or not r[col_exp_emp].strip():
+        emp_name = _extract_employee_from_row(r, "Expenses")
+        if not emp_name:
             continue
-        emp = resolve_employee(r[col_exp_emp])
-        if emp not in stats:
-            stats[emp] = {
-                "name": emp,
-                "tag": resolve_official_discord_tag(emp),
-                "civilian_service": 0,
-                "govt_service": 0,
-                "service": 0,
-                "upgrades": 0,
-                "kits": 0,
-                "vip_claims": 0,
-                "expenses": 0,
-                "total_logs": 0,
-                "points": 0
-            }
-        stats[emp]["expenses"] += 1
+        emp_stat = _ensure_emp(emp_name)
+        emp_stat["expenses"] += 1
 
     for emp_info in stats.values():
-        tot = emp_info["service"] + emp_info["upgrades"] + emp_info["kits"] + emp_info["vip_claims"] + emp_info["expenses"]
+        tot = emp_info["civilian_service"] + emp_info["govt_service"] + emp_info["upgrades"] + emp_info["kits"] + emp_info["vip_claims"] + emp_info["expenses"]
         emp_info["total_logs"] = tot
         emp_info["points"] = tot
         emp_info["tag"] = resolve_official_discord_tag(emp_info["name"], emp_info.get("tag", ""))
 
-    # Stable deterministic sorting: (-total_logs, -civilian_service, -govt_service, name)
     sorted_list = sorted(stats.values(), key=lambda x: (-x["total_logs"], -x["civilian_service"], -x["govt_service"], x["name"]))
 
     for rank, item in enumerate(sorted_list, start=1):
