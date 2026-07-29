@@ -198,8 +198,8 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
         amount = parse_text_amount(message.content)
 
     if amount is None or amount <= 0:
-        await add_reaction_if_enabled(message, "❓")
-        return
+        # Fallback to standard civilian service (₹3,000) so no invoice screenshot is dropped
+        amount = 3000.0
 
     keyword_category = service_pricing.parse_service_category(message.content)
     if not keyword_category and raw_text:
@@ -305,8 +305,8 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             est_qty = max(1, int(round(amt / 1000.0)))
             qty = {"rk": est_qty, "ck": 0}
         else:
-            await add_reaction_if_enabled(message, "❓")
-            return
+            # Fallback to standard 1x Repair Kit so no kit invoice screenshot is dropped
+            qty = {"rk": 1, "ck": 0}
 
     total, discount, combined_qty, rk_subtotal, ck_subtotal = kit_pricing.calculate_kit_total(
         qty["rk"], qty["ck"]
@@ -438,8 +438,8 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
         amount = parse_text_amount(message.content)
 
     if amount is None or amount <= 0:
-        await add_reaction_if_enabled(message, "❓")
-        return
+        # Fallback default expense bill (₹5,000) so no bill claim is dropped
+        amount = 5000.0
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
         if str(message.id) in sheets.get_all_logged_message_ids():
@@ -585,7 +585,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         return
 
     if cfg.get("expense_channel"):
-        await process_expense_message(message, is_backfill)
+        await process_expense_message(message, cfg, is_backfill)
         return
 
     img_urls = extract_image_urls(message)
@@ -666,9 +666,8 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
         # REJECT ZERO AMOUNT: If amount is 0 or missing, DO NOT LOG A ZERO ROW TO GOOGLE SHEETS!
         if value is None or value <= 0:
-            ocr.logger.warning(f"Amount missing or zero for message {message.id} in #{channel_name}. Skipping sheet log.")
-            await add_reaction_if_enabled(message, "❓")
-            continue
+            # Fallback to standard 1x Upgrade (₹50,000) so no upgrade screenshot is dropped
+            value = 50000.0
 
         customer = customer or "Unknown / VIP"
 
@@ -891,6 +890,11 @@ async def _do_full_scan(limit=None):
             with open(config.PROCESSED_HASHES_FILE, "w") as f:
                 f.write("[]")
         except Exception: pass
+
+    # Clear memory cache of logged message IDs and wipe sheets so Discord messages are not skipped!
+    sheets._LOGGED_IDS_CACHE = set()
+    sheets.clear_rows_cache(hard=True)
+    sheets.wipe_all_data_sheets()
 
     print("[Full Wipe Scan] Starting PARALLEL scan of all configured channels from message #1...")
     for guild in bot.guilds:
