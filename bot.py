@@ -355,35 +355,51 @@ def parse_text_amount(text: str) -> float | None:
     if not text:
         return None
 
-    MAX_EXPENSE_AMOUNT = 3000000.0
+    MAX_EXPENSE_AMOUNT = 5000000.0
 
+    # 1. 15k / $15k / 15.5k
     m_k = re.search(r"[\$₹§€£]?\s*(\d+(?:\.\d+)?)\s*k\b", text, re.IGNORECASE)
     if m_k:
         try:
             val = float(m_k.group(1)) * 1000.0
-            if 0 < val <= MAX_EXPENSE_AMOUNT:
+            if 100 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
 
+    # 2. Currency symbol prefix ($15000 / ₹15,000 / $ 15000)
     m_curr = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d{1,2})?)", text)
     if m_curr:
         try:
             val = float(m_curr.group(1).replace(",", ""))
-            if 0 < val <= MAX_EXPENSE_AMOUNT:
+            if 100 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
 
+    # 3. Explicit keywords (total 15000, amount 15000, price 15000)
+    m_kw = re.search(r"(?:total|amount|price|value|cost|fee|bill)\s*[:\-]?\s*[\$₹§€£]?\s*([\d,]+(?:\.\d{1,2})?)", text, re.IGNORECASE)
+    if m_kw:
+        try:
+            val = float(m_kw.group(1).replace(",", ""))
+            if 100 <= val <= MAX_EXPENSE_AMOUNT and val not in (2025, 2026, 2027, 2028):
+                return val
+        except ValueError:
+            pass
+
+    # 4. Standalone numbers >= 100 (excluding dates/timestamps)
     for line in text.splitlines():
-        if "id:" in line.lower() or "id :" in line.lower() or "phone" in line.lower():
+        line_lower = line.lower()
+        if any(w in line_lower for w in ("id:", "phone", "date", "time", "http", "www")):
             continue
-        for num in re.findall(r"\b([\d,]{2,9}(?:\.\d{1,2})?)\b", line):
+        clean_line = re.sub(r"\d{2,4}[\/\.\-]\d{2}[\/\.\-]\d{2,4}", "", line)
+        clean_line = re.sub(r"\d{1,2}:\d{2}(?::\d{2})?", "", clean_line)
+        for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", clean_line):
             clean_num = num.replace(",", "")
-            if clean_num not in ("2025", "2026", "2027"):
+            if clean_num not in ("2025", "2026", "2027", "2028"):
                 try:
                     val = float(clean_num)
-                    if 0 < val <= MAX_EXPENSE_AMOUNT:
+                    if 100 <= val <= MAX_EXPENSE_AMOUNT:
                         return val
                 except ValueError:
                     pass

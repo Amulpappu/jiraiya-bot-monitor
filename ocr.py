@@ -155,29 +155,36 @@ def _parse_table_row(text: str):
 
 
 def _fallback_amount(text: str):
-    # 1. Check for explicit currency symbols or OCR misread dollar prefixes ($ / s / S / ₹)
+    # 1. First search explicit total/amount/price keywords
+    m_kw = re.search(r"(?:total amount|total price|grand total|total|amount due|amount|price|value|cost|fee)\s*[:\-]?\s*[\$sS₹§€£]?\s*([\d,]{2,10}(?:\.\d{1,2})?)", text, re.IGNORECASE)
+    if m_kw:
+        cand = m_kw.group(1).replace(",", "")
+        try:
+            val = float(cand)
+            if 100 <= val <= 10000000 and val not in (2025, 2026, 2027, 2028):
+                return m_kw.group(1)
+        except ValueError:
+            pass
+
+    # 2. Check for explicit currency symbols or OCR misread dollar prefixes ($ / s / S / ₹)
     for m in re.finditer(r"(?:^|\s|\b)[$₹§€£sS]\s*([\d,]{2,10}(?:\.\d{1,2})?)(?:\s|$|\b)", text):
         candidate = m.group(1).replace(",", "")
         try:
             val = float(candidate)
-            if val > 0 and val not in (2025, 2026, 2027):
+            if 100 <= val <= 10000000 and val not in (2025, 2026, 2027, 2028):
                 return m.group(1)
         except ValueError:
             pass
 
-    # 2. Label-based search
-    val = _search_patterns(AMOUNT_PATTERNS, text)
-    if val:
-        return val
-
-    # 3. Standalone positive numbers > 10 in lines with invoice keywords
+    # 3. Standalone positive numbers >= 100 in lines with invoice keywords
     for line in text.splitlines():
-        if any(w in line.lower() for w in ("total", "unpaid", "paid", "amount", "price")):
-            for num in re.findall(r"\b([\d,]{2,7}(?:\.\d{1,2})?)\b", line):
+        if any(w in line.lower() for w in ("total", "unpaid", "paid", "amount", "price", "fee", "due", "cost", "service", "upgrade")):
+            for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", line):
                 clean_num = num.replace(",", "")
-                if clean_num not in ("2025", "2026", "2027"):
+                if clean_num not in ("2025", "2026", "2027", "2028"):
                     try:
-                        if float(clean_num) > 0:
+                        val = float(clean_num)
+                        if 100 <= val <= 10000000:
                             return num
                     except ValueError:
                         pass
