@@ -935,7 +935,7 @@ async def send_heartbeat_loop():
                     elif cmd == "wipe":
                         print("[Heartbeat] ⚠️ Received FULL WIPE command from Dashboard! Erasing data & performing FULL scan of all channels...")
                         sheets.clear_rows_cache(hard=True)
-                        asyncio.run_coroutine_threadsafe(_do_full_scan(limit=2000), bot.loop)
+                        asyncio.run_coroutine_threadsafe(_do_full_scan(limit=None), bot.loop)
                     elif cmd == "stop" or not bot_enabled:
                         print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
                         try:
@@ -967,7 +967,7 @@ async def on_ready():
             norm = config.normalize_channel_name(channel_name)
             clean_display_name = re.sub(r"[^\x20-\x7E]", "", norm).strip("┆| ") or channel_name
             try:
-                count = await backfill_channel_history(channel, channel_name, limit=50)
+                count = await backfill_channel_history(channel, channel_name, limit=500)
                 print(f"  #{clean_display_name}: scanned {count} message(s).")
             except discord.Forbidden:
                 print(f"  #{clean_display_name}: missing permission to read history, skipped.")
@@ -996,7 +996,8 @@ async def on_message(message: discord.Message):
     if cfg is None:
         return
 
-    if not message.attachments and not cfg.get("expense_channel"):
+    img_urls = extract_image_urls(message)
+    if not img_urls and not message.content and not cfg.get("expense_channel") and not cfg.get("vip_claim_channel"):
         return
 
     await process_invoice_message(message, effective_name, is_backfill=False)

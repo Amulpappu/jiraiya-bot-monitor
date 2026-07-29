@@ -275,7 +275,7 @@ def get_channel_config(channel_name: str):
     if any(k in n_clean for k in ("billclaim", "bill_claim", "bill-claim", "expense", "expenses", "mechbill")):
         return CHANNEL_CONFIG["bill_claim"], "bill_claim"
     if "kit" in n_clean:
-        return CHANNEL_CONFIG["july-kits"], "july-kits"
+        return CHANNEL_CONFIG["kits"], "kits"
     if any(s in n_clean for s in ("service", "services", "carservice", "servicelog", "servicelogs")):
         return CHANNEL_CONFIG["services"], "services"
     if any(u in n_clean for u in ("upgrade", "upgrades", "carupgrade", "upgradelog", "upgradelogs")):
@@ -285,7 +285,7 @@ def get_channel_config(channel_name: str):
     for key, cfg in CHANNEL_CONFIG.items():
         key_norm = normalize_channel_name(key)
         k_clean = "".join(c for c in key_norm if c.isalnum())
-        if k_clean and n_clean and len(n_clean) >= 4 and (k_clean == n_clean or k_clean in n_clean):
+        if k_clean and n_clean and len(n_clean) >= 3 and (k_clean == n_clean or k_clean in n_clean or n_clean in k_clean):
             return cfg, key
 
     return None, None
