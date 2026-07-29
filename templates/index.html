@@ -303,7 +303,6 @@
         <button class="btn-ctrl btn-start" onclick="controlBot('start')">▶ Start</button>
         <button class="btn-ctrl btn-stop" onclick="controlBot('stop')">⏹ Stop</button>
         <button class="btn-ctrl btn-restart" onclick="controlBot('restart')">🔄 Restart</button>
-        <button class="btn-ctrl btn-stop" onclick="confirmWipe()" style="background:linear-gradient(135deg,#FF3B3B,#FF6B6B); margin-top:4px; font-size:10px;">⚠️ Wipe & Full Scan</button>
       </div>
     </div>
   </aside>
@@ -320,7 +319,6 @@
           <span class="search-shortcut">CTRL K</span>
         </div>
         <div style="display:flex; gap:8px; margin-left:12px;">
-          <button id="rescanBtnTopbar" class="btn-ctrl btn-restart" onclick="triggerRescan()" style="padding:6px 14px; font-size:12px; font-weight:800; background:linear-gradient(135deg, #7928CA, #FF0080); border:none; color:#FFF; border-radius:8px; cursor:pointer; box-shadow:0 0 10px rgba(121,40,202,0.4);">⚡ Re-Scan / Sync Sheets</button>
           <button class="btn-ctrl btn-start" onclick="copyTableToClipboard()" style="padding:6px 12px; font-size:12px; font-weight:700;">📋 Copy</button>
           <button class="btn-ctrl btn-stop" onclick="deleteCurrentViewData()" style="padding:6px 12px; font-size:12px; font-weight:700;">🗑️ Delete</button>
           <select id="topbarDateFilter" onchange="applyDateFilter(this.value)" style="background:#19D96B; color:#000; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:800; cursor:pointer;">
