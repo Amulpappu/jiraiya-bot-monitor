@@ -110,6 +110,11 @@ def resolve_customer_name(parsed_cust: str, message: discord.Message, raw_text: 
             m = re.search(p, message.content, re.IGNORECASE)
             if m and _is_valid_name(m.group(1)):
                 return m.group(1).strip()
+        # Fallback to non-numeric first line of message content if provided
+        lines = [l.strip() for l in message.content.splitlines() if l.strip()]
+        for line in lines:
+            if not re.search(r"^\$?[\d,]+k?$", line, re.IGNORECASE) and _is_valid_name(line):
+                return line
 
     if raw_text:
         for p in patterns:

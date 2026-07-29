@@ -102,14 +102,12 @@ QUANTITY_PATTERNS = [
 ]
 
 _NAME_EXCLUDE_WORDS_LOWER = {
-    "invoices", "invoice", "status", "date", "time", "recipient", "total", "subtotal",
-    "unpaid", "paid", "refresh", "create", "previous", "next", "page", "show", "home",
-    "on", "duty", "onduty", "offduty", "off", "disconnect", "disconnected",
-    "vehicle", "vehicles", "novehicle", "novehicleconnected", "amount", "price",
-    "category", "no", "connect", "connected", "resend", "delete", "logout", "login",
-    "first", "last", "name", "firstname", "lastname", "customer", "client", "buyer",
-    "sold", "to", "weme", "we", "me", "lb", "c4", "c1", "c2", "c3", "id", "bank",
-    "cash", "society", "account", "item", "qty", "quantity", "notes", "unspecified",
+    "invoices", "invoice", "status", "subtotal", "total", "amount", "price",
+    "unpaid", "paid", "refresh", "create", "previous", "next", "page",
+    "onduty", "offduty", "disconnect", "disconnected",
+    "vehicle", "vehicles", "novehicleconnected",
+    "category", "resend", "delete", "logout", "login",
+    "firstname", "lastname", "unspecified",
 }
 
 # Name structure fallbacks
@@ -123,20 +121,12 @@ def _is_valid_name(candidate: str) -> bool:
         return False
 
     cand_clean = candidate.strip().lower()
-
-    # Reject UI labels, headers, status strings, or two-char UI noise (e.g. "Lb", "C4")
-    if cand_clean in _NAME_EXCLUDE_WORDS_LOWER or len(cand_clean) <= 2:
+    if cand_clean in _NAME_EXCLUDE_WORDS_LOWER or len(cand_clean) <= 1:
         return False
 
-    # Split camelCase or space-separated words (e.g. "OnDuty" -> "on", "duty")
-    split_words = re.findall(r"[A-Za-z][a-z0-9]*|[0-9]+", candidate)
-    for w in split_words:
-        if w.lower() in _NAME_EXCLUDE_WORDS_LOWER:
-            return False
-
-    for w in cand_clean.split():
-        if w in _NAME_EXCLUDE_WORDS_LOWER:
-            return False
+    words = cand_clean.split()
+    if all(w in _NAME_EXCLUDE_WORDS_LOWER for w in words):
+        return False
 
     return True
 
