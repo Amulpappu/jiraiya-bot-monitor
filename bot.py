@@ -120,6 +120,36 @@ def resolve_customer_name(parsed_cust: str, message: discord.Message, raw_text: 
     return "VIP Client"
 
 
+def extract_image_urls(message: discord.Message) -> list[str]:
+    """Extracts all image URLs from attachments, embeds, and message content URLs."""
+    urls = []
+    if not message:
+        return urls
+    # 1. Attachments
+    for a in getattr(message, "attachments", []):
+        is_img = (a.content_type and "image" in a.content_type) or (
+            a.filename and a.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"))
+        )
+        if is_img and getattr(a, "url", None):
+            urls.append(a.url)
+
+    # 2. Embeds
+    for e in getattr(message, "embeds", []):
+        if getattr(e, "image", None) and getattr(e.image, "url", None):
+            urls.append(e.image.url)
+        elif getattr(e, "thumbnail", None) and getattr(e.thumbnail, "url", None):
+            urls.append(e.thumbnail.url)
+
+    # 3. Direct image links in message text content
+    if getattr(message, "content", None):
+        for m in re.finditer(r"(https?://\S+\.(?:png|jpg|jpeg|webp|bmp))", message.content, re.IGNORECASE):
+            u = m.group(1)
+            if u not in urls:
+                urls.append(u)
+
+    return urls
+
+
 async def add_reaction_if_enabled(message: discord.Message, emoji: str):
     """Adds an emoji reaction to a message only if ENABLE_DISCORD_REACTIONS is True in config.py."""
     if getattr(config, "ENABLE_DISCORD_REACTIONS", False):
@@ -132,30 +162,23 @@ async def add_reaction_if_enabled(message: discord.Message, emoji: str):
 async def process_service_message(message: discord.Message, is_backfill: bool = False):
     """
     For the services channel: category and how many services were billed
-    together are worked out from the invoice's OWN amount (e.g. 6000 =
-    civilian x2, 15000 = government-tier x3), since payers sometimes get
-    billed for multiple services in one invoice. A text keyword
-    (civilian/civ, police/pd, ems, government/gov, taxi), if present, is used
-    to confirm the exact subtype and to break ties on ambiguous amounts that
-    are a clean multiple of both 3000 and 5000.
+    together are worked out from the invoice's OWN amount.
     """
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
 
-    image_attachment = next(
-        (a for a in message.attachments if a.content_type and "image" in a.content_type),
-        None,
-    )
+    img_urls = extract_image_urls(message)
+    image_url = img_urls[0] if img_urls else None
 
     image_hash = None
     parsed = {}
     raw_text = ""
 
-    if image_attachment is not None:
+    if image_url:
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                image_attachment.url, ["customer", "amount"]
+                image_url, ["customer", "amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for service message {message.id}: {e}")
@@ -246,27 +269,21 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     For kit channels: reads RK/CK quantities from message text, OCR image text,
     or estimates from total amount if missing. Ignores messages before 2026.
     """
-    if not message.attachments:
-        return
-
     if is_backfill:
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
 
-    image_attachment = next(
-        (a for a in message.attachments if a.content_type and "image" in a.content_type),
-        None,
-    )
-    if image_attachment is None:
-        return
+    img_urls = extract_image_urls(message)
+    image_url = img_urls[0] if img_urls else None
 
-    try:
-        image_hash, parsed, raw_text = await ocr.process_invoice_image(
-            image_attachment.url, ["customer", "amount"]
-        )
-    except Exception as e:
-        ocr.logger.error(f"OCR failed for kit message {message.id}: {e}")
-        image_hash, parsed, raw_text = None, {"customer": None, "amount": None}, ""
+    image_hash, parsed, raw_text = None, {"customer": None, "amount": None}, ""
+    if image_url:
+        try:
+            image_hash, parsed, raw_text = await ocr.process_invoice_image(
+                image_url, ["customer", "amount"]
+            )
+        except Exception as e:
+            ocr.logger.error(f"OCR failed for kit message {message.id}: {e}")
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
         if str(message.id) in sheets.get_all_logged_message_ids():
@@ -378,18 +395,16 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
         if str(message.id) in sheets.get_all_logged_message_ids():
             return
 
-    image_attachment = next(
-        (a for a in message.attachments if a.content_type and "image" in a.content_type),
-        None,
-    )
+    img_urls = extract_image_urls(message)
+    image_url = img_urls[0] if img_urls else None
 
     amount = None
     image_hash = None
 
-    if image_attachment is not None:
+    if image_url:
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                image_attachment.url, ["amount"]
+                image_url, ["amount"]
             )
             amount = parsed.get("amount")
             if (amount is None or amount <= 0) and raw_text:
@@ -531,15 +546,14 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         await process_expense_message(message, is_backfill)
         return
 
-    image_attachments = [a for a in message.attachments if a.content_type and "image" in a.content_type]
-    if not image_attachments and message.content:
+    img_urls = extract_image_urls(message)
+    if not img_urls and message.content:
         # Fallback for text-based upgrade invoice messages
         if is_backfill and str(message.id) in sheets.get_all_logged_message_ids():
             return
         val = parse_text_amount(message.content)
         if val and val > 0:
-            m_cust = re.search(r"(?:customer|client|name|buyer|for)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})", message.content, re.IGNORECASE)
-            cust = m_cust.group(1).strip() if (m_cust and _is_valid_name(m_cust.group(1))) else "Unknown / VIP"
+            cust = resolve_customer_name(None, message)
             try:
                 await asyncio.to_thread(
                     sheets.append_entry,
@@ -565,24 +579,16 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 ocr.logger.error(f"Failed to write text upgrade entry for {message.id}: {e}")
         return
 
-    for attachment in image_attachments:
+    for img_url in img_urls:
+        if is_backfill and str(message.id) in sheets.get_all_logged_message_ids():
+            continue
 
-        # ── Skip messages already handled (logged in Google Sheets) ──
-        if is_backfill:
-            if str(message.id) in sheets.get_all_logged_message_ids():
-                continue
-
-        # ── OCR ──
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                attachment.url, cfg["fields"]
+                img_url, cfg["fields"]
             )
         except Exception as e:
-            ocr.logger.error(
-                f"OCR failed for message {message.id} in #{channel_name} "
-                f"({attachment.filename}): {e}"
-            )
-            await add_reaction_if_enabled(message, "❓")
+            ocr.logger.error(f"OCR failed for upgrade message {message.id}: {e}")
             continue
 
         # ── Duplicate check ──
@@ -699,7 +705,8 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500)
         async for message in channel.history(limit=limit, oldest_first=False):
             if message.author.bot:
                 continue
-            if not message.attachments and not cfg.get("expense_channel"):
+            img_urls = extract_image_urls(message)
+            if not img_urls and not message.content and not cfg.get("expense_channel") and not cfg.get("vip_claim_channel"):
                 continue
 
             await process_invoice_message(message, effective_name, is_backfill=True)
@@ -802,7 +809,7 @@ async def send_heartbeat_loop():
                         print("[Remote Command] FULL WIPE + FULL re-scan from beginning...")
                         sheets.clear_rows_cache()
                         sheets._LOGGED_IDS_CACHE = None
-                        asyncio.create_task(_do_full_scan(limit=2000))
+                        asyncio.create_task(_do_full_scan(limit=None))
             except Exception as e:
                 pass
 
@@ -818,7 +825,7 @@ async def scan_one_channel(channel, limit):
         return 0
 
 
-async def _do_recent_scan(limit=200):
+async def _do_recent_scan(limit=1000):
     """Scans recent N messages across all channels concurrently in parallel."""
     print("[Recent Scan] Starting parallel channel scan...")
     for guild in bot.guilds:
@@ -833,7 +840,7 @@ async def _do_recent_scan(limit=200):
         pass
 
 
-async def _do_full_scan(limit=2000):
+async def _do_full_scan(limit=None):
     """Full scan from the beginning of channel history across all channels in parallel."""
     global processed_hashes
     processed_hashes = set()

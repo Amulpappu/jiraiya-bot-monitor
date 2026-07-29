@@ -818,7 +818,7 @@ def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: floa
 
 
 def clean_invalid_zero_rows():
-    """Purges zero-amount / invalid entries from all worksheets to maintain accurate financial ledgers."""
+    """Purges zero-amount / invalid entries and duplicate message ID rows from all worksheets."""
     try:
         for sname in ("Upgrades", "Service", "Kits", "Expenses", "VIP Claim"):
             ws = _ensure_sheet(sname, REVENUE_HEADERS if sname == "Upgrades" else None)
@@ -829,6 +829,7 @@ def clean_invalid_zero_rows():
                 continue
             col_amt = _AMOUNT_COL.get(sname, 2 if sname == "Upgrades" else 4)
 
+            seen_msg_ids = set()
             cleaned = []
             removed_count = 0
             for r in rows:
@@ -837,8 +838,16 @@ def clean_invalid_zero_rows():
                 amt_val = _sum_numeric([r[col_amt]])
                 if amt_val <= 0:
                     removed_count += 1
-                else:
-                    cleaned.append(r)
+                    continue
+
+                msg_id = str(r[-1]).strip() if r else ""
+                if msg_id and (msg_id.isdigit() or msg_id.startswith("MANUAL")):
+                    if msg_id in seen_msg_ids:
+                        removed_count += 1
+                        continue
+                    seen_msg_ids.add(msg_id)
+
+                cleaned.append(r)
 
             if removed_count > 0:
                 header = REVENUE_HEADERS if sname == "Upgrades" else (SERVICE_HEADERS if sname == "Service" else (KIT_HEADERS if sname == "Kits" else (EXPENSE_HEADERS if sname == "Expenses" else VIP_CLAIM_HEADERS)))
@@ -846,7 +855,7 @@ def clean_invalid_zero_rows():
                 _with_retry(lambda: ws.clear())
                 _with_retry(lambda: ws.update("A1", full_sheet_rows))
                 clear_rows_cache(sname)
-                print(f"[Cleanup] Cleaned {removed_count} zero-amount row(s) from '{sname}' sheet.")
+                print(f"[Cleanup] Cleaned {removed_count} invalid/duplicate row(s) from '{sname}' sheet.")
     except Exception as e:
         print(f"[Cleanup Warning]: {e}")
 
