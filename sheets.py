@@ -822,7 +822,7 @@ def clean_invalid_zero_rows():
             rows = _all_rows(sname, fast_cached_only=True)
             if not rows:
                 continue
-            col_amt = _AMOUNT_COL.get(sname, 2 if sname == "Upgrades" else 4)
+            col_amt = _AMOUNT_COL.get(sname, 1 if sname in ("Upgrades", "Expenses") else (3 if sname == "Service" else 4))
 
             seen_msg_ids = set()
             cleaned = []
@@ -830,6 +830,25 @@ def clean_invalid_zero_rows():
             for r in rows:
                 if not r or len(r) <= col_amt:
                     continue
+
+                r_copy = list(r)
+                if sname == "Service" and len(r_copy) > 1:
+                    cat_val = str(r_copy[1]).strip().lower()
+                    row_str = " ".join([str(cell).lower() for cell in r_copy[:4]])
+                    is_govt = (cat_val in ("government", "govt", "pd", "ems", "taxi") or
+                               any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")))
+                    if is_govt:
+                        cnt = 1
+                        if len(r_copy) > 2 and str(r_copy[2]).isdigit():
+                            cnt = max(1, int(r_copy[2]))
+                        cur_amt = _sum_numeric([r_copy[3]]) if len(r_copy) > 3 else 0.0
+                        expected_amt = 5000.0 * cnt
+                        if cur_amt < expected_amt or cur_amt == 3000.0 * cnt:
+                            if len(r_copy) > 3:
+                                r_copy[3] = int(expected_amt)
+                            removed_count += 1
+                r = r_copy
+
                 amt_val = _sum_numeric([r[col_amt]])
                 if amt_val <= 0:
                     removed_count += 1
@@ -1250,11 +1269,18 @@ def get_top_services_breakdown(rows_by_sheet):
     civ_amt = 0.0
     govt_amt = 0.0
 
-    col_svc_amt = _AMOUNT_COL.get("Service", 4)
+    col_svc_amt = _AMOUNT_COL.get("Service", 3)
     for r in rows_by_sheet.get("Service", []):
-        amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else 3000.0
+        cat_val = str(r[1]).strip().lower() if len(r) > 1 else ""
         row_str = " ".join([str(cell).lower() for cell in r[:4]])
-        is_govt = any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic"))
+        is_govt = (cat_val in ("government", "govt", "pd", "ems", "taxi") or
+                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")))
+        default_unit_price = 5000.0 if is_govt else 3000.0
+
+        amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else default_unit_price
+        if amt <= 0:
+            amt = default_unit_price
+
         if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
             cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
             govt_count += cnt
@@ -1393,16 +1419,17 @@ def get_rich_leaderboard(rows_by_sheet):
             continue
         emp_stat = _ensure_emp(emp_name)
 
-        amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else 3000.0
-        if amt <= 0:
-            amt = 3000.0
-
         cat_val = str(r[1]).strip().lower() if len(r) > 1 else ""
+        row_str = " ".join([str(cell).lower() for cell in r[:4]])
         is_govt = (cat_val in ("government", "govt", "pd", "ems", "taxi") or
-                   any(g in cat_val for g in ("pd", "ems", "taxi", "govt", "government")) or
-                   (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0))
+                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")))
+        default_unit_price = 5000.0 if is_govt else 3000.0
 
-        if is_govt:
+        amt = _sum_numeric([r[col_svc_amt]]) if len(r) > col_svc_amt else default_unit_price
+        if amt <= 0:
+            amt = default_unit_price
+
+        if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
             cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
             emp_stat["govt_service"] += cnt
             emp_stat["service"] += cnt
@@ -1611,21 +1638,21 @@ def update_employee_tracker():
         if emp not in valid_employees:
             continue
 
-        amt = 3000.0
-        if len(row) > col_amt:
-            amt = _sum_numeric([row[col_amt]])
-        if amt <= 0:
-            amt = 3000.0
-
         cat_val = str(row[1]).strip().lower() if len(row) > 1 else ""
         row_str = " ".join([str(cell).lower() for cell in row[:4]])
 
         is_govt = ("govt" in cat_val or "government" in cat_val or "pd" in cat_val or
                    "ems" in cat_val or "taxi" in cat_val or
-                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")) or
-                   (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0))
+                   any(g in row_str for g in ("pd", "ems", "taxi", "govt", "government", "cop", "police", "medic")))
+        default_unit_price = 5000.0 if is_govt else 3000.0
 
-        if is_govt:
+        amt = default_unit_price
+        if len(row) > col_amt:
+            amt = _sum_numeric([row[col_amt]])
+        if amt <= 0:
+            amt = default_unit_price
+
+        if is_govt or (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0):
             cnt = max(1, int(round(amt / 5000.0))) if amt >= 5000 else 1
             tracker_data[emp]["govt_service"] += cnt
         else:

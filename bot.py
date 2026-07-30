@@ -194,22 +194,42 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
             await add_reaction_if_enabled(message, "🔁")
             return
 
-    amount = parsed.get("amount")
-    if (amount is None or amount <= 0) and message.content:
-        amount = parse_text_amount(message.content)
-
-    if amount is None or amount <= 0:
-        # Fallback to standard civilian service (₹3,000) so no invoice screenshot is dropped
-        amount = 3000.0
-        ocr.logger.warning(f"Service message {message.id}: OCR could not read amount, using fallback ₹3,000")
-
     keyword_category = service_pricing.parse_service_category(message.content)
     if not keyword_category and raw_text:
         keyword_category = service_pricing.parse_service_category(raw_text)
 
+    amount = parsed.get("amount")
+    if (amount is None or amount <= 0) and message.content:
+        amount = parse_text_amount(message.content)
+    if (amount is None or amount <= 0) and raw_text:
+        amount = parse_text_amount(raw_text)
+
+    # Determine default unit price for category (5000 for pd/ems/taxi/gov, 3000 for civilian)
+    unit_price = float(config.SERVICE_PRICES.get(keyword_category, 3000.0)) if keyword_category else 3000.0
+
+    if amount is None or amount <= 0:
+        amount = unit_price
+        ocr.logger.warning(f"Service message {message.id}: OCR could not read amount, using fallback ₹{amount:,.0f} for category '{keyword_category or 'civilian'}'")
+
     result = service_pricing.resolve_category_and_count(amount, keyword_category)
-    service_cat = result.get("category") or ("government" if "pd" in (message.content or "").lower() or "ems" in (message.content or "").lower() else "civilian")
-    service_cnt = result.get("count") or max(1, int(round(amount / 3000.0)))
+    service_cat = result.get("category") or keyword_category or ("gov" if any(g in (message.content or "").lower() for g in ("pd", "ems", "taxi", "govt", "government", "police", "cop", "medic")) else "civilian")
+
+    cat_unit_price = float(config.SERVICE_PRICES.get(service_cat, 3000.0))
+    service_cnt = result.get("count") or max(1, int(round(amount / cat_unit_price)))
+
+    # ── ENFORCE correct total based on category price ──
+    # The keyword category is the source of truth for pricing.
+    # If the mechanic typed "pd"/"ems"/"taxi"/"gov" then EACH service = ₹5,000;
+    # if "civilian" then EACH service = ₹3,000.
+    # OCR can misread the amount (e.g. 3000 for a PD invoice), so we override
+    # the total to cat_unit_price × count to guarantee correct sheet data.
+    enforced_total = cat_unit_price * service_cnt
+    if enforced_total != amount:
+        ocr.logger.info(
+            f"Service message {message.id}: Enforced total ₹{enforced_total:,.0f} "
+            f"(was ₹{amount:,.0f}) for category '{service_cat}' × {service_cnt}"
+        )
+    amount = enforced_total
 
     try:
         await asyncio.to_thread(
@@ -229,7 +249,8 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    txn_category = "Service-Government" if service_cat == "government" else "Service-Civilian"
+    is_gov_tier = service_cat in ("government", "gov", "pd", "ems", "taxi")
+    txn_category = "Service-Government" if is_gov_tier else "Service-Civilian"
     txn_desc = f"{service_cnt}x"
     try:
         await asyncio.to_thread(

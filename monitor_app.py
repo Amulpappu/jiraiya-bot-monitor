@@ -373,17 +373,17 @@ def get_stats():
         recent = []
         for sname, srows in rows_by_sheet.items():
             col_amt = sheets._AMOUNT_COL.get(sname, 4)
-            col_emp = sheets._EMPLOYEE_COL.get(sname, 3)
             for r in reversed(srows[-30:]):
-                if len(r) > max(col_amt, col_emp):
+                if len(r) > col_amt:
                     amt_num = sheets._sum_numeric([r[col_amt]])
                     if amt_num > 0:
+                        emp_name = sheets._extract_employee_from_row(r, sname) or "System"
                         recent.append({
                             "sheet": sname,
                             "time": r[0] if len(r) > 0 else "",
-                            "customer": r[1] if len(r) > 1 else "Civilian / VIP",
+                            "customer": r[1] if (len(r) > 1 and sname in ("VIP Claim", "Expenses")) else "Civilian / VIP",
                             "amount": amt_num,
-                            "employee": r[col_emp] if len(r) > col_emp else "System",
+                            "employee": emp_name,
                         })
 
         recent.sort(key=lambda x: str(x["time"]), reverse=True)
@@ -454,18 +454,20 @@ def get_transactions():
         all_txns = []
         for sname, srows in rows_by_sheet.items():
             col_amt = sheets._AMOUNT_COL.get(sname, 4)
-            col_emp = sheets._EMPLOYEE_COL.get(sname, 3)
             for idx, r in enumerate(srows):
-                if len(r) > max(col_amt, col_emp):
-                    all_txns.append({
-                        "id": f"{sname[:3].upper()}-{idx+1000}",
-                        "category": sname,
-                        "timestamp": r[0] if len(r) > 0 else "-",
-                        "customer": r[1] if len(r) > 1 else "Civilian / VIP",
-                        "employee": r[col_emp] if len(r) > col_emp else "-",
-                        "amount": r[col_amt] if len(r) > col_amt else "0",
-                        "status": "Completed"
-                    })
+                if len(r) > col_amt:
+                    amt_num = sheets._sum_numeric([r[col_amt]])
+                    if amt_num > 0:
+                        emp_name = sheets._extract_employee_from_row(r, sname) or "-"
+                        all_txns.append({
+                            "id": f"{sname[:3].upper()}-{idx+1000}",
+                            "category": sname,
+                            "timestamp": r[0] if len(r) > 0 else "-",
+                            "customer": r[1] if (len(r) > 1 and sname in ("VIP Claim", "Expenses")) else "Civilian / VIP",
+                            "employee": emp_name,
+                            "amount": amt_num,
+                            "status": "Completed"
+                        })
 
         all_txns.sort(key=lambda x: str(x["timestamp"]), reverse=True)
         return jsonify({"success": True, "transactions": all_txns})
