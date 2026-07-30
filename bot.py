@@ -913,7 +913,13 @@ async def send_heartbeat_loop():
                     sheets.clear_rows_cache(hard=True)
                     asyncio.run_coroutine_threadsafe(_do_full_scan(limit=None), bot.loop)
                 elif cmd == "stop" or not bot_enabled:
-                    print("[Heartbeat] ⚠️ Received STOP command from Dashboard — IGNORING during manual scan run.")
+                    print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
+                    try:
+                        await bot.change_presence(status=discord.Status.offline)
+                        await asyncio.sleep(0.5)
+                    except Exception: pass
+                    await bot.close()
+                    sys.exit(0)
             except Exception:
                 pass
         await asyncio.sleep(5)
@@ -929,14 +935,27 @@ async def on_ready():
     except Exception as e:
         ocr.logger.error(f"Google Sheets setup warning: {e}")
 
-    # ── FULL WIPE + RE-SCAN (manual restart mode) ──
-    print("=" * 60)
-    print("[MANUAL WIPE] Starting FULL WIPE + RE-SCAN of all channels...")
-    print("=" * 60)
-    await _do_full_scan(limit=None)
-    print("=" * 60)
-    print("[MANUAL WIPE] Full wipe + re-scan COMPLETE!")
-    print("=" * 60)
+    print("Scanning configured channels/threads for invoices missed while offline...")
+    for guild in bot.guilds:
+        targets = await collect_target_channels(guild)
+        for channel in targets:
+            channel_name = getattr(channel, "name", "channel")
+            norm = config.normalize_channel_name(channel_name)
+            clean_display_name = re.sub(r"[^\x20-\x7E]", "", norm).strip("┆| ") or channel_name
+            try:
+                count = await backfill_channel_history(channel, channel_name, limit=500)
+                print(f"  #{clean_display_name}: scanned {count} message(s).")
+            except discord.Forbidden:
+                print(f"  #{clean_display_name}: missing permission to read history, skipped.")
+            except Exception as e:
+                print(f"  #{clean_display_name}: error during scan ({e}).")
+
+    print("Backfill scan complete. Updating dashboard & employee roster...")
+    try:
+        await asyncio.to_thread(sheets.update_employee_tracker)
+        await asyncio.to_thread(sheets.update_dashboard)
+    except Exception as e:
+        ocr.logger.error(f"Error updating dashboard post-scan: {e}")
 
 
 @bot.event
