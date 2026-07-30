@@ -881,36 +881,39 @@ async def _do_full_scan(limit=None):
         pass
 
 
+def _fetch_heartbeat(url, data_bytes, headers):
+    import urllib.request
+    req = urllib.request.Request(url, data=data_bytes, headers=headers)
+    with urllib.request.urlopen(req, timeout=4) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
 async def send_heartbeat_loop():
     await bot.wait_until_ready()
     render_url = os.getenv("RENDER_EXTERNAL_URL", "https://jiraiya-bot-monitor.onrender.com")
     local_url = "http://127.0.0.1:5000"
-    import urllib.request
+
+    headers = {"Content-Type": "application/json"}
+    payload = json.dumps({"bot": "jiraiya", "status": "online"}).encode("utf-8")
 
     while not bot.is_closed():
         for target_host in (local_url, render_url):
             try:
                 hb_endpoint = f"{target_host.rstrip('/')}/api/heartbeat"
-                req = urllib.request.Request(
-                    hb_endpoint,
-                    data=json.dumps({"bot": "jiraiya", "status": "online"}).encode("utf-8"),
-                    headers={"Content-Type": "application/json"}
-                )
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    res_data = json.loads(resp.read().decode("utf-8"))
-                    cmd = res_data.get("command")
-                    bot_enabled = res_data.get("bot_enabled", True)
-                    
-                    if cmd == "rescan":
-                        print("[Heartbeat] ⚡ Received RESCAN command from Dashboard! Scanning recent Discord invoices...")
-                        sheets.clear_rows_cache(hard=True)
-                        asyncio.run_coroutine_threadsafe(_do_recent_scan(limit=200), bot.loop)
-                    elif cmd == "wipe":
-                        print("[Heartbeat] ⚠️ Received FULL WIPE command from Dashboard! Erasing data & performing FULL scan of all channels...")
-                        sheets.clear_rows_cache(hard=True)
-                        asyncio.run_coroutine_threadsafe(_do_full_scan(limit=None), bot.loop)
-                    elif cmd == "stop" or not bot_enabled:
-                        print("[Heartbeat] ⚠️ Received STOP command from Dashboard — IGNORING during manual scan run. Re-enable bot in dashboard to clear this.")
+                res_data = await asyncio.to_thread(_fetch_heartbeat, hb_endpoint, payload, headers)
+                cmd = res_data.get("command")
+                bot_enabled = res_data.get("bot_enabled", True)
+                
+                if cmd == "rescan":
+                    print("[Heartbeat] ⚡ Received RESCAN command from Dashboard! Scanning recent Discord invoices...")
+                    sheets.clear_rows_cache(hard=True)
+                    asyncio.run_coroutine_threadsafe(_do_recent_scan(limit=200), bot.loop)
+                elif cmd == "wipe":
+                    print("[Heartbeat] ⚠️ Received FULL WIPE command from Dashboard! Erasing data & performing FULL scan of all channels...")
+                    sheets.clear_rows_cache(hard=True)
+                    asyncio.run_coroutine_threadsafe(_do_full_scan(limit=None), bot.loop)
+                elif cmd == "stop" or not bot_enabled:
+                    print("[Heartbeat] ⚠️ Received STOP command from Dashboard — IGNORING during manual scan run.")
             except Exception:
                 pass
         await asyncio.sleep(5)
@@ -921,7 +924,7 @@ async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
     asyncio.create_task(send_heartbeat_loop())
     try:
-        sheets.setup_all_sheets()
+        await asyncio.to_thread(sheets.setup_all_sheets)
         print("Google Sheets ready.")
     except Exception as e:
         ocr.logger.error(f"Google Sheets setup warning: {e}")
