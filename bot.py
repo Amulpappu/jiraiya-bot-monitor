@@ -214,7 +214,6 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
     try:
         await asyncio.to_thread(
             sheets.append_service_entry,
-            customer=resolve_customer_name(parsed.get("customer"), message, raw_text),
             category=service_cat,
             total=amount,
             employee=resolve_employee_name(message.author),
@@ -321,7 +320,6 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     try:
         await asyncio.to_thread(
             sheets.append_kit_entry,
-            customer=resolve_customer_name(parsed.get("customer"), message, raw_text),
             rk_qty=qty["rk"],
             ck_qty=qty["ck"],
             discount_pct=discount,
@@ -604,7 +602,6 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 await asyncio.to_thread(
                     sheets.append_entry,
                     sheet_name=cfg["sheet_name"],
-                    customer=cust,
                     value=val,
                     employee=resolve_employee_name(message.author),
                     message_id=str(message.id),
@@ -681,7 +678,6 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             await asyncio.to_thread(
                 sheets.append_entry,
                 sheet_name=cfg["sheet_name"],
-                customer=customer,
                 value=value,
                 employee=resolve_employee_name(message.author),
                 message_id=str(message.id),
@@ -914,13 +910,7 @@ async def send_heartbeat_loop():
                         sheets.clear_rows_cache(hard=True)
                         asyncio.run_coroutine_threadsafe(_do_full_scan(limit=None), bot.loop)
                     elif cmd == "stop" or not bot_enabled:
-                        print("[Heartbeat] Received STOP command from Dashboard! Setting presence to offline and stopping...")
-                        try:
-                            await bot.change_presence(status=discord.Status.offline)
-                            await asyncio.sleep(0.5)
-                        except Exception: pass
-                        await bot.close()
-                        sys.exit(0)
+                        print("[Heartbeat] ⚠️ Received STOP command from Dashboard — IGNORING during manual scan run. Re-enable bot in dashboard to clear this.")
             except Exception:
                 pass
         await asyncio.sleep(5)
@@ -936,27 +926,14 @@ async def on_ready():
     except Exception as e:
         ocr.logger.error(f"Google Sheets setup warning: {e}")
 
-    print("Scanning configured channels/threads for invoices missed while offline...")
-    for guild in bot.guilds:
-        targets = await collect_target_channels(guild)
-        for channel in targets:
-            channel_name = getattr(channel, "name", "channel")
-            norm = config.normalize_channel_name(channel_name)
-            clean_display_name = re.sub(r"[^\x20-\x7E]", "", norm).strip("┆| ") or channel_name
-            try:
-                count = await backfill_channel_history(channel, channel_name, limit=500)
-                print(f"  #{clean_display_name}: scanned {count} message(s).")
-            except discord.Forbidden:
-                print(f"  #{clean_display_name}: missing permission to read history, skipped.")
-            except Exception as e:
-                print(f"  #{clean_display_name}: error during scan ({e}).")
-
-    print("Backfill scan complete. Updating dashboard & employee roster...")
-    try:
-        await asyncio.to_thread(sheets.update_employee_tracker)
-        await asyncio.to_thread(sheets.update_dashboard)
-    except Exception as e:
-        ocr.logger.error(f"Error updating dashboard post-scan: {e}")
+    # ── FULL WIPE + RE-SCAN (manual restart mode) ──
+    print("=" * 60)
+    print("[MANUAL WIPE] Starting FULL WIPE + RE-SCAN of all channels...")
+    print("=" * 60)
+    await _do_full_scan(limit=None)
+    print("=" * 60)
+    print("[MANUAL WIPE] Full wipe + re-scan COMPLETE!")
+    print("=" * 60)
 
 
 @bot.event

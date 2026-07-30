@@ -56,11 +56,11 @@ SCOPES = [
 _client = None
 _spreadsheet = None
 
-REVENUE_HEADERS = ["Timestamp", "Customer Name", "Total Amount", "Employee", "Message ID"]
-QTY_HEADERS = ["Timestamp", "Customer Name", "Quantity", "Employee", "Message ID"]
-SERVICE_HEADERS = ["Timestamp", "Customer Name", "Category", "Count", "Total Amount", "Employee", "Message ID"]
+REVENUE_HEADERS = ["Timestamp", "Total Amount", "Employee", "Message ID"]
+QTY_HEADERS = ["Timestamp", "Quantity", "Employee", "Message ID"]
+SERVICE_HEADERS = ["Timestamp", "Category", "Count", "Total Amount", "Employee", "Message ID"]
 KIT_HEADERS = [
-    "Timestamp", "Customer Name", "Repair Kit Qty", "Cleaning Kit Qty",
+    "Timestamp", "Repair Kit Qty", "Cleaning Kit Qty",
     "Discount %", "Total Amount", "Employee", "Message ID",
 ]
 EXPENSE_HEADERS = ["Timestamp", "Amount", "Employee", "Message ID"]
@@ -784,14 +784,13 @@ def append_transaction_entry(amount, employee: str, category: str, description: 
             logging.getLogger("sheets").error(f"Employee Tracker update failed: {e}")
 
 
-def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None):
+def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
     """Logs a service invoice with timestamp (date + time in IST) when posted in Discord."""
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     _with_retry(lambda: ws.append_row([
         timestamp,
-        customer or "Unknown",
         category or "Unspecified",
         count if count is not None else "",
         total,
@@ -802,15 +801,14 @@ def append_service_entry(customer: str, category: str, total, employee: str, mes
     add_logged_message_id(str(message_id))
 
 
-def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: float,
-                      total: float, employee: str, message_id: str, created_at: datetime.datetime = None):
+def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float,
+                      total: float, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
     """Logs a Repair Kit / Cleaning Kit sale with timestamp (date + time in IST) when posted in Discord."""
     ws = _ensure_sheet("Kits", KIT_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     _with_retry(lambda: ws.append_row([
         timestamp,
-        customer or "Unknown",
         rk_qty,
         ck_qty,
         discount_pct,
@@ -865,7 +863,7 @@ def clean_invalid_zero_rows():
         print(f"[Cleanup Warning]: {e}")
 
 
-def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str, created_at: datetime.datetime = None):
+def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
     try:
         val_float = float(value)
         if val_float <= 0:
@@ -878,7 +876,7 @@ def append_entry(sheet_name: str, customer: str, value, employee: str, message_i
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    row = [timestamp, customer or "Unknown", val_float, employee, message_id]
+    row = [timestamp, val_float, employee, message_id]
 
     _with_retry(lambda: ws.append_row(row))
     clear_rows_cache(sheet_name)
@@ -1275,15 +1273,15 @@ def get_top_services_breakdown(rows_by_sheet):
             civ_amt += amt
 
     upg_count = len(rows_by_sheet.get("Upgrades", []))
-    # Kits: sum actual Repair Kit Qty (col2) + Cleaning Kit Qty (col3) sold
+    # Kits: sum actual Repair Kit Qty (col1) + Cleaning Kit Qty (col2) sold
     kit_count = sum(
-        (_sum_numeric([r[2]]) if len(r) > 2 else 0) + (_sum_numeric([r[3]]) if len(r) > 3 else 0)
+        (_sum_numeric([r[1]]) if len(r) > 1 else 0) + (_sum_numeric([r[2]]) if len(r) > 2 else 0)
         for r in rows_by_sheet.get("Kits", [])
     )
     vip_count = len(rows_by_sheet.get("VIP Claim", []))
 
-    col_upg = _AMOUNT_COL.get("Upgrades", 2)
-    col_kit = _AMOUNT_COL.get("Kits", 5)
+    col_upg = _AMOUNT_COL.get("Upgrades", 1)
+    col_kit = _AMOUNT_COL.get("Kits", 4)
     col_vip = _AMOUNT_COL.get("VIP Claim", 4)
 
     upg_amt = _sum_numeric([r[col_upg] for r in rows_by_sheet.get("Upgrades", []) if len(r) > col_upg])
@@ -1309,8 +1307,8 @@ def get_top_services_breakdown(rows_by_sheet):
 
 
 # Column index (0-based) of "Employee" and "Total Amount" per sheet
-_EMPLOYEE_COL = {"Service": 5, "Upgrades": 3, "Kits": 6, "Expenses": 2, "VIP Claim": 3}
-_AMOUNT_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 1, "VIP Claim": 4}
+_EMPLOYEE_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 2, "VIP Claim": 3}
+_AMOUNT_COL = {"Service": 3, "Upgrades": 1, "Kits": 4, "Expenses": 1, "VIP Claim": 4}
 
 
 def resolve_employee(raw_name: str) -> str:
@@ -1332,15 +1330,14 @@ def _extract_employee_from_row(row, sheet_name):
         return None
 
     hints = {
-        "Service": [5, 3, 1],
-        "Upgrades": [3, 1],
-        "Kits": [6, 3, 1],
+        "Service": [4, 2],
+        "Upgrades": [2, 1],
+        "Kits": [5, 2],
         "VIP Claim": [3, 1, 0],
         "Expenses": [2, 1, 0],
     }
-    cols = hints.get(sheet_name, [3, 1, 0])
 
-    for c_idx in cols:
+    for c_idx in hints.get(sheet_name, [2, 1, 0]):
         if len(row) > c_idx and row[c_idx].strip():
             val = row[c_idx].strip()
             if not val.replace('.', '', 1).isdigit() and not re.match(r"^\d{4}-\d{2}-\d{2}", val) and not re.match(r"^\$?[\d,.]+$", val):
@@ -1397,7 +1394,7 @@ def get_rich_leaderboard(rows_by_sheet):
         return stats[emp_name]
 
     # 1. SERVICE SHEET
-    col_svc_amt = _AMOUNT_COL.get("Service", 4)
+    col_svc_amt = _AMOUNT_COL.get("Service", 3)
     for r in rows_by_sheet.get("Service", []):
         emp_name = _extract_employee_from_row(r, "Service")
         if not emp_name:
@@ -1408,7 +1405,7 @@ def get_rich_leaderboard(rows_by_sheet):
         if amt <= 0:
             amt = 3000.0
 
-        cat_val = str(r[2]).strip().lower() if len(r) > 2 else ""
+        cat_val = str(r[1]).strip().lower() if len(r) > 1 else ""
         is_govt = (cat_val in ("government", "govt", "pd", "ems", "taxi") or
                    any(g in cat_val for g in ("pd", "ems", "taxi", "govt", "government")) or
                    (amt >= 5000 and amt % 5000 == 0 and amt % 3000 != 0))
@@ -1603,18 +1600,17 @@ def update_employee_tracker():
         for emp in valid_employees
     }
 
-    col_amt = _AMOUNT_COL.get("Service", 4)
+    col_amt = _AMOUNT_COL.get("Service", 3)
 
-    # Service Sheet: Col 0 = Timestamp, Col 5 = Employee, Col 4 = Amount, Col 2 = Category
+    # Service Sheet: Col 0 = Timestamp, Col 4 = Employee, Col 3 = Amount, Col 1 = Category
     for row in rows_by_sheet["Service"]:
         if not row or len(row) < 2:
             continue
-        # Detect employee column dynamically (priority: col5, col3, col1)
         emp_raw = ""
-        if len(row) > 5 and row[5].strip():
-            emp_raw = row[5]
-        elif len(row) > 3 and row[3].strip() and not row[3].strip().isdigit():
-            emp_raw = row[3]
+        if len(row) > 4 and row[4].strip():
+            emp_raw = row[4]
+        elif len(row) > 2 and row[2].strip() and not row[2].strip().isdigit():
+            emp_raw = row[2]
 
         if not emp_raw:
             continue
@@ -1629,8 +1625,8 @@ def update_employee_tracker():
         if amt <= 0:
             amt = 3000.0
 
-        cat_val = str(row[2]).strip().lower() if len(row) > 2 else ""
-        row_str = " ".join([str(cell).lower() for cell in row[:5]])
+        cat_val = str(row[1]).strip().lower() if len(row) > 1 else ""
+        row_str = " ".join([str(cell).lower() for cell in row[:4]])
 
         is_govt = ("govt" in cat_val or "government" in cat_val or "pd" in cat_val or
                    "ems" in cat_val or "taxi" in cat_val or
@@ -1647,19 +1643,19 @@ def update_employee_tracker():
         if row[0]:
             tracker_data[emp]["last_date"] = row[0].split()[0]
 
-    # Upgrades Sheet: Col 0 = Timestamp, Col 3 = Employee
+    # Upgrades Sheet: Col 0 = Timestamp, Col 2 = Employee
     for row in rows_by_sheet["Upgrades"]:
-        if len(row) > 3 and row[3].strip():
-            emp = resolve_name(row[3])
+        if len(row) > 2 and row[2].strip():
+            emp = resolve_name(row[2])
             if emp in valid_employees:
                 tracker_data[emp]["upgrade"] += 1
                 if row[0]:
                     tracker_data[emp]["last_date"] = row[0].split()[0]
 
-    # Kits Sheet: Col 0 = Timestamp, Col 6 = Employee
+    # Kits Sheet: Col 0 = Timestamp, Col 5 = Employee
     for row in rows_by_sheet["Kits"]:
-        if len(row) > 6 and row[6].strip():
-            emp = resolve_name(row[6])
+        if len(row) > 5 and row[5].strip():
+            emp = resolve_name(row[5])
             if emp in valid_employees:
                 tracker_data[emp]["kit"] += 1  # count kit log entries (not quantity)
                 if row[0]:
