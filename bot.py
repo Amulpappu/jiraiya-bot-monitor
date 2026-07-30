@@ -16,6 +16,7 @@ from discord.ext import commands
 
 import config
 import ocr
+from ocr import _is_valid_name
 import sheets
 import kit_pricing
 import service_pricing
@@ -200,6 +201,7 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
     if amount is None or amount <= 0:
         # Fallback to standard civilian service (₹3,000) so no invoice screenshot is dropped
         amount = 3000.0
+        ocr.logger.warning(f"Service message {message.id}: OCR could not read amount, using fallback ₹3,000")
 
     keyword_category = service_pricing.parse_service_category(message.content)
     if not keyword_category and raw_text:
@@ -307,6 +309,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         else:
             # Fallback to standard 1x Repair Kit so no kit invoice screenshot is dropped
             qty = {"rk": 1, "ck": 0}
+            ocr.logger.warning(f"Kit message {message.id}: could not parse kit quantity, using fallback 1x RK")
 
     total, discount, combined_qty, rk_subtotal, ck_subtotal = kit_pricing.calculate_kit_total(
         qty["rk"], qty["ck"]
@@ -440,6 +443,7 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
     if amount is None or amount <= 0:
         # Fallback default expense bill (₹5,000) so no bill claim is dropped
         amount = 5000.0
+        ocr.logger.warning(f"Expense message {message.id}: OCR could not read amount, using fallback ₹5,000")
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
         if str(message.id) in sheets.get_all_logged_message_ids():
@@ -668,6 +672,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         if value is None or value <= 0:
             # Fallback to standard 1x Upgrade (₹50,000) so no upgrade screenshot is dropped
             value = 50000.0
+            ocr.logger.warning(f"Upgrade message {message.id}: OCR could not read amount, using fallback ₹50,000")
 
         customer = customer or "Unknown / VIP"
 
@@ -820,39 +825,7 @@ async def collect_target_channels(guild: discord.Guild):
     return targets
 
 
-async def send_heartbeat_loop():
-    """Background task sending heartbeat pings every 15 seconds & executing cloud remote commands."""
-    import urllib.request
-    import json
-    urls = [
-        "http://localhost:5000/api/heartbeat",
-        "http://127.0.0.1:5000/api/heartbeat"
-    ]
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Content-Type": "application/json"
-    }
-    while True:
-        await asyncio.sleep(15)
-        for u in urls:
-            try:
-                req = urllib.request.Request(u, data=b"{}", headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    raw = resp.read().decode('utf-8')
-                    res_data = json.loads(raw)
-                    cmd = res_data.get("command")
-                    if cmd == "stop":
-                        print("[Remote Command] Received Stop command from Web dashboard. Closing bot...")
-                        await bot.close()
-                        return
-
-                    elif cmd == "wipe":
-                        print("[Remote Command] FULL WIPE + FULL re-scan from beginning...")
-                        sheets.clear_rows_cache()
-                        sheets._LOGGED_IDS_CACHE = None
-                        asyncio.create_task(_do_full_scan(limit=None))
-            except Exception as e:
-                pass
+# (Removed duplicate send_heartbeat_loop — the canonical version is defined below)
 
 
 async def scan_one_channel(channel, limit):

@@ -633,20 +633,7 @@ def setup_all_sheets():
     update_employee_tracker()
 
 
-def append_expense_entry(amount, employee: str, category: str = "General", desc: str = "", created_at: datetime.datetime = None):
-    try:
-        amt = float(amount)
-        if amt <= 0:
-            return
-    except (ValueError, TypeError):
-        return
-
-    ws = _ensure_sheet("Expenses", EXPENSE_HEADERS)
-    ts = _get_ist_dt(created_at).strftime(TIMESTAMP_FORMAT)
-    resolved_emp = resolve_name(employee)
-    row = [ts, amt, resolved_emp, category, desc, ""]
-    _with_retry(lambda: ws.append_row(row, value_input_option="USER_ENTERED"))
-    clear_rows_cache("Expenses")
+# (Removed duplicate append_expense_entry — the canonical version is defined below at ~line 907)
 
 
 def save_inventory_item_to_sheet(item_name: str, qty: int, bought_month: int, restock_date: str, unit_price: float):
@@ -1060,6 +1047,82 @@ def _sum_numeric(values):
         except (ValueError, TypeError):
             continue
     return total
+
+
+def _revenue_window(rows, value_col=2, today_only=False, days=None, this_month=False):
+    """Sums the numeric value at `value_col` for rows whose timestamp falls
+    within the requested window (today, last N days, or this calendar month).
+    If no window flag is set, sums everything (all-time)."""
+    now = now_ist()
+    total = 0.0
+
+    for r in rows:
+        if not r or len(r) <= value_col:
+            continue
+
+        # Parse the timestamp in column 0
+        raw_ts = str(r[0]).strip()
+        dt = None
+        for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT, "%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                dt = datetime.datetime.strptime(raw_ts, fmt).replace(tzinfo=IST)
+                break
+            except (ValueError, TypeError):
+                continue
+
+        if dt is None:
+            # Can't parse timestamp — skip when filtering by time, include for all-time
+            if not today_only and days is None and not this_month:
+                try:
+                    total += float(r[value_col])
+                except (ValueError, TypeError):
+                    pass
+            continue
+
+        include = False
+        if today_only:
+            include = dt.date() == now.date()
+        elif days is not None:
+            include = (now - dt).days <= days
+        elif this_month:
+            include = dt.year == now.year and dt.month == now.month
+        else:
+            include = True  # all-time
+
+        if include:
+            try:
+                total += float(r[value_col])
+            except (ValueError, TypeError):
+                pass
+
+    return total
+
+
+def _leaderboard(rows_by_sheet):
+    """Returns a simple list of (employee_name, total_invoice_count) tuples
+    for the Dashboard sheet, sorted by count descending."""
+    from collections import Counter
+    counter = Counter()
+
+    for sname in ("Service", "Upgrades", "Kits", "Expenses"):
+        emp_col = _EMPLOYEE_COL.get(sname)
+        for r in rows_by_sheet.get(sname, []):
+            if not r:
+                continue
+            # Try the standard employee column first
+            emp = None
+            if emp_col is not None and len(r) > emp_col:
+                val = str(r[emp_col]).strip()
+                if val and not val.replace('.', '', 1).isdigit():
+                    emp = val
+            # Fallback: use _extract_employee_from_row
+            if not emp:
+                emp = _extract_employee_from_row(r, sname)
+            if emp:
+                counter[emp] += 1
+
+    top_n = getattr(config, 'LEADERBOARD_TOP_N', 10)
+    return counter.most_common(top_n)
 
 
 def filter_rows_by_period(rows, period="all"):
