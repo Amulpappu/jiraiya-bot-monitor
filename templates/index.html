@@ -1836,8 +1836,9 @@
                 <td>${e.tag || '@' + (e.name||'').toLowerCase()}</td>
                 <td style="color:#6C4DFF; font-weight:700;">${Number(e.civilian_service || 0).toLocaleString()}</td>
                 <td style="color:#2A8DFF; font-weight:700;">${Number(e.govt_service || 0).toLocaleString()}</td>
-                <td>${Number(e.kits || 0).toLocaleString()}</td>
                 <td>${Number(e.upgrades || 0).toLocaleString()}</td>
+                <td>${Number(e.kits || 0).toLocaleString()}</td>
+                <td style="color:#F9A826; font-weight:700;">${Number(e.vip_claims || 0).toLocaleString()}</td>
                 <td><strong style="color:var(--success);">${Number(totLogs).toLocaleString()} logs</strong></td>
                 <td><span class="badge badge-success">Active</span></td>
               </tr>
@@ -1851,14 +1852,7 @@
 
       tbody.innerHTML = `
         <tr>
-          <td><span class="badge badge-primary">#1</span></td>
-          <td><strong>AMULPAPPU</strong></td>
-          <td>@amulpappu</td>
-          <td style="color:#6C4DFF; font-weight:700;">0</td>
-          <td style="color:#2A8DFF; font-weight:700;">0</td>
-          <td>0</td><td>0</td>
-          <td><strong style="color:var(--success);">0 logs</strong></td>
-          <td><span class="badge badge-success">Active</span></td>
+          <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">Syncing employee roster from Google Sheets... Click ⚡ Re-Scan if needed.</td>
         </tr>
       `;
     }

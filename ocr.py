@@ -155,39 +155,67 @@ def _parse_table_row(text: str):
 
 
 def _fallback_amount(text: str):
+    if not text:
+        return None
+
     # 1. First search explicit total/amount/price keywords
-    m_kw = re.search(r"(?:total amount|total price|grand total|total|amount due|amount|price|value|cost|fee)\s*[:\-]?\s*[\$sS₹§€£]?\s*([\d,]{2,10}(?:\.\d{1,2})?)", text, re.IGNORECASE)
+    m_kw = re.search(
+        r"(?:total amount|total price|grand total|total|amount due|amount|price|value|cost|fee|bill)\s*[:\-]?\s*[\$sS₹§€£]?\s*([\d,]{2,10}(?:\.\d{1,2})?)",
+        text,
+        re.IGNORECASE,
+    )
     if m_kw:
         cand = m_kw.group(1).replace(",", "")
         try:
             val = float(cand)
-            if 100 <= val <= 10000000 and val not in (2025, 2026, 2027, 2028):
+            if 100 <= val <= 10000000 and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
                 return m_kw.group(1)
         except ValueError:
             pass
 
-    # 2. Check for explicit currency symbols or OCR misread dollar prefixes ($ / s / S / ₹)
+    # 2. Check for explicit currency symbols (prefix or suffix)
+    # Prefix: $15000 / ₹15,000 / $ 15000
     for m in re.finditer(r"(?:^|\s|\b)[$₹§€£sS]\s*([\d,]{2,10}(?:\.\d{1,2})?)(?:\s|$|\b)", text):
         candidate = m.group(1).replace(",", "")
         try:
             val = float(candidate)
-            if 100 <= val <= 10000000 and val not in (2025, 2026, 2027, 2028):
+            if 100 <= val <= 10000000 and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
                 return m.group(1)
         except ValueError:
             pass
 
-    # 3. Standalone positive numbers >= 100 in lines with invoice keywords
+    # Suffix: 15000$ / 15,000 $ / 15000/-
+    for m in re.finditer(r"(?:^|\s|\b)([\d,]{2,10}(?:\.\d{1,2})?)\s*[$₹§€£sS/\-](?:\s|$|\b)", text):
+        candidate = m.group(1).replace(",", "")
+        try:
+            val = float(candidate)
+            if 100 <= val <= 10000000 and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
+                return m.group(1)
+        except ValueError:
+            pass
+
+    # 3. Standalone positive numbers >= 100 (excluding dates/timestamps/IDs)
+    candidates = []
     for line in text.splitlines():
-        if any(w in line.lower() for w in ("total", "unpaid", "paid", "amount", "price", "fee", "due", "cost", "service", "upgrade")):
-            for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", line):
-                clean_num = num.replace(",", "")
-                if clean_num not in ("2025", "2026", "2027", "2028"):
-                    try:
-                        val = float(clean_num)
-                        if 100 <= val <= 10000000:
-                            return num
-                    except ValueError:
-                        pass
+        clean_line = re.sub(r"\b(?:id|msg_id|message_id|phone)\s*[:\-]?\s*\d+\b", "", line, flags=re.IGNORECASE)
+        clean_line = re.sub(r"\b\d{1,4}[/\.\-]\d{1,2}[/\.\-]\d{1,4}\b", "", clean_line)
+        clean_line = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\b", "", clean_line)
+        clean_line = re.sub(r"https?://\S+|www\.\S+", "", clean_line)
+
+        for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", clean_line):
+            clean_num = num.replace(",", "")
+            if clean_num not in ("2024", "2025", "2026", "2027", "2028", "2029", "2030"):
+                try:
+                    val = float(clean_num)
+                    if 100 <= val <= 10000000:
+                        candidates.append((val, num))
+                except ValueError:
+                    pass
+
+    if candidates:
+        # Sort candidates descending by value to pick the main invoice total
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
 
     return None
 

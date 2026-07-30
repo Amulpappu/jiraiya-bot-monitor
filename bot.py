@@ -389,42 +389,55 @@ def parse_text_amount(text: str) -> float | None:
         except ValueError:
             pass
 
-    # 2. Currency symbol prefix ($15000 / ₹15,000 / $ 15000)
-    m_curr = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d{1,2})?)", text)
-    if m_curr:
+    # 2. Currency symbol prefix or suffix ($15000 / ₹15,000 / 15000$)
+    m_curr_pref = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d{1,2})?)", text)
+    if m_curr_pref:
         try:
-            val = float(m_curr.group(1).replace(",", ""))
+            val = float(m_curr_pref.group(1).replace(",", ""))
             if 100 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
 
-    # 3. Explicit keywords (total 15000, amount 15000, price 15000)
-    m_kw = re.search(r"(?:total|amount|price|value|cost|fee|bill)\s*[:\-]?\s*[\$₹§€£]?\s*([\d,]+(?:\.\d{1,2})?)", text, re.IGNORECASE)
-    if m_kw:
+    m_curr_suff = re.search(r"([\d,]+(?:\.\d{1,2})?)\s*[\$₹§€£]", text)
+    if m_curr_suff:
         try:
-            val = float(m_kw.group(1).replace(",", ""))
-            if 100 <= val <= MAX_EXPENSE_AMOUNT and val not in (2025, 2026, 2027, 2028):
+            val = float(m_curr_suff.group(1).replace(",", ""))
+            if 100 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
 
-    # 4. Standalone numbers >= 100 (excluding dates/timestamps)
+    # 3. Explicit keywords (total 15000, amount 15000, price 15000, upgrade 25000)
+    m_kw = re.search(r"(?:total|amount|price|value|cost|fee|bill|upgrade)\s*[:\-]?\s*[\$₹§€£]?\s*([\d,]+(?:\.\d{1,2})?)", text, re.IGNORECASE)
+    if m_kw:
+        try:
+            val = float(m_kw.group(1).replace(",", ""))
+            if 100 <= val <= MAX_EXPENSE_AMOUNT and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
+                return val
+        except ValueError:
+            pass
+
+    # 4. Standalone numbers >= 100 (excluding dates/timestamps/IDs)
+    candidates = []
     for line in text.splitlines():
-        line_lower = line.lower()
-        if any(w in line_lower for w in ("id:", "phone", "date", "time", "http", "www")):
-            continue
-        clean_line = re.sub(r"\d{2,4}[\/\.\-]\d{2}[\/\.\-]\d{2,4}", "", line)
-        clean_line = re.sub(r"\d{1,2}:\d{2}(?::\d{2})?", "", clean_line)
+        clean_line = re.sub(r"\b(?:id|msg_id|message_id|phone)\s*[:\-]?\s*\d+\b", "", line, flags=re.IGNORECASE)
+        clean_line = re.sub(r"\b\d{1,4}[/\.\-]\d{1,2}[/\.\-]\d{1,4}\b", "", clean_line)
+        clean_line = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\b", "", clean_line)
+        clean_line = re.sub(r"https?://\S+|www\.\S+", "", clean_line)
+
         for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", clean_line):
             clean_num = num.replace(",", "")
-            if clean_num not in ("2025", "2026", "2027", "2028"):
+            if clean_num not in ("2024", "2025", "2026", "2027", "2028", "2029", "2030"):
                 try:
                     val = float(clean_num)
                     if 100 <= val <= MAX_EXPENSE_AMOUNT:
-                        return val
+                        candidates.append(val)
                 except ValueError:
                     pass
+
+    if candidates:
+        return max(candidates)
 
     return None
 
