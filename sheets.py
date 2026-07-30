@@ -623,14 +623,6 @@ def setup_all_sheets():
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
     _ensure_employee_tracker()
     _ensure_dashboard()
-    remove_deprecated_user_roles_and_access_sheets()
-    clean_non_july_logs()
-    clean_invalid_customer_names()
-    clean_invalid_service_amounts()
-    clean_transactions_sheet()
-
-    update_dashboard()
-    update_employee_tracker()
 
 
 # (Removed duplicate append_expense_entry — the canonical version is defined below at ~line 907)
