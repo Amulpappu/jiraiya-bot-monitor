@@ -56,16 +56,12 @@ SCOPES = [
 _client = None
 _spreadsheet = None
 
-REVENUE_HEADERS = ["Timestamp", "Total Amount", "Employee", "Message ID"]
-QTY_HEADERS = ["Timestamp", "Quantity", "Employee", "Message ID"]
-SERVICE_HEADERS = ["Timestamp", "Category", "Count", "Total Amount", "Employee", "Message ID"]
-KIT_HEADERS = [
-    "Timestamp", "Repair Kit Qty", "Cleaning Kit Qty",
-    "Discount %", "Total Amount", "Employee", "Message ID",
-]
+REVENUE_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
+SERVICE_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
+KIT_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
 EXPENSE_HEADERS = ["Timestamp", "Amount", "Employee", "Message ID"]
 INVENTORY_HEADERS = ["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Price", "Total Value", "Last Updated"]
-VIP_CLAIM_HEADERS = ["Person Name", "Category", "Vehicle", "Staff", "Amount", "Timestamp", "Message ID"]
+VIP_CLAIM_HEADERS = ["Person Name", "Staff", "Vehicle", "Amount", "Status", "Timestamp", "Message ID"]
 TRANSACTIONS_HEADERS = ["Date", "Transaction Amount", "Description", "Transaction Type", "Employee Name"]
 EMPLOYEE_TRACKER_HEADERS = [
     "Employee Name",
@@ -721,12 +717,13 @@ def mark_vip_claim_as_claimed_in_sheet(timestamp_str: str, customer_name: str):
     cust_lower = customer_name.strip().lower()
 
     # 1. Update memory cache instantly
+    cust_lower = customer_name.strip().lower() if customer_name else ""
     if "VIP Claim" in _LAST_KNOWN_ROWS:
         for r in _LAST_KNOWN_ROWS["VIP Claim"]:
             if r and ((len(r) > 5 and r[5] == timestamp_str) or (len(r) > 0 and r[0].strip().lower() == cust_lower)):
                 while len(r) < 7:
                     r.append("")
-                r[6] = "Claimed"
+                r[4] = "Claimed"
 
     if "VIP Claim" in _ROWS_CACHE:
         _ROWS_CACHE["VIP Claim"] = (time.time(), _LAST_KNOWN_ROWS.get("VIP Claim", []))
@@ -734,14 +731,14 @@ def mark_vip_claim_as_claimed_in_sheet(timestamp_str: str, customer_name: str):
     # 2. Update Google Sheets API asynchronously
     def _do_cloud_mark():
         try:
-            ws = _ensure_sheet("VIP Claim", ["Customer Name", "Vehicle Claimed", "Staff Name", "Msg ID", "Amount", "Timestamp", "Status"])
+            ws = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
             all_vals = _with_retry(lambda: ws.get_all_values())
             for idx, r in enumerate(all_vals, start=1):
                 if idx > 1 and r:
                     ts_match = len(r) > 5 and r[5] == timestamp_str
                     cust_match = len(r) > 0 and r[0].strip().lower() == cust_lower
                     if ts_match or cust_match:
-                        _with_retry(lambda: ws.update_cell(idx, 7, "Claimed"))
+                        _with_retry(lambda: ws.update_cell(idx, 5, "Claimed"))
                         break
         except Exception as e:
             import logging
@@ -782,13 +779,17 @@ def append_service_entry(category: str, total, employee: str, message_id: str, c
     """Logs a service invoice with timestamp (date + time in IST) when posted in Discord."""
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
+def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
+    """Logs a service invoice: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
+    ws = _ensure_sheet("Service", SERVICE_HEADERS)
+    dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     _with_retry(lambda: ws.append_row([
-        timestamp,
+        employee or "Unknown",
         category or "Unspecified",
-        count if count is not None else "",
+        count if count is not None else 1,
         total,
-        employee,
+        timestamp,
         message_id,
     ]))
     clear_rows_cache("Service")
@@ -797,17 +798,18 @@ def append_service_entry(category: str, total, employee: str, message_id: str, c
 
 def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float,
                       total: float, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
-    """Logs a Repair Kit / Cleaning Kit sale with timestamp (date + time in IST) when posted in Discord."""
+    """Logs a Kit sale: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
     ws = _ensure_sheet("Kits", KIT_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
+    qty_cnt = max(1, (rk_qty or 0) + (ck_qty or 0))
+    cat_str = f"{rk_qty}x RK, {ck_qty}x CK" if (rk_qty and ck_qty) else ("Repair Kit" if rk_qty else "Cleaning Kit")
     _with_retry(lambda: ws.append_row([
-        timestamp,
-        rk_qty,
-        ck_qty,
-        discount_pct,
+        employee or "Unknown",
+        cat_str,
+        qty_cnt,
         total,
-        employee,
+        timestamp,
         message_id,
     ]))
     clear_rows_cache("Kits")
@@ -824,7 +826,7 @@ def clean_invalid_zero_rows():
             rows = _all_rows(sname, fast_cached_only=True)
             if not rows:
                 continue
-            col_amt = _AMOUNT_COL.get(sname, 1 if sname in ("Upgrades", "Expenses") else (3 if sname == "Service" else 4))
+            col_amt = _AMOUNT_COL.get(sname, 3)
 
             seen_msg_ids = set()
             cleaned = []
@@ -877,6 +879,7 @@ def clean_invalid_zero_rows():
 
 
 def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
+    """Logs an Upgrade entry: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
     try:
         val_float = float(value)
         if val_float <= 0:
@@ -889,7 +892,7 @@ def append_entry(sheet_name: str, value, employee: str, message_id: str, created
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    row = [timestamp, val_float, employee, message_id]
+    row = [employee or "Unknown", "Car Upgrade", 1, val_float, timestamp, message_id]
 
     _with_retry(lambda: ws.append_row(row))
     clear_rows_cache(sheet_name)
@@ -903,7 +906,7 @@ def append_entry(sheet_name: str, value, employee: str, message_id: str, created
 
 
 def append_expense_entry(amount, employee: str, message_id: str, created_at: datetime.datetime = None):
-    """Logs an expense/bill claim with timestamp (date + time in IST) when posted in Discord."""
+    """Logs an expense/bill claim: [Timestamp, Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Expenses", EXPENSE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
@@ -923,16 +926,16 @@ def append_expense_entry(amount, employee: str, message_id: str, created_at: dat
 
 
 def append_vip_claim_entry(person_name: str, category: str, vehicle: str, staff: str, amount: float, message_id: str, created_at: datetime.datetime = None):
-    """Logs a VIP Mech Claim entry with exact columns: Person Name, Category, Vehicle, Staff, Amount, Timestamp, Message ID."""
+    """Logs a VIP Mech Claim entry: [Person Name, Staff, Vehicle, Amount, Status, Timestamp, Message ID]."""
     ws = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     _with_retry(lambda: ws.append_row([
         person_name or "Unknown",
-        category or "VIP",
-        vehicle or "Unknown",
         staff or "Unknown",
+        vehicle or "Unknown",
         amount if amount is not None else 0,
+        "Unclaimed",
         timestamp,
         message_id,
     ]))
@@ -1326,9 +1329,10 @@ def get_top_services_breakdown(rows_by_sheet):
     return raw_items
 
 
-# Column index (0-based) of "Employee" and "Total Amount" per sheet
-_EMPLOYEE_COL = {"Service": 4, "Upgrades": 2, "Kits": 5, "Expenses": 2, "VIP Claim": 3}
-_AMOUNT_COL = {"Service": 3, "Upgrades": 1, "Kits": 4, "Expenses": 1, "VIP Claim": 4}
+# Column index (0-based) of "Employee", "Total Amount", and "Timestamp" per sheet
+_EMPLOYEE_COL = {"Service": 0, "Upgrades": 0, "Kits": 0, "Expenses": 2, "VIP Claim": 1}
+_AMOUNT_COL = {"Service": 3, "Upgrades": 3, "Kits": 3, "Expenses": 1, "VIP Claim": 3}
+_TIMESTAMP_COL = {"Service": 4, "Upgrades": 4, "Kits": 4, "Expenses": 0, "VIP Claim": 5, "Transactions": 0}
 
 
 def resolve_employee(raw_name: str) -> str:
