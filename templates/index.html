@@ -264,11 +264,8 @@
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         <span>🧰 Kits</span>
       </a>
-      <a class="nav-item" onclick="switchTab('vip_claims', this)">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span>👑 Vip Log</span>
-      </a>
       <a class="nav-item" onclick="switchTab('expenses', this)">
+
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>💸 Bill Claim</span>
       </a>
@@ -564,26 +561,9 @@
         </div>
       </div>
 
-      <!-- View: Vip Claims -->
-      <div id="view-vip_claims" class="page-view">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-          <h3>👑 VIP Log & Claims Management</h3>
-          <span style="font-size:12px; color:var(--warning); font-weight:600;">☑️ Claiming a car automatically credits ₹ to Shop Sales & overview P&L!</span>
-        </div>
-        <div class="chart-card">
-          <table class="custom-table">
-            <thead>
-              <tr><th>Person / Customer</th><th>Staff</th><th>Vehicle</th><th>Amount (₹)</th><th>Status</th><th>Timestamp</th><th>Action</th></tr>
-            </thead>
-            <tbody id="table-vip_claims">
-              <tr><td colspan="7" style="text-align:center;">Loading live VIP Claims from Google Sheets...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <!-- View: Bill Claim / Expenses -->
       <div id="view-expenses" class="page-view">
+
         <h3 style="margin-bottom:16px;">💸 Bill Claim & Shop Expenses</h3>
         <div class="chart-card">
           <table class="custom-table">

@@ -30,15 +30,13 @@ CATEGORY_ORDER = {
     "Service": 1,
     "Upgrades": 2,
     "Kits": 3,
-    "VIP Claim": 4,
-    "Expenses": 5
+    "Expenses": 4
 }
 CATEGORY_LABELS = {
     1: "Service Logs (Category 1)",
     2: "Upgrade Logs (Category 2)",
     3: "Kit Logs (Category 3)",
-    4: "VIP Claim Logs (Category 4)",
-    5: "Expense / Bill Claim Logs (Category 5)"
+    4: "Expense / Bill Claim Logs (Category 4)"
 }
 
 
@@ -71,7 +69,7 @@ async def on_ready():
     print("  ✓ Local deduplication cache reset successfully.")
 
     # 2. Perform ultra-fast Google Sheets wipe & header setup
-    print("\n[Step 2/4] Wiping Google Sheets (Service, Upgrades, Kits, Expenses, VIP Claim, Transactions, Dashboard, Employee Tracker)...")
+    print("\n[Step 2/4] Wiping Google Sheets (Service, Upgrades, Kits, Expenses, Transactions, Dashboard, Employee Tracker)...")
     sheets._LOGGED_IDS_CACHE = set()
     sheets.clear_rows_cache(hard=True)
     try:
@@ -87,22 +85,23 @@ async def on_ready():
         targets = await bot_module.collect_target_channels(guild)
         all_targets.extend(targets)
 
-    # Group channels by category priority (1 to 5)
-    channels_by_category = {1: [], 2: [], 3: [], 4: [], 5: []}
+    # Group channels by category priority (1 to 4)
+    channels_by_category = {1: [], 2: [], 3: [], 4: []}
     for ch in all_targets:
         order = get_channel_priority_order(ch)
         if order in channels_by_category:
             if ch not in channels_by_category[order]:
                 channels_by_category[order].append(ch)
 
-    print(f"  ✓ Found {len(all_targets)} matching channels/threads across 5 priority categories.")
+    print(f"  ✓ Found {len(all_targets)} matching channels/threads across 4 priority categories.")
 
     # 4. Perform chronological (oldest to newest) order-wise scan for July 1 to July 31
     july_start = datetime.datetime(2026, 7, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     total_messages_processed = 0
 
-    for cat_num in (1, 2, 3, 4, 5):
+    for cat_num in (1, 2, 3, 4):
+
         cat_name = CATEGORY_LABELS.get(cat_num, f"Category {cat_num}")
         cat_channels = channels_by_category[cat_num]
         print(f"\n▶ [{cat_name}] Scanning {len(cat_channels)} channel(s)...")

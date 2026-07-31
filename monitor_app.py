@@ -342,14 +342,11 @@ def get_stats():
         period = request.args.get("period", "all").strip().lower()
         force = request.args.get("force", "false").strip().lower() in ("true", "1")
         if force:
-            sheets.clear_rows_cache(hard=True)
-
-        raw_rows_by_sheet = {
+         raw_rows_by_sheet = {
             "Service": sheets._all_rows("Service", force_refresh=force),
             "Upgrades": sheets._all_rows("Upgrades", force_refresh=force),
             "Kits": sheets._all_rows("Kits", force_refresh=force),
             "Expenses": sheets._all_rows("Expenses", force_refresh=force),
-            "VIP Claim": sheets._all_rows("VIP Claim", force_refresh=force),
         }
 
         rows_by_sheet = {
@@ -361,12 +358,11 @@ def get_stats():
         upgrade_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["Upgrades"]] for r in rows_by_sheet["Upgrades"] if len(r) > sheets._AMOUNT_COL["Upgrades"]])
         kits_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["Kits"]] for r in rows_by_sheet["Kits"] if len(r) > sheets._AMOUNT_COL["Kits"]])
         expenses_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["Expenses"]] for r in rows_by_sheet["Expenses"] if len(r) > sheets._AMOUNT_COL["Expenses"]])
-        vip_total = sheets._sum_numeric([r[sheets._AMOUNT_COL["VIP Claim"]] for r in rows_by_sheet["VIP Claim"] if len(r) > sheets._AMOUNT_COL["VIP Claim"]])
 
         total_sales = service_total + upgrade_total + kits_total
         net_profit = total_sales - expenses_total
 
-        total_txns = len(rows_by_sheet["Service"]) + len(rows_by_sheet["Upgrades"]) + len(rows_by_sheet["Kits"]) + len(rows_by_sheet["VIP Claim"])
+        total_txns = len(rows_by_sheet["Service"]) + len(rows_by_sheet["Upgrades"]) + len(rows_by_sheet["Kits"])
 
         recent = []
         for sname, srows in rows_by_sheet.items():
@@ -379,7 +375,7 @@ def get_stats():
                         recent.append({
                             "sheet": sname,
                             "time": r[0] if len(r) > 0 else "",
-                            "customer": r[1] if (len(r) > 1 and sname in ("VIP Claim", "Expenses")) else "Civilian / VIP",
+                            "customer": r[1] if (len(r) > 1 and sname in ("Expenses",)) else "Civilian / VIP",
                             "amount": amt_num,
                             "employee": emp_name,
                         })
@@ -406,7 +402,7 @@ def get_stats():
                 "service_total": service_total,
                 "upgrade_total": upgrade_total,
                 "kits_total": kits_total,
-                "vip_total": vip_total,
+                "vip_total": 0,
                 "total_transactions": total_txns,
                 "active_users": len(set(config.EMPLOYEE_MAPPING.values())),
                 "uptime": "99.98%" if bot_online else "Offline",
@@ -422,7 +418,6 @@ def get_stats():
                     {"name": "Services", "value": len(rows_by_sheet["Service"]), "amount": service_total, "color": "#6C4DFF"},
                     {"name": "Upgrades", "value": len(rows_by_sheet["Upgrades"]), "amount": upgrade_total, "color": "#19D96B"},
                     {"name": "Kits", "value": len(rows_by_sheet["Kits"]), "amount": kits_total, "color": "#2A8DFF"},
-                    {"name": "VIP Claims", "value": len(rows_by_sheet["VIP Claim"]), "amount": vip_total, "color": "#F9A826"},
                     {"name": "Bill Claims", "value": len(rows_by_sheet["Expenses"]), "amount": expenses_total, "color": "#FF3B3B"},
                 ]
             },
@@ -446,7 +441,6 @@ def get_transactions():
             "Upgrades": sheets._all_rows("Upgrades"),
             "Kits": sheets._all_rows("Kits"),
             "Expenses": sheets._all_rows("Expenses"),
-            "VIP Claim": sheets._all_rows("VIP Claim"),
         }
 
         all_txns = []
@@ -461,7 +455,7 @@ def get_transactions():
                             "id": f"{sname[:3].upper()}-{idx+1000}",
                             "category": sname,
                             "timestamp": r[0] if len(r) > 0 else "-",
-                            "customer": r[1] if (len(r) > 1 and sname in ("VIP Claim", "Expenses")) else "Civilian / VIP",
+                            "customer": r[1] if (len(r) > 1 and sname in ("Expenses",)) else "Civilian / VIP",
                             "employee": emp_name,
                             "amount": amt_num,
                             "status": "Completed"
@@ -482,8 +476,6 @@ def get_sheet_data(sheet_name):
             "upgrade": "Upgrades",
             "kits": "Kits",
             "kit": "Kits",
-            "vip_claims": "VIP Claim",
-            "vip": "VIP Claim",
             "expenses": "Expenses",
             "bill_claim": "Expenses",
             "july_summary": "July Summary",
@@ -510,21 +502,6 @@ def get_july_report():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
-
-@app.route("/api/vip_claim/claim", methods=["POST"])
-def claim_vip_car():
-    try:
-        data = request.json or {}
-        customer = data.get("customer", "")
-        ts = data.get("timestamp", "")
-        def _worker():
-            sheets.mark_vip_claim_as_claimed_in_sheet(ts, customer)
-            append_log(f"[Web API] VIP Claim marked as claimed for customer: {customer}")
-        threading.Thread(target=_worker, daemon=True).start()
-        return jsonify({"success": True, "message": "Marked car as claimed!"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/api/inventory")

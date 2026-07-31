@@ -212,24 +212,6 @@ CHANNEL_CONFIG = {
         "fields": ["amount"],
         "expense_channel": True,
     },
-    "💸┆vip-claim-logs": {
-        "category": "VIP Claim",
-        "sheet_name": "VIP Claim",
-        "fields": ["customer", "amount"],
-        "vip_claim_channel": True,
-    },
-    "vip-claim-logs": {
-        "category": "VIP Claim",
-        "sheet_name": "VIP Claim",
-        "fields": ["customer", "amount"],
-        "vip_claim_channel": True,
-    },
-    "vip-claim": {
-        "category": "VIP Claim",
-        "sheet_name": "VIP Claim",
-        "fields": ["customer", "amount"],
-        "vip_claim_channel": True,
-    },
 }
 
 SMALL_CAPS_MAP = str.maketrans({
@@ -266,14 +248,13 @@ def get_channel_config(channel_name: str):
     n_clean = "".join(c for c in norm if c.isalnum())
 
     # Strictly ignore non-invoice system channels
-    if n_clean in ("log", "logs", "serverlogs", "serverlogo", "auditlogs", "botlogs", "modlogs", "joinlogs", "rules", "announcements", "info", "general", "chat"):
+    if n_clean in ("log", "logs", "serverlogs", "serverlogo", "auditlogs", "botlogs", "modlogs", "joinlogs", "rules", "announcements", "info", "general", "chat", "vip", "vipclaim", "vipclaims", "viplog", "viplogs"):
         return None, None
 
     # Direct keyword pattern matching for maximum compatibility
-    if "vip" in n_clean:
-        return CHANNEL_CONFIG["vip-claim-logs"], "vip-claim-logs"
     if any(k in n_clean for k in ("billclaim", "bill_claim", "bill-claim", "expense", "expenses", "mechbill")):
         return CHANNEL_CONFIG["bill_claim"], "bill_claim"
+
     if "kit" in n_clean:
         return CHANNEL_CONFIG["kits"], "kits"
     if any(s in n_clean for s in ("service", "services", "carservice", "servicelog", "servicelogs")):

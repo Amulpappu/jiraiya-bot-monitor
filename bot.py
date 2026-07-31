@@ -501,105 +501,6 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
 
 
 
-def normalize_vip_category(raw_cat: str) -> str:
-    """Normalizes raw category text to standard dropdown values: VIP, Friends, Twin, Community, Special."""
-    if not raw_cat:
-        return "VIP"
-    raw_lower = raw_cat.strip().lower()
-    if "vip" in raw_lower:
-        return "VIP"
-    if "friend" in raw_lower:
-        return "Friends"
-    if "twin" in raw_lower:
-        return "Twin"
-    if "comm" in raw_lower:
-        return "Community"
-    if "spec" in raw_lower:
-        return "Special"
-    return "VIP"
-
-
-async def process_vip_claim_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
-    """
-    For the vip-claim-logs channel: parses claim details from text or OCR images.
-    Logs ONLY to the VIP Claim sheet tab (never added to gross sales ledger).
-    """
-    if is_backfill:
-        if str(message.id) in sheets.get_all_logged_message_ids():
-            return
-
-    text = message.content or ""
-    img_urls = extract_image_urls(message)
-    image_url = img_urls[0] if img_urls else None
-
-    raw_text = ""
-    parsed = {}
-    if image_url:
-        try:
-            image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                image_url, ["customer", "amount"]
-            )
-        except Exception as e:
-            ocr.logger.error(f"OCR failed for VIP claim message {message.id}: {e}")
-
-    full_text = f"{text}\n{raw_text}".strip()
-
-    # Parse Person Name
-    m_person = re.search(r"(?:Person\s*Name|Customer|Client|Name|Target|Billed\s*To|Paid\s*By)\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
-    if m_person and _is_valid_name(m_person.group(1)):
-        person_name = m_person.group(1).strip()
-    elif parsed.get("customer") and _is_valid_name(parsed.get("customer")):
-        person_name = parsed["customer"].strip()
-    else:
-        person_name = resolve_customer_name(parsed.get("customer"), message, raw_text)
-
-    # Parse Vehicle Category
-    m_cat = re.search(r"(?:Vehicle\s*)?Category\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
-    category_raw = m_cat.group(1).strip() if m_cat else "VIP"
-    category = normalize_vip_category(category_raw)
-
-    # Parse Vehicle Name
-    m_veh = re.search(r"Vehicle(?:\s*Name)?\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
-    vehicle_name = m_veh.group(1).strip() if m_veh else "Unknown"
-
-    # Parse Staff Name
-    m_staff = re.search(r"Staff(?:\s*Name)?\s*[:\-]\s*(.+)", full_text, re.IGNORECASE)
-    if m_staff and m_staff.group(1).strip():
-        staff_name = resolve_employee_name(m_staff.group(1).strip())
-    else:
-        staff_name = resolve_employee_name(message.author)
-
-    # Parse Amount
-    amount = parsed.get("amount")
-    if amount is None or amount <= 0:
-        m_amt = re.search(r"Amount\s*[:\-]\s*[\$₹§€£]?\s*([\d,]+(?:\.\d+)?)", full_text, re.IGNORECASE)
-        if m_amt:
-            try:
-                amount = float(m_amt.group(1).replace(",", ""))
-            except ValueError:
-                amount = parse_text_amount(full_text) or 0.0
-        else:
-            amount = parse_text_amount(full_text) or 0.0
-
-    try:
-        await asyncio.to_thread(
-            sheets.append_vip_claim_entry,
-            person_name=person_name,
-            category=category,
-            vehicle=vehicle_name,
-            staff=staff_name,
-            amount=amount,
-            message_id=str(message.id),
-            created_at=message.created_at,
-            skip_dashboard_update=is_backfill,
-        )
-    except Exception as e:
-        ocr.logger.error(f"Failed to write VIP Claim entry for message {message.id}: {e}")
-        return
-
-    await add_reaction_if_enabled(message, "✅")
-
-
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False):
     """Runs OCR + sheet logging for one message's image attachments or text.
     Shared by on_message (live) and the startup history scan (backfill)."""
@@ -607,13 +508,10 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
     if not cfg:
         return
 
-    if cfg.get("vip_claim_channel"):
-        await process_vip_claim_message(message, cfg, is_backfill)
-        return
-
     if cfg.get("kit_channel"):
         await process_kit_message(message, cfg, is_backfill)
         return
+
 
     if cfg.get("category_channel"):
         await process_service_message(message, is_backfill)

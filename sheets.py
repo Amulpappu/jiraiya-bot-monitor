@@ -177,7 +177,7 @@ def clear_rows_cache(ws_name=None, hard=False):
 def force_refresh_all():
     """Clears all caches and re-fetches all sheet data synchronously from Google Sheets."""
     clear_rows_cache(hard=True)
-    sheets_to_load = ["Service", "Upgrades", "Kits", "Expenses", "VIP Claim"]
+    sheets_to_load = ["Service", "Upgrades", "Kits", "Expenses"]
     for s in sheets_to_load:
         _all_rows(s, force_refresh=True)
 
@@ -202,13 +202,7 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
                                 ws = None
                                 try:
                                     ws = ss.worksheet(w_name)
-                                except Exception:
-                                    if w_name in ("VIP Claim", "VIP Claims", "VIP Log"):
-                                        for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
-                                            try:
-                                                ws = ss.worksheet(alt)
-                                                if ws: break
-                                            except Exception: pass
+                                except Exception: pass
                                 if ws:
                                     rows_raw = _with_retry(lambda: ws.get_all_values())
                                     data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
@@ -232,13 +226,7 @@ def _all_rows(ws_name, force_refresh=False, fast_cached_only=False):
             ws = None
             try:
                 ws = ss.worksheet(ws_name)
-            except Exception:
-                if ws_name in ("VIP Claim", "VIP Claims", "VIP Log"):
-                    for alt in ("VIP Claim", "VIP Log", "VIP Claims", "vip_claims"):
-                        try:
-                            ws = ss.worksheet(alt)
-                            if ws: break
-                        except Exception: pass
+            except Exception: pass
             if ws:
                 rows_raw = _with_retry(lambda: ws.get_all_values())
                 data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
@@ -266,35 +254,6 @@ def _with_retry(fn, attempts=6, base_delay=3):
             raise
 
 
-VIP_CLAIM_CATEGORIES = ["VIP", "Friends", "Twin", "Community", "Special"]
-
-
-def _apply_vip_claim_dropdown(ws):
-    """Restricts the Category column (B) to a dropdown of VIP_CLAIM_CATEGORIES."""
-    try:
-        requests = [{
-            "setDataValidation": {
-                "range": {
-                    "sheetId": ws.id,
-                    "startRowIndex": 1,  # skip header row
-                    "startColumnIndex": 1,  # column B = Category
-                    "endColumnIndex": 2,
-                },
-                "rule": {
-                    "condition": {
-                        "type": "ONE_OF_LIST",
-                        "values": [{"userEnteredValue": c} for c in VIP_CLAIM_CATEGORIES],
-                    },
-                    "showCustomUi": True,
-                    "strict": True,
-                },
-            }
-        }]
-        ws.spreadsheet.batch_update({"requests": requests})
-    except Exception as e:
-        print(f"Warning: couldn't apply VIP Claim category dropdown: {e}")
-
-
 def _ensure_sheet(sheet_name: str, headers: list):
     global _WORKSHEET_CACHE
     if sheet_name in _WORKSHEET_CACHE:
@@ -308,11 +267,10 @@ def _ensure_sheet(sheet_name: str, headers: list):
         _with_retry(lambda: ws.append_row(headers))
         if sheet_name == "Transactions":
             _apply_transactions_dropdown(ws)
-        elif sheet_name == "VIP Claim":
-            _apply_vip_claim_dropdown(ws)
 
     _WORKSHEET_CACHE[sheet_name] = ws
     return ws
+
 
 
 def add_or_update_inventory(item_name: str, qty: int, bought: float, restock_date: str, unit_price: float):
@@ -339,7 +297,7 @@ def add_or_update_inventory(item_name: str, qty: int, bought: float, restock_dat
 
 def clean_non_july_logs():
     """
-    Scans Service, Upgrades, Kits, Expenses, Transactions, and VIP Claim sheets,
+    Scans Service, Upgrades, Kits, Expenses, and Transactions sheets,
     removing any historical rows that do NOT belong to July 2026.
     """
     try:
@@ -349,14 +307,11 @@ def clean_non_july_logs():
             ("Upgrades", REVENUE_HEADERS),
             ("Kits", KIT_HEADERS),
             ("Expenses", EXPENSE_HEADERS),
-            ("VIP Claim", VIP_CLAIM_HEADERS),
-            ("Upgrades", REVENUE_HEADERS),
-            ("Kits", KIT_HEADERS),
-            ("Expenses", EXPENSE_HEADERS),
             ("Transactions", TRANSACTIONS_HEADERS),
         ]
 
         for ws_name, headers in sheets_and_headers:
+
             try:
                 ws = ss.worksheet(ws_name)
                 rows = _with_retry(lambda: ws.get_all_values())
@@ -550,7 +505,6 @@ def wipe_all_data_sheets():
             ("Upgrades", REVENUE_HEADERS),
             ("Kits", KIT_HEADERS),
             ("Expenses", EXPENSE_HEADERS),
-            ("VIP Claim", VIP_CLAIM_HEADERS),
             ("Transactions", TRANSACTIONS_HEADERS),
             ("Employee Tracker", EMPLOYEE_TRACKER_HEADERS),
         ]
@@ -567,8 +521,6 @@ def wipe_all_data_sheets():
         try:
             ws_txn = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
             _apply_transactions_dropdown(ws_txn)
-            ws_vip = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
-            _apply_vip_claim_dropdown(ws_vip)
             ws_jtx = _ensure_july_transactions_sheet()
             _with_retry(lambda: ws_jtx.clear())
             hdr = ["Date", "Amount", "Description", "Category", "", "Date", "Amount", "Description", "Category"]
@@ -579,10 +531,11 @@ def wipe_all_data_sheets():
 
         reset_dashboard_to_zero()
         update_july_summary()
+        remove_deprecated_vip_claim_sheet()
 
         with _CACHE_LOCK:
             _LOGGED_IDS_CACHE = set()
-            for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Transactions", "Employee Tracker", "July Transactions", "July Summary"):
+            for sname in ("Service", "Upgrades", "Kits", "Expenses", "Transactions", "Employee Tracker", "July Transactions", "July Summary"):
                 _LAST_KNOWN_ROWS[sname] = []
                 _ROWS_CACHE[sname] = (time.time() + 300, [])
 
@@ -592,6 +545,23 @@ def wipe_all_data_sheets():
         import logging
         logging.getLogger("sheets").error(f"wipe_all_data_sheets failed: {e}")
         return False
+
+
+def remove_deprecated_vip_claim_sheet():
+    """Removes VIP Claim tab from Google Sheets if present."""
+    try:
+        sh = get_spreadsheet()
+        if not sh:
+            return
+        for tab_name in ("VIP Claim", "VIP Claims", "VIP Log", "vip_claims"):
+            try:
+                ws = sh.worksheet(tab_name)
+                sh.del_worksheet(ws)
+                print(f"[Sheets Cleanup] Successfully deleted deprecated sheet '{tab_name}'.")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[Sheets Cleanup Warning]: {e}")
 
 
 def remove_deprecated_user_roles_and_access_sheets():
@@ -613,6 +583,7 @@ def remove_deprecated_user_roles_and_access_sheets():
 
 def setup_all_sheets():
     """Call once at startup — makes sure every sheet + dashboard + employee tracker exist."""
+    remove_deprecated_vip_claim_sheet()
     _ensure_sheet("Service", SERVICE_HEADERS)
     _ensure_sheet("Upgrades", REVENUE_HEADERS)
     _ensure_sheet("Kits", KIT_HEADERS)
@@ -624,6 +595,7 @@ def setup_all_sheets():
     _ensure_employee_tracker()
     _ensure_dashboard()
     update_july_summary()
+
 
 
 
