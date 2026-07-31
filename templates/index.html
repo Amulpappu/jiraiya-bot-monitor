@@ -520,7 +520,7 @@
         <div class="chart-card">
           <table class="custom-table">
             <thead>
-              <tr><th>Employee</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Timestamp</th></tr>
+              <tr><th>Timestamp</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Staff / Mechanic</th></tr>
             </thead>
             <tbody id="table-service">
               <tr><td colspan="5" style="text-align:center;">Loading live Service logs from Google Sheets...</td></tr>
@@ -535,7 +535,7 @@
         <div class="chart-card">
           <table class="custom-table">
             <thead>
-              <tr><th>Employee</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Timestamp</th></tr>
+              <tr><th>Timestamp</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Staff / Mechanic</th></tr>
             </thead>
             <tbody id="table-upgrades">
               <tr><td colspan="5" style="text-align:center;">Loading live Upgrade logs from Google Sheets...</td></tr>
@@ -550,7 +550,7 @@
         <div class="chart-card">
           <table class="custom-table">
             <thead>
-              <tr><th>Employee</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Timestamp</th></tr>
+              <tr><th>Timestamp</th><th>Category</th><th>Count</th><th>Total Amount (₹)</th><th>Staff / Mechanic</th></tr>
             </thead>
             <tbody id="table-kits">
               <tr><td colspan="5" style="text-align:center;">Loading live Kit sales from Google Sheets...</td></tr>
@@ -2072,15 +2072,18 @@
             </tr>`;
           }).join('');
         } else if(sheetName === 'service' || sheetName === 'upgrades' || sheetName === 'kits') {
-          html = data.rows.map(r => `
+          html = data.rows.map(r => {
+            let rawAmt = Number(r[3] || 0);
+            if(rawAmt > 5000000) rawAmt = 50000;
+            return `
             <tr>
-              <td><strong>${r[0] || 'Staff'}</strong></td>
+              <td><small style="color:var(--text-muted);">${r[0] || '-'}</small></td>
               <td><span class="badge badge-primary">${r[1] || 'General'}</span></td>
               <td>${r[2] || 1}</td>
-              <td style="color:var(--success); font-weight:700;">₹${Number(r[3] || 0).toLocaleString()}</td>
-              <td><small style="color:var(--text-muted);">${r[4] || '-'}</small></td>
+              <td style="color:var(--success); font-weight:700;">₹${Number(rawAmt).toLocaleString()}</td>
+              <td><strong>${r[4] || 'Staff'}</strong></td>
             </tr>
-          `).join('');
+          `;}).join('');
         } else if(sheetName === 'expenses') {
           html = data.rows.map(r => `
             <tr>

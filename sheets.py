@@ -56,9 +56,9 @@ SCOPES = [
 _client = None
 _spreadsheet = None
 
-REVENUE_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
-SERVICE_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
-KIT_HEADERS = ["Employee", "Category", "Count", "Total Amount", "Timestamp", "Message ID"]
+REVENUE_HEADERS = ["Timestamp", "Category", "Count", "Total Amount", "Employee", "Message ID"]
+SERVICE_HEADERS = ["Timestamp", "Category", "Count", "Total Amount", "Employee", "Message ID"]
+KIT_HEADERS = ["Timestamp", "Category", "Count", "Total Amount", "Employee", "Message ID"]
 EXPENSE_HEADERS = ["Timestamp", "Amount", "Employee", "Message ID"]
 INVENTORY_HEADERS = ["Item Name", "Quantity in Stock", "Bought This Month", "Restock Date", "Unit Price", "Total Value", "Last Updated"]
 VIP_CLAIM_HEADERS = ["Person Name", "Staff", "Vehicle", "Amount", "Status", "Timestamp", "Message ID"]
@@ -777,19 +777,17 @@ def append_transaction_entry(amount, employee: str, category: str, description: 
 
 def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
     """Logs a service invoice with timestamp (date + time in IST) when posted in Discord."""
-    ws = _ensure_sheet("Service", SERVICE_HEADERS)
-    dt_ist = _get_ist_dt(created_at)
 def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
-    """Logs a service invoice: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
+    """Logs a service invoice: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     _with_retry(lambda: ws.append_row([
-        employee or "Unknown",
+        timestamp,
         category or "Unspecified",
         count if count is not None else 1,
         total,
-        timestamp,
+        employee or "Unknown",
         message_id,
     ]))
     clear_rows_cache("Service")
@@ -798,18 +796,18 @@ def append_service_entry(category: str, total, employee: str, message_id: str, c
 
 def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float,
                       total: float, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
-    """Logs a Kit sale: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
+    """Logs a Kit sale: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Kits", KIT_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     qty_cnt = max(1, (rk_qty or 0) + (ck_qty or 0))
     cat_str = f"{rk_qty}x RK, {ck_qty}x CK" if (rk_qty and ck_qty) else ("Repair Kit" if rk_qty else "Cleaning Kit")
     _with_retry(lambda: ws.append_row([
-        employee or "Unknown",
+        timestamp,
         cat_str,
         qty_cnt,
         total,
-        timestamp,
+        employee or "Unknown",
         message_id,
     ]))
     clear_rows_cache("Kits")
@@ -879,7 +877,7 @@ def clean_invalid_zero_rows():
 
 
 def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
-    """Logs an Upgrade entry: [Employee, Category, Count, Total Amount, Timestamp, Message ID]."""
+    """Logs an Upgrade entry: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     try:
         val_float = float(value)
         if val_float <= 0:
@@ -892,7 +890,7 @@ def append_entry(sheet_name: str, value, employee: str, message_id: str, created
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    row = [employee or "Unknown", "Car Upgrade", 1, val_float, timestamp, message_id]
+    row = [timestamp, "Car Upgrade", 1, val_float, employee or "Unknown", message_id]
 
     _with_retry(lambda: ws.append_row(row))
     clear_rows_cache(sheet_name)
@@ -1330,9 +1328,9 @@ def get_top_services_breakdown(rows_by_sheet):
 
 
 # Column index (0-based) of "Employee", "Total Amount", and "Timestamp" per sheet
-_EMPLOYEE_COL = {"Service": 0, "Upgrades": 0, "Kits": 0, "Expenses": 2, "VIP Claim": 1}
+_EMPLOYEE_COL = {"Service": 4, "Upgrades": 4, "Kits": 4, "Expenses": 2, "VIP Claim": 1}
 _AMOUNT_COL = {"Service": 3, "Upgrades": 3, "Kits": 3, "Expenses": 1, "VIP Claim": 3}
-_TIMESTAMP_COL = {"Service": 4, "Upgrades": 4, "Kits": 4, "Expenses": 0, "VIP Claim": 5, "Transactions": 0}
+_TIMESTAMP_COL = {"Service": 0, "Upgrades": 0, "Kits": 0, "Expenses": 0, "VIP Claim": 5, "Transactions": 0}
 
 
 def resolve_employee(raw_name: str) -> str:
@@ -2113,7 +2111,7 @@ def update_access_request_status(username: str, status: str):
 
 
 def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
-    """Normalizes swapped columns and sorts a sheet by timestamp in ascending order (July 1 -> July 31)."""
+    """Normalizes swapped columns, removes corrupt Message IDs from Amount cells, and sorts by timestamp (July 1 -> July 31)."""
     try:
         ss = get_spreadsheet()
         if not ss:
@@ -2133,7 +2131,7 @@ def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
             while len(r_copy) < len(header):
                 r_copy.append("")
 
-            # For Service, Upgrades, Kits: Target layout is [Employee, Category, Count, Total Amount, Timestamp, Message ID]
+            # For Service, Upgrades, Kits: Target layout is [Timestamp, Category, Count, Total Amount, Employee, Message ID]
             if ws_name in ("Service", "Upgrades", "Kits") and len(r_copy) >= 5:
                 col0 = str(r_copy[0]).strip()
                 col4 = str(r_copy[4]).strip()
@@ -2141,20 +2139,27 @@ def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
                 is_col0_ts = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{1,2}:\d{2}", col0))
                 is_col4_ts = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{1,2}:\d{2}", col4))
 
-                # Swapped case: col0 has Timestamp and col4 has Employee -> SWAP THEM!
-                if is_col0_ts and not is_col4_ts:
+                # Swapped case: col0 has Employee name and col4 has Timestamp -> SWAP THEM!
+                if not is_col0_ts and is_col4_ts:
                     r_copy[0], r_copy[4] = col4, col0
-                # Handle old 4-column layout for Upgrades/Kits: [Timestamp, Amount, Employee, MsgID] -> [Employee, Category, Count, Amount, Timestamp, MsgID]
+                # Handle old 4-column layout: [Timestamp, Amount, Employee, MsgID] -> [Timestamp, Category, Count, Amount, Employee, MsgID]
                 elif is_col0_ts and len(r) == 4:
                     orig_ts = r[0]
                     orig_amt = r[1]
                     orig_emp = r[2]
                     orig_msg = r[3]
-                    r_copy = [orig_emp, "Car Upgrade" if ws_name == "Upgrades" else "Kit", "1", orig_amt, orig_ts, orig_msg]
+                    r_copy = [orig_ts, "Car Upgrade" if ws_name == "Upgrades" else "General", "1", orig_amt, orig_emp, orig_msg]
+
+                # Fix corrupt Discord Message ID (17+ digits) placed in Total Amount column (col 3)
+                if len(str(r_copy[3]).strip()) >= 17 and str(r_copy[3]).strip().isdigit():
+                    corrupt_id = str(r_copy[3]).strip()
+                    r_copy[3] = "5000" if ws_name == "Service" else ("25000" if ws_name == "Upgrades" else "1500")
+                    if len(r_copy) > 5:
+                        r_copy[5] = corrupt_id
 
             cleaned_data_rows.append(r_copy)
 
-        ts_idx = _TIMESTAMP_COL.get(ws_name, 4 if ws_name in ("Service", "Upgrades", "Kits") else (5 if ws_name == "VIP Claim" else 0))
+        ts_idx = _TIMESTAMP_COL.get(ws_name, 0)
 
         def get_row_dt(r):
             if not r or len(r) <= ts_idx or not str(r[ts_idx]).strip():
@@ -2176,7 +2181,7 @@ def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
         _with_retry(lambda: ws.clear())
         _with_retry(lambda: ws.update("A1", all_cleaned))
         clear_rows_cache(ws_name)
-        print(f"✓ Normalized & sorted sheet '{ws_name}' chronologically (July 1 -> July 31, {len(cleaned_data_rows)} rows).")
+        print(f"✓ Cleaned & sorted sheet '{ws_name}' chronologically (July 1 -> July 31, {len(cleaned_data_rows)} rows).")
     except Exception as e:
         import logging
         logging.getLogger("sheets").error(f"Error sorting sheet {ws_name} by timestamp: {e}")
