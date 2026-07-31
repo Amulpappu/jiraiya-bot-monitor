@@ -2108,6 +2108,59 @@ def update_access_request_status(username: str, status: str):
     return True
 
 
+def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
+    """Sorts a single sheet by Column A timestamp in ascending order (July 1 -> July 31)."""
+    try:
+        ss = get_spreadsheet()
+        if not ss:
+            return
+        ws = ss.worksheet(ws_name)
+        rows_raw = _with_retry(lambda: ws.get_all_values())
+        if not rows_raw or len(rows_raw) <= 1:
+            return
+
+        header = rows_raw[0]
+        data_rows = [r for r in rows_raw[1:] if r and any(str(cell).strip() for cell in r)]
+
+        def get_row_dt(r):
+            if not r or not r[0].strip():
+                return datetime.datetime.min.replace(tzinfo=IST)
+            dt = parse_ist_timestamp(r[0].strip())
+            if dt is None:
+                for fmt in ("%Y-%m-%d %I:%M:%S %p", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %I:%M:%S %p", "%d/%m/%Y %I:%M:%S %p", "%Y-%m-%d"):
+                    try:
+                        return datetime.datetime.strptime(r[0].strip(), fmt).replace(tzinfo=IST)
+                    except ValueError:
+                        continue
+                return datetime.datetime.min.replace(tzinfo=IST)
+            return dt
+
+        data_rows.sort(key=get_row_dt)
+
+        all_cleaned = [header] + data_rows
+        _with_retry(lambda: ws.clear())
+        _with_retry(lambda: ws.update("A1", all_cleaned))
+        clear_rows_cache(ws_name)
+        print(f"✓ Sorted sheet '{ws_name}' chronologically (July 1 -> July 31, {len(data_rows)} rows).")
+    except Exception as e:
+        import logging
+        logging.getLogger("sheets").error(f"Error sorting sheet {ws_name} by timestamp: {e}")
+
+
+def sort_all_sheets_by_timestamp():
+    """Sorts all data sheet tabs chronologically from oldest (July 1) to newest (July 31)."""
+    sheets_and_headers = [
+        ("Service", SERVICE_HEADERS),
+        ("Upgrades", REVENUE_HEADERS),
+        ("Kits", KIT_HEADERS),
+        ("Expenses", EXPENSE_HEADERS),
+        ("VIP Claim", VIP_CLAIM_HEADERS),
+        ("Transactions", TRANSACTIONS_HEADERS),
+    ]
+    for ws_name, headers in sheets_and_headers:
+        sort_sheet_by_timestamp(ws_name, headers)
+
+
 def preload_sheets_cache():
     """Pre-warms all worksheet caches in memory asynchronously for instant 15ms web response times."""
     def _bg_preloader():

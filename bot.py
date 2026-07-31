@@ -670,16 +670,30 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         if (value is None or value <= 0) and raw_text:
             value = parse_text_amount(raw_text)
 
-        # Fallback 3: Parse customer name from message text content if missing
+        # Fallback 3: Deep search for ANY standalone positive number in raw_text or message content
+        if (value is None or value <= 0):
+            all_txt = f"{message.content or ''}\n{raw_text or ''}"
+            nums = []
+            for num in re.findall(r"\b([\d,]{1,8})\b", all_txt):
+                clean = num.replace(",", "")
+                if clean not in ("2024", "2025", "2026", "2027", "2028", "2029", "2030", str(message.id)):
+                    try:
+                        v = float(clean)
+                        if 1 <= v <= 500000:
+                            nums.append(v)
+                    except ValueError: pass
+            if nums:
+                value = max(nums)
+
+        # Fallback 4: Parse customer name from message text content if missing
         if not customer or customer == "Unknown":
             if message.content:
                 m_cust = re.search(r"(?:customer|client|name|buyer|for)\s*[:\-]?\s*([A-Za-z0-9 .'_\\-]{2,40})", message.content, re.IGNORECASE)
                 if m_cust and _is_valid_name(m_cust.group(1)):
                     customer = m_cust.group(1).strip()
 
-        # REJECT ZERO AMOUNT: If amount is 0 or missing, DO NOT LOG A ZERO ROW TO GOOGLE SHEETS!
+        # Last resort fallback if absolutely zero text/number could be read from image
         if value is None or value <= 0:
-            # Fallback to standard 1x Upgrade (₹50,000) so no upgrade screenshot is dropped
             value = 50000.0
             ocr.logger.warning(f"Upgrade message {message.id}: OCR could not read amount, using fallback ₹50,000")
 
@@ -923,6 +937,7 @@ async def _do_full_scan(limit=None):
     print(f"[Full Wipe Scan] Finished scanning {total_scanned} total messages across all channels in priority order.")
 
     try:
+        sheets.sort_all_sheets_by_timestamp()
         sheets.force_refresh_all()
         await asyncio.to_thread(sheets.update_employee_tracker)
         await asyncio.to_thread(sheets.update_dashboard)

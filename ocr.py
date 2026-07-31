@@ -40,24 +40,30 @@ def _get_image_variants(image_bytes: bytes):
     We return:
       1. Normal upscaled grayscale with autocontrast
       2. Inverted upscaled grayscale with autocontrast
+      3. High-contrast thresholded variant for dark dialog popups
     """
-    img = Image.open(io.BytesIO(image_bytes)).convert("L")  # grayscale
+    img_orig = Image.open(io.BytesIO(image_bytes)).convert("L")  # grayscale
 
-    w, h = img.size
+    w, h = img_orig.size
     if w < 2000:
         scale = 2000 / w
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        img = img_orig.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    else:
+        img = img_orig
 
-    img = img.filter(ImageFilter.SHARPEN)
-    img_gray = ImageOps.autocontrast(img, cutoff=1)
+    img_sharp = img.filter(ImageFilter.SHARPEN)
+    img_gray = ImageOps.autocontrast(img_sharp, cutoff=1)
     img_inv = ImageOps.invert(img_gray)
 
-    return [img_gray, img_inv]
+    # Thresholding variant for dark FiveM UI dialog popups
+    img_thresh = img_gray.point(lambda x: 255 if x > 140 else 0, mode='1').convert('L')
+
+    return [img_gray, img_inv, img_thresh]
 
 
 def extract_text(image_bytes: bytes) -> str:
     """
-    Runs Tesseract on image variants across multiple PSMs (6, 4, 11, 3)
+    Runs Tesseract on image variants across multiple PSMs (6, 4, 11, 3, 1)
     and selects the text output with the highest confidence score.
     """
     variants = _get_image_variants(image_bytes)
@@ -66,7 +72,7 @@ def extract_text(image_bytes: bytes) -> str:
     max_score = -1
 
     for img_variant in variants:
-        for psm in (6, 4, 11, 3):
+        for psm in (6, 4, 11, 3, 1):
             try:
                 text = pytesseract.image_to_string(
                     img_variant,
@@ -74,8 +80,8 @@ def extract_text(image_bytes: bytes) -> str:
                 )
                 score = (
                     len(re.findall(r"[\$₹§€£]", text)) * 25
-                    + len(re.findall(r"(?:Unpaid|Paid|Total|Recipient|Status|Invoice|Amount)", text, re.IGNORECASE)) * 20
-                    + len(re.findall(r"\b\d{2,7}\b", text)) * 5
+                    + len(re.findall(r"(?:Unpaid|Paid|Total|Recipient|Status|Invoice|Amount|Upgrade|Client|Customer|Fee|Price)", text, re.IGNORECASE)) * 20
+                    + len(re.findall(r"\b\d{1,7}\b", text)) * 10
                     + len(re.findall(r"[A-Za-z]{3,}", text))
                 )
                 if score > max_score:
