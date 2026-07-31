@@ -97,7 +97,9 @@ async def on_ready():
 
     print(f"  ✓ Found {len(all_targets)} matching channels/threads across 5 priority categories.")
 
-    # 4. Perform chronological (oldest to newest) order-wise scan
+    # 4. Perform chronological (oldest to newest) order-wise scan for July 1 to July 31
+    july_start = datetime.datetime(2026, 7, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     total_messages_processed = 0
 
     for cat_num in (1, 2, 3, 4, 5):
@@ -114,10 +116,10 @@ async def on_ready():
             norm = config.normalize_channel_name(ch_name)
             clean_display_name = re.sub(r"[^\x20-\x7E]", "", norm).strip("┆| ") or ch_name
 
-            print(f"   [{idx}/{len(cat_channels)}] Scanning #{clean_display_name} chronologically (oldest to newest)...")
+            print(f"   [{idx}/{len(cat_channels)}] Scanning #{clean_display_name} chronologically (July 1 -> July 31)...")
             count = 0
             try:
-                async for message in channel.history(limit=None, oldest_first=True):
+                async for message in channel.history(limit=None, after=july_start, before=august_start, oldest_first=True):
                     if message.author.bot:
                         continue
 

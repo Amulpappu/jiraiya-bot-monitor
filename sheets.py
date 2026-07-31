@@ -2113,7 +2113,7 @@ def update_access_request_status(username: str, status: str):
 
 
 def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
-    """Sorts a single sheet by Column A timestamp in ascending order (July 1 -> July 31)."""
+    """Normalizes swapped columns and sorts a sheet by timestamp in ascending order (July 1 -> July 31)."""
     try:
         ss = get_spreadsheet()
         if not ss:
@@ -2123,29 +2123,60 @@ def sort_sheet_by_timestamp(ws_name: str, header_cols: list):
         if not rows_raw or len(rows_raw) <= 1:
             return
 
-        header = rows_raw[0]
+        header = header_cols if header_cols else rows_raw[0]
         data_rows = [r for r in rows_raw[1:] if r and any(str(cell).strip() for cell in r)]
 
+        cleaned_data_rows = []
+        for r in data_rows:
+            r_copy = list(r)
+            # Ensure row length matches header length
+            while len(r_copy) < len(header):
+                r_copy.append("")
+
+            # For Service, Upgrades, Kits: Target layout is [Employee, Category, Count, Total Amount, Timestamp, Message ID]
+            if ws_name in ("Service", "Upgrades", "Kits") and len(r_copy) >= 5:
+                col0 = str(r_copy[0]).strip()
+                col4 = str(r_copy[4]).strip()
+
+                is_col0_ts = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{1,2}:\d{2}", col0))
+                is_col4_ts = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{1,2}:\d{2}", col4))
+
+                # Swapped case: col0 has Timestamp and col4 has Employee -> SWAP THEM!
+                if is_col0_ts and not is_col4_ts:
+                    r_copy[0], r_copy[4] = col4, col0
+                # Handle old 4-column layout for Upgrades/Kits: [Timestamp, Amount, Employee, MsgID] -> [Employee, Category, Count, Amount, Timestamp, MsgID]
+                elif is_col0_ts and len(r) == 4:
+                    orig_ts = r[0]
+                    orig_amt = r[1]
+                    orig_emp = r[2]
+                    orig_msg = r[3]
+                    r_copy = [orig_emp, "Car Upgrade" if ws_name == "Upgrades" else "Kit", "1", orig_amt, orig_ts, orig_msg]
+
+            cleaned_data_rows.append(r_copy)
+
+        ts_idx = _TIMESTAMP_COL.get(ws_name, 4 if ws_name in ("Service", "Upgrades", "Kits") else (5 if ws_name == "VIP Claim" else 0))
+
         def get_row_dt(r):
-            if not r or not r[0].strip():
+            if not r or len(r) <= ts_idx or not str(r[ts_idx]).strip():
                 return datetime.datetime.min.replace(tzinfo=IST)
-            dt = parse_ist_timestamp(r[0].strip())
+            ts_val = str(r[ts_idx]).strip()
+            dt = parse_ist_timestamp(ts_val)
             if dt is None:
                 for fmt in ("%Y-%m-%d %I:%M:%S %p", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %I:%M:%S %p", "%d/%m/%Y %I:%M:%S %p", "%Y-%m-%d"):
                     try:
-                        return datetime.datetime.strptime(r[0].strip(), fmt).replace(tzinfo=IST)
+                        return datetime.datetime.strptime(ts_val, fmt).replace(tzinfo=IST)
                     except ValueError:
                         continue
                 return datetime.datetime.min.replace(tzinfo=IST)
             return dt
 
-        data_rows.sort(key=get_row_dt)
+        cleaned_data_rows.sort(key=get_row_dt)
 
-        all_cleaned = [header] + data_rows
+        all_cleaned = [header] + cleaned_data_rows
         _with_retry(lambda: ws.clear())
         _with_retry(lambda: ws.update("A1", all_cleaned))
         clear_rows_cache(ws_name)
-        print(f"✓ Sorted sheet '{ws_name}' chronologically (July 1 -> July 31, {len(data_rows)} rows).")
+        print(f"✓ Normalized & sorted sheet '{ws_name}' chronologically (July 1 -> July 31, {len(cleaned_data_rows)} rows).")
     except Exception as e:
         import logging
         logging.getLogger("sheets").error(f"Error sorting sheet {ws_name} by timestamp: {e}")

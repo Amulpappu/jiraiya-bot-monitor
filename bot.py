@@ -911,12 +911,15 @@ async def _do_full_scan(limit=None):
             if not cat_channels:
                 continue
 
+            july_start = datetime.datetime(2026, 7, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+            august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
             print(f"  ▶ [Order {cat_num}/5: {cat_name}] Scanning {len(cat_channels)} channel(s)...")
             for ch in cat_channels:
                 ch_name = getattr(ch, "name", "channel")
                 count = 0
                 try:
-                    async for message in ch.history(limit=limit, oldest_first=True):
+                    async for message in ch.history(limit=limit, after=july_start, before=august_start, oldest_first=True):
                         if message.author.bot:
                             continue
                         cfg, _key, effective_name = get_effective_channel_config(ch)
