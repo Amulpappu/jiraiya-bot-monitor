@@ -863,7 +863,7 @@ async def _do_recent_scan(limit=1000):
 
 
 async def _do_full_scan(limit=None):
-    """Full scan from the beginning of channel history across all channels in parallel."""
+    """Full scan from the beginning of channel history across all channels strictly in order (Service -> Upgrades -> Kits -> VIP Claim -> Expenses)."""
     global processed_hashes
     processed_hashes = set()
     if os.path.exists(config.PROCESSED_HASHES_FILE):
@@ -877,13 +877,50 @@ async def _do_full_scan(limit=None):
     sheets.clear_rows_cache(hard=True)
     sheets.wipe_all_data_sheets()
 
-    print("[Full Wipe Scan] Starting PARALLEL scan of all configured channels from message #1...")
+    print("[Full Wipe Scan] Starting SEQUENTIAL ORDER-WISE scan of all configured channels from message #1...")
+    total_scanned = 0
+    category_order = {"Service": 1, "Upgrades": 2, "Kits": 3, "VIP Claim": 4, "Expenses": 5}
+    category_labels = {1: "Service", 2: "Upgrades", 3: "Kits", 4: "VIP Claim", 5: "Expenses"}
+
     for guild in bot.guilds:
         targets = await collect_target_channels(guild)
-        tasks = [scan_one_channel(ch, limit) for ch in targets]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        total_scanned = sum(r for r in results if isinstance(r, int))
-        print(f"[Full Wipe Scan] Finished scanning {total_scanned} total messages across {len(targets)} channels.")
+
+        def get_order(ch):
+            cfg, _key, _name = get_effective_channel_config(ch)
+            if cfg:
+                return category_order.get(cfg.get("sheet_name"), 99)
+            return 99
+
+        for cat_num in (1, 2, 3, 4, 5):
+            cat_name = category_labels.get(cat_num, f"Category {cat_num}")
+            cat_channels = [ch for ch in targets if get_order(ch) == cat_num]
+            if not cat_channels:
+                continue
+
+            print(f"  ▶ [Order {cat_num}/5: {cat_name}] Scanning {len(cat_channels)} channel(s)...")
+            for ch in cat_channels:
+                ch_name = getattr(ch, "name", "channel")
+                count = 0
+                try:
+                    async for message in ch.history(limit=limit, oldest_first=True):
+                        if message.author.bot:
+                            continue
+                        cfg, _key, effective_name = get_effective_channel_config(ch)
+                        if not cfg:
+                            continue
+                        img_urls = extract_image_urls(message)
+                        if not img_urls and not message.content and not cfg.get("expense_channel") and not cfg.get("vip_claim_channel"):
+                            continue
+
+                        await process_invoice_message(message, effective_name, is_backfill=True)
+                        count += 1
+                        total_scanned += 1
+                        await asyncio.sleep(0.02)
+                    print(f"    └─ #{ch_name}: {count} message(s) processed")
+                except Exception as e:
+                    print(f"    └─ #{ch_name}: error ({e})")
+
+    print(f"[Full Wipe Scan] Finished scanning {total_scanned} total messages across all channels in priority order.")
 
     try:
         sheets.force_refresh_all()
