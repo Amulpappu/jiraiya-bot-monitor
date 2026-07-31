@@ -537,15 +537,15 @@ def reset_dashboard_to_zero():
 
 def wipe_all_data_sheets():
     """
-    Ultra-fast sheet wiping (< 1 second) using a single Google Sheets API batch_update request.
-    Wipes all data rows (row 2 onwards) across Service, Upgrades, Kits, Expenses, Transactions,
-    Dashboard, and Employee Tracker sheets, and resets cached state for fresh re-scanning.
+    Completely wipes all data rows (100% full clear) across Service, Upgrades, Kits, Expenses,
+    VIP Claim, Transactions, Dashboard, and Employee Tracker sheets, and resets cached state for fresh re-scanning.
     """
     global _LOGGED_IDS_CACHE, _ROWS_CACHE, _LAST_KNOWN_ROWS, _WORKSHEET_CACHE
-    _LOGGED_IDS_CACHE = set()
-    _ROWS_CACHE.clear()
-    _LAST_KNOWN_ROWS.clear()
-    _WORKSHEET_CACHE.clear()
+    with _CACHE_LOCK:
+        _LOGGED_IDS_CACHE = set()
+        _ROWS_CACHE.clear()
+        _LAST_KNOWN_ROWS.clear()
+        _WORKSHEET_CACHE.clear()
 
     try:
         ss = get_spreadsheet()
@@ -559,27 +559,14 @@ def wipe_all_data_sheets():
             ("Employee Tracker", EMPLOYEE_TRACKER_HEADERS),
         ]
 
-        batch_requests = []
         for ws_name, headers in sheets_and_headers:
             try:
                 ws = _ensure_sheet(ws_name, headers)
-                # Ensure row 1 headers are accurate (e.g. Transactions 5 columns)
+                _with_retry(lambda: ws.clear())
                 _with_retry(lambda: ws.update("A1", [headers]))
-                batch_requests.append({
-                    "updateCells": {
-                        "range": {
-                            "sheetId": ws.id,
-                            "startRowIndex": 1,  # clear row 2 onwards
-                        },
-                        "fields": "userEnteredValue"
-                    }
-                })
             except Exception as e:
                 import logging
-                logging.getLogger("sheets").error(f"Error preparing wipe for {ws_name}: {e}")
-
-        if batch_requests:
-            _with_retry(lambda: ss.batch_update({"requests": batch_requests}))
+                logging.getLogger("sheets").error(f"Error clearing sheet {ws_name}: {e}")
 
         try:
             ws_txn = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
@@ -595,9 +582,9 @@ def wipe_all_data_sheets():
             _LOGGED_IDS_CACHE = set()
             for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Transactions", "Employee Tracker"):
                 _LAST_KNOWN_ROWS[sname] = []
-                _ROWS_CACHE[sname] = (time.time() + 60, [])
-        return True
-        print("All sheets successfully wiped via fast batch request for fresh re-scan.")
+                _ROWS_CACHE[sname] = (time.time() + 300, [])
+
+        print("All Google Sheets data tabs 100% wiped and re-initialized.")
         return True
     except Exception as e:
         import logging

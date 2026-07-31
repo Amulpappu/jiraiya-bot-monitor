@@ -372,7 +372,7 @@ def parse_text_amount(text: str) -> float | None:
     if m_curr_pref:
         try:
             val = float(m_curr_pref.group(1).replace(",", ""))
-            if 100 <= val <= MAX_EXPENSE_AMOUNT:
+            if 1 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
@@ -381,7 +381,7 @@ def parse_text_amount(text: str) -> float | None:
     if m_curr_suff:
         try:
             val = float(m_curr_suff.group(1).replace(",", ""))
-            if 100 <= val <= MAX_EXPENSE_AMOUNT:
+            if 1 <= val <= MAX_EXPENSE_AMOUNT:
                 return val
         except ValueError:
             pass
@@ -391,12 +391,12 @@ def parse_text_amount(text: str) -> float | None:
     if m_kw:
         try:
             val = float(m_kw.group(1).replace(",", ""))
-            if 100 <= val <= MAX_EXPENSE_AMOUNT and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
+            if 1 <= val <= MAX_EXPENSE_AMOUNT and val not in (2024, 2025, 2026, 2027, 2028, 2029, 2030):
                 return val
         except ValueError:
             pass
 
-    # 4. Standalone numbers >= 100 (excluding dates/timestamps/IDs)
+    # 4. Standalone numbers >= 1 (excluding dates/timestamps/IDs)
     candidates = []
     for line in text.splitlines():
         clean_line = re.sub(r"\b(?:id|msg_id|message_id|phone)\s*[:\-]?\s*\d+\b", "", line, flags=re.IGNORECASE)
@@ -404,12 +404,12 @@ def parse_text_amount(text: str) -> float | None:
         clean_line = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\b", "", clean_line)
         clean_line = re.sub(r"https?://\S+|www\.\S+", "", clean_line)
 
-        for num in re.findall(r"\b([\d,]{3,9}(?:\.\d{1,2})?)\b", clean_line):
+        for num in re.findall(r"\b([\d,]{1,9}(?:\.\d{1,2})?)\b", clean_line):
             clean_num = num.replace(",", "")
             if clean_num not in ("2024", "2025", "2026", "2027", "2028", "2029", "2030"):
                 try:
                     val = float(clean_num)
-                    if 100 <= val <= MAX_EXPENSE_AMOUNT:
+                    if 1 <= val <= MAX_EXPENSE_AMOUNT:
                         candidates.append(val)
                 except ValueError:
                     pass
