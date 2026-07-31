@@ -234,6 +234,7 @@ class DatabaseManager:
                 "last_updated": now_str
             }
             items.append(new_item)
+        self.save()
 
     def delete_inventory_item(self, item_name):
         items = self.get_inventory()

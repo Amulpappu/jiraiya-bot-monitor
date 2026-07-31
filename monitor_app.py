@@ -19,8 +19,6 @@ if APP_DIR and os.path.exists(APP_DIR):
 
 import config
 import sheets
-import config
-import sheets
 import database
 try:
     import discord_rpc
@@ -50,14 +48,6 @@ def append_log(line: str):
     if len(BOT_LOGS) > MAX_LOGS:
         BOT_LOGS.pop(0)
 
-
-@app.route("/api/logs")
-def get_console_logs():
-    logs = BOT_LOGS[-100:] if BOT_LOGS else [
-        "[System] 🟢 Antigravity Terminal Stream active 24/7.",
-        "[OCR Engine] Discord invoice parser ready."
-    ]
-    return jsonify({"success": True, "console_logs": logs})
 
 
 def reader_thread(proc):
@@ -205,10 +195,7 @@ def check_admin_permission():
     return role == "Admin"
 
 
-@app.route("/api/start", methods=["POST"])
-def start_bot():
-    if not check_admin_permission():
-        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can start the bot!"})
+def _start_bot_process():
     global GLOBAL_BOT_ENABLED, BOT_PROCESS, PENDING_BOT_COMMAND
     GLOBAL_BOT_ENABLED = True
     PENDING_BOT_COMMAND = "start"
@@ -216,13 +203,10 @@ def start_bot():
     is_cloud = bool(os.getenv("RENDER")) or (os.name != "nt")
     if is_cloud:
         append_log("Bot service enabled on Cloud.")
-        return jsonify({
-            "success": True,
-            "message": "🟢 Bot Service Started on Cloud/Server."
-        })
+        return True, "🟢 Bot Service Started on Cloud/Server."
 
     if BOT_PROCESS is not None and BOT_PROCESS.poll() is None:
-        return jsonify({"success": True, "message": "Bot is already running on PC."})
+        return True, "Bot is already running on PC."
 
     python_executable = sys.executable
     env = os.environ.copy()
@@ -251,7 +235,15 @@ def start_bot():
             )
         except Exception: pass
 
-    return jsonify({"success": True, "message": "Bot process started on PC."})
+    return True, "Bot process started on PC."
+
+
+@app.route("/api/start", methods=["POST"])
+def start_bot():
+    if not check_admin_permission():
+        return jsonify({"success": False, "error": "🔒 Access Denied: Only Admin can start the bot!"})
+    success, msg = _start_bot_process()
+    return jsonify({"success": success, "message": msg})
 
 
 @app.route("/api/stop", methods=["POST"])
@@ -752,8 +744,6 @@ Log into your Web Dashboard (https://jiraiya-bot-monitor.onrender.com) as Admin 
     except Exception as e:
         append_log(f"[SMTP Notice]: {e}")
         return False
-        append_log(f"[SMTP Notice]: {e}")
-        return False
 
 
 import database
@@ -985,7 +975,7 @@ def auto_start_bot_on_launch():
 
     try:
         if BOT_PROCESS is None or BOT_PROCESS.poll() is not None:
-            start_bot()
+            _start_bot_process()
             print("[Server] Auto-started bot process successfully.")
     except Exception as e:
         print(f"[Server Warning]: {e}")

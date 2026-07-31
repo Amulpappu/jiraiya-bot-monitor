@@ -648,6 +648,7 @@ def save_inventory_item_to_sheet(item_name: str, qty: int, bought_month: int, re
         _with_retry(lambda: ws.append_row(row_values, value_input_option="USER_ENTERED"))
 
     clear_rows_cache("Inventory")
+    return True
 
 
 def delete_inventory_row_from_sheet(item_name: str):
@@ -674,6 +675,11 @@ def delete_inventory_row_from_sheet(item_name: str):
             logging.getLogger("sheets").error(f"delete_inventory_row_from_sheet error: {e}")
 
     threading.Thread(target=_do_cloud_delete, daemon=True).start()
+    return True
+
+
+save_inventory_item = save_inventory_item_to_sheet
+delete_inventory_item = delete_inventory_row_from_sheet
 
 
 def delete_expense_row_from_sheet(timestamp_str: str, amount_val: float):

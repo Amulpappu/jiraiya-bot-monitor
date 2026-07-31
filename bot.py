@@ -268,28 +268,6 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
     await add_reaction_if_enabled(message, "✅")
     return
 
-    # ── Not confident — flag for manual review, but still logged so nothing gets lost ──
-    await add_reaction_if_enabled(message, "❓")
-    if is_backfill:
-        return
-
-    reason = result["reason"]
-    if reason == "no_amount":
-        note = "couldn't read an amount off the invoice."
-    elif reason == "amount_does_not_match_keyword_category":
-        base = service_pricing.price_for(keyword_category)
-        note = (
-            f"you wrote '{keyword_category}' but ₹{amount:,.0f} isn't a clean multiple "
-            f"of ₹{base:,.0f} — please double check the invoice or the category."
-        )
-    elif reason == "ambiguous_amount_matches_both_tiers":
-        note = (
-            f"₹{amount:,.0f} matches both civilian and government-tier multiples — "
-            f"please reply with 'civilian' or 'government/ems/pd/taxi' to clarify."
-        )
-    else:  # amount_not_a_clean_multiple
-        note = f"₹{amount:,.0f} isn't a clean multiple of ₹3,000 or ₹5,000 — please double check the invoice."
-
 
 async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """

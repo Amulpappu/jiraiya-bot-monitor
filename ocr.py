@@ -254,17 +254,18 @@ def _clean_ocr_amount(amount_val: float | None, text: str) -> float | None:
     """
     Fixes Tesseract OCR dollar-sign misreads (e.g. '414800$' misread as '4148006').
     If a parsed amount ends in '6' and trimming the '6' results in a clean round number,
-    corrects the amount to the true value.
+    corrects the amount to the true value only if evidence of dollar-sign misread exists.
     """
     if amount_val is None or amount_val <= 0:
         return amount_val
 
     amt_str = str(int(amount_val))
-    if len(amt_str) > 3 and amt_str.endswith("6"):
+    if len(amt_str) > 4 and amt_str.endswith("6"):
         trimmed_str = amt_str[:-1]
         try:
             trimmed_val = float(trimmed_str)
-            if trimmed_val % 10 == 0 or trimmed_val % 100 == 0:
+            # Require trimmed value to be a clean thousand/hundred or have currency marker in text
+            if (trimmed_val >= 1000 and trimmed_val % 100 == 0) or re.search(rf"{trimmed_str}\s*[\$sS₹§€£]", text, re.IGNORECASE):
                 return trimmed_val
         except ValueError:
             pass
@@ -295,9 +296,9 @@ def parse_invoice(text: str, fields: list) -> dict:
     if "amount" in fields:
         amount_str = table_amount
         if not amount_str:
-            amount_str = _fallback_amount(text)
-        if not amount_str:
             amount_str = _search_patterns(AMOUNT_PATTERNS, text)
+        if not amount_str:
+            amount_str = _fallback_amount(text)
 
         if amount_str:
             amount_str = amount_str.replace(",", "")
