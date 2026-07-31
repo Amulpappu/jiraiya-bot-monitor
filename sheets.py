@@ -554,6 +554,7 @@ def wipe_all_data_sheets():
             ("Upgrades", REVENUE_HEADERS),
             ("Kits", KIT_HEADERS),
             ("Expenses", EXPENSE_HEADERS),
+            ("VIP Claim", VIP_CLAIM_HEADERS),
             ("Transactions", TRANSACTIONS_HEADERS),
             ("Employee Tracker", EMPLOYEE_TRACKER_HEADERS),
         ]
@@ -583,11 +584,19 @@ def wipe_all_data_sheets():
         try:
             ws_txn = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
             _apply_transactions_dropdown(ws_txn)
+            ws_vip = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
+            _apply_vip_claim_dropdown(ws_vip)
         except Exception:
             pass
 
         reset_dashboard_to_zero()
-        clear_rows_cache()
+
+        with _CACHE_LOCK:
+            _LOGGED_IDS_CACHE = set()
+            for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Transactions", "Employee Tracker"):
+                _LAST_KNOWN_ROWS[sname] = []
+                _ROWS_CACHE[sname] = (time.time() + 60, [])
+        return True
         print("All sheets successfully wiped via fast batch request for fresh re-scan.")
         return True
     except Exception as e:

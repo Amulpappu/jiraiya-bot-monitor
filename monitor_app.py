@@ -299,14 +299,20 @@ def wipe_and_full_scan():
     PENDING_BOT_COMMAND = "wipe"
     append_log("[Action] ⚠️ FULL WIPE initiated — erasing all Google Sheets data and scanning from beginning...")
 
+    # Instantly clear memory cache so web UI stats immediately drop to zero
+    sheets.clear_rows_cache(hard=True)
+    if os.path.exists("processed_hashes.json"):
+        try:
+            with open("processed_hashes.json", "w") as f:
+                f.write("[]")
+        except Exception:
+            pass
+
     def _worker():
         try:
             success = sheets.wipe_all_data_sheets()
             if success:
                 append_log("[System] All Google Sheets data wiped. Bot will do a FULL re-scan from message #1...")
-            if os.path.exists("processed_hashes.json"):
-                with open("processed_hashes.json", "w") as f:
-                    f.write("[]")
         except Exception as e:
             append_log(f"[Error] Wipe failed: {e}")
 
