@@ -748,9 +748,7 @@ def mark_vip_claim_as_claimed_in_sheet(timestamp_str: str, customer_name: str):
 
 
 def append_transaction_entry(amount, employee: str, category: str, description: str = "", created_at: datetime.datetime = None, skip_tracker_update: bool = False):
-    """Logs one row to the consolidated Transactions ledger — Date (only DD/MM/YYYY when posted in Discord),
-    Transaction Amount, Description, Transaction Type (Category), and Employee Name.
-    Never logs entries with $0 or invalid amounts.
+    """Logs one row to the consolidated Transactions ledger.
     Automatically triggers Employee Tracker sheet update unless skip_tracker_update is True."""
     if amount is None:
         return
@@ -764,8 +762,12 @@ def append_transaction_entry(amount, employee: str, category: str, description: 
     dt_ist = _get_ist_dt(created_at)
     ws = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
     date_str = dt_ist.strftime("%d/%m/%Y")
-    _with_retry(lambda: ws.append_row([date_str, num_amount, description or "", category, employee or "Unknown"]))
-    clear_rows_cache("Transactions")
+    new_row = [date_str, num_amount, description or "", category, employee or "Unknown"]
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if "Transactions" in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Transactions"].append(new_row)
+            _ROWS_CACHE["Transactions"] = (time.time(), _LAST_KNOWN_ROWS["Transactions"])
 
     if not skip_tracker_update:
         try:
@@ -775,43 +777,59 @@ def append_transaction_entry(amount, employee: str, category: str, description: 
             logging.getLogger("sheets").error(f"Employee Tracker update failed: {e}")
 
 
-def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
-    """Logs a service invoice with timestamp (date + time in IST) when posted in Discord."""
-def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None):
+def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None, skip_dashboard_update: bool = False):
     """Logs a service invoice: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    _with_retry(lambda: ws.append_row([
+    new_row = [
         timestamp,
         category or "Unspecified",
         count if count is not None else 1,
         total,
         employee or "Unknown",
         message_id,
-    ]))
-    clear_rows_cache("Service")
+    ]
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if "Service" in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Service"].append(new_row)
+            _ROWS_CACHE["Service"] = (time.time(), _LAST_KNOWN_ROWS["Service"])
     add_logged_message_id(str(message_id))
+    if not skip_dashboard_update:
+        try:
+            update_dashboard()
+        except Exception:
+            pass
 
 
 def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float,
-                      total: float, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
+                      total: float, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None, skip_dashboard_update: bool = False):
     """Logs a Kit sale: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Kits", KIT_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
     qty_cnt = max(1, (rk_qty or 0) + (ck_qty or 0))
     cat_str = f"{rk_qty}x RK, {ck_qty}x CK" if (rk_qty and ck_qty) else ("Repair Kit" if rk_qty else "Cleaning Kit")
-    _with_retry(lambda: ws.append_row([
+    new_row = [
         timestamp,
         cat_str,
         qty_cnt,
         total,
         employee or "Unknown",
         message_id,
-    ]))
-    clear_rows_cache("Kits")
+    ]
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if "Kits" in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Kits"].append(new_row)
+            _ROWS_CACHE["Kits"] = (time.time(), _LAST_KNOWN_ROWS["Kits"])
     add_logged_message_id(str(message_id))
+    if not skip_dashboard_update:
+        try:
+            update_dashboard()
+        except Exception:
+            pass
 
 
 def clean_invalid_zero_rows():
@@ -876,7 +894,7 @@ def clean_invalid_zero_rows():
         print(f"[Cleanup Warning]: {e}")
 
 
-def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None):
+def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None, skip_dashboard_update: bool = False):
     """Logs an Upgrade entry: [Timestamp, Category, Count, Total Amount, Employee, Message ID]."""
     try:
         val_float = float(value)
@@ -890,45 +908,54 @@ def append_entry(sheet_name: str, value, employee: str, message_id: str, created
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    row = [timestamp, "Car Upgrade", 1, val_float, employee or "Unknown", message_id]
+    new_row = [timestamp, "Car Upgrade", 1, val_float, employee or "Unknown", message_id]
 
-    _with_retry(lambda: ws.append_row(row))
-    clear_rows_cache(sheet_name)
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if sheet_name in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS[sheet_name].append(new_row)
+            _ROWS_CACHE[sheet_name] = (time.time(), _LAST_KNOWN_ROWS[sheet_name])
     add_logged_message_id(str(message_id))
 
-    try:
-        update_dashboard()
-    except Exception as e:
-        import logging
-        logging.getLogger("sheets").error(f"Dashboard update failed (invoice was still saved): {e}")
+    if not skip_dashboard_update:
+        try:
+            update_dashboard()
+        except Exception as e:
+            import logging
+            logging.getLogger("sheets").error(f"Dashboard update failed (invoice was still saved): {e}")
 
 
-def append_expense_entry(amount, employee: str, message_id: str, created_at: datetime.datetime = None):
+def append_expense_entry(amount, employee: str, message_id: str, created_at: datetime.datetime = None, skip_dashboard_update: bool = False):
     """Logs an expense/bill claim: [Timestamp, Amount, Employee, Message ID]."""
     ws = _ensure_sheet("Expenses", EXPENSE_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    _with_retry(lambda: ws.append_row([
+    new_row = [
         timestamp,
         amount,
         employee or "Unknown",
         message_id,
-    ]))
-    clear_rows_cache("Expenses")
+    ]
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if "Expenses" in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Expenses"].append(new_row)
+            _ROWS_CACHE["Expenses"] = (time.time(), _LAST_KNOWN_ROWS["Expenses"])
     add_logged_message_id(str(message_id))
-    try:
-        update_dashboard()
-    except Exception as e:
-        import logging
-        logging.getLogger("sheets").error(f"Dashboard update failed: {e}")
+    if not skip_dashboard_update:
+        try:
+            update_dashboard()
+        except Exception as e:
+            import logging
+            logging.getLogger("sheets").error(f"Dashboard update failed: {e}")
 
 
-def append_vip_claim_entry(person_name: str, category: str, vehicle: str, staff: str, amount: float, message_id: str, created_at: datetime.datetime = None):
+def append_vip_claim_entry(person_name: str, category: str, vehicle: str, staff: str, amount: float, message_id: str, created_at: datetime.datetime = None, skip_dashboard_update: bool = False):
     """Logs a VIP Mech Claim entry: [Person Name, Staff, Vehicle, Amount, Status, Timestamp, Message ID]."""
     ws = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
     dt_ist = _get_ist_dt(created_at)
     timestamp = dt_ist.strftime(TIMESTAMP_FORMAT)
-    _with_retry(lambda: ws.append_row([
+    new_row = [
         person_name or "Unknown",
         staff or "Unknown",
         vehicle or "Unknown",
@@ -936,14 +963,19 @@ def append_vip_claim_entry(person_name: str, category: str, vehicle: str, staff:
         "Unclaimed",
         timestamp,
         message_id,
-    ]))
-    clear_rows_cache("VIP Claim")
+    ]
+    _with_retry(lambda: ws.append_row(new_row))
+    with _CACHE_LOCK:
+        if "VIP Claim" in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["VIP Claim"].append(new_row)
+            _ROWS_CACHE["VIP Claim"] = (time.time(), _LAST_KNOWN_ROWS["VIP Claim"])
     add_logged_message_id(str(message_id))
-    try:
-        update_dashboard()
-    except Exception as e:
-        import logging
-        logging.getLogger("sheets").error(f"Dashboard update failed: {e}")
+    if not skip_dashboard_update:
+        try:
+            update_dashboard()
+        except Exception as e:
+            import logging
+            logging.getLogger("sheets").error(f"Dashboard update failed: {e}")
 
 
 def get_all_logged_message_ids(force_refresh=False) -> set:

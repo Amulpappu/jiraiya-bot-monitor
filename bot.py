@@ -184,7 +184,7 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
     if image_url:
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                image_url, ["customer", "amount"]
+                image_url, ["amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for service message {message.id}: {e}")
@@ -240,6 +240,7 @@ async def process_service_message(message: discord.Message, is_backfill: bool = 
             message_id=str(message.id),
             count=service_cnt,
             created_at=message.created_at,
+            skip_dashboard_update=is_backfill,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write service entry for message {message.id}: {e}")
@@ -285,7 +286,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     if image_url:
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                image_url, ["customer", "amount"]
+                image_url, ["amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for kit message {message.id}: {e}")
@@ -326,6 +327,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             employee=resolve_employee_name(message.author),
             message_id=str(message.id),
             created_at=message.created_at,
+            skip_dashboard_update=is_backfill,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write kit entry for message {message.id}: {e}")
@@ -469,6 +471,7 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
             employee=emp_name,
             message_id=str(message.id),
             created_at=message.created_at,
+            skip_dashboard_update=is_backfill,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write expense entry for message {message.id}: {e}")
@@ -571,6 +574,7 @@ async def process_vip_claim_message(message: discord.Message, cfg: dict, is_back
             amount=amount,
             message_id=str(message.id),
             created_at=message.created_at,
+            skip_dashboard_update=is_backfill,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write VIP Claim entry for message {message.id}: {e}")
@@ -618,6 +622,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                     employee=resolve_employee_name(message.author),
                     message_id=str(message.id),
                     created_at=message.created_at,
+                    skip_dashboard_update=is_backfill,
                 )
                 txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(cfg["sheet_name"], "Upgrades")
                 await asyncio.to_thread(
@@ -708,6 +713,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 employee=resolve_employee_name(message.author),
                 message_id=str(message.id),
                 created_at=message.created_at,
+                skip_dashboard_update=is_backfill,
             )
         except Exception as e:
             log_discord_error(message, f"Google Sheets save failed ({cfg['sheet_name']}): {e}")
