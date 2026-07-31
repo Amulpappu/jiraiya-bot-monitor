@@ -137,6 +137,40 @@ def _is_valid_name(candidate: str) -> bool:
     return True
 
 
+def extract_description_and_category(text: str, message_content: str = "") -> tuple[str, str]:
+    """Extracts description (e.g. 'Sicily Logisiticis ID : 92', 'Food and Water')
+    and category ('Order', 'Food', 'Birthday') from text or message content."""
+    combined = f"{message_content}\n{text}".strip()
+    if not combined:
+        return "", "Order"
+
+    cat = "Order"
+    comb_lower = combined.lower()
+    if "food" in comb_lower or "water" in comb_lower:
+        cat = "Food"
+    elif "birthday" in comb_lower:
+        cat = "Birthday"
+    elif any(k in comb_lower for k in ("logistics", "logisticis", "yaazhi", "yazhi", "sicily", "km logistics", "order")):
+        cat = "Order"
+
+    desc = ""
+    log_m = re.search(r"((?:Sicily|Yazhi|Yaazhi|Km)\s*Logistics?\s*(?:ID|Id)?\s*[:\-]?\s*\d+(?:,\d+)?)", combined, re.IGNORECASE)
+    if log_m:
+        desc = log_m.group(1).strip()
+    else:
+        for line in combined.splitlines():
+            line_s = line.strip()
+            if any(kw in line_s.lower() for kw in ("food", "water", "logistics", "upgrade", "repair", "cleaning", "service", "id :", "id:")):
+                desc = line_s
+                break
+
+    if not desc and message_content:
+        desc = message_content.strip()
+
+    return desc or "Bill Claim", cat
+
+
+
 def _parse_table_row(text: str):
     """
     Parses FiveM table row format:

@@ -247,7 +247,12 @@
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         <span>Dashboard</span>
       </a>
+      <a class="nav-item" onclick="switchTab('july_report', this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>📊 July Report</span>
+      </a>
       <a class="nav-item" onclick="switchTab('service', this)">
+
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
         <span>🛠️ Service</span>
       </a>
@@ -780,10 +785,78 @@
           </table>
         </div>
 
+      <!-- View: July Report (Matching Manual Income & Expenses Report) -->
+      <div id="view-july_report" class="page-view">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <div>
+            <h3 style="color:#FFF; margin:0; font-size:20px; font-weight:700;">📊 July Income & Expenses Report (Government & Shop Operations)</h3>
+            <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">Synchronized live with July Summary & July Transactions tabs (July 1 to July 31)</p>
+          </div>
+          <button class="btn-ctrl btn-start" onclick="fetchJulyReport()" style="padding:10px 18px; border-radius:10px; font-weight:700;">🔄 Sync Report</button>
+        </div>
+
+        <!-- July Summary Breakdown (Expenses on Left, Income on Right) -->
+        <div class="chart-card" style="margin-bottom:24px; background:rgba(19, 24, 38, 0.95); border:1px solid rgba(108,77,255,0.3);">
+          <h4 style="color:var(--primary); font-size:16px; margin:0 0 14px 0;">July Summary Breakdown</h4>
+          <div style="overflow-x:auto;">
+            <table class="custom-table" style="width:100%;">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.04);">
+                  <th style="color:#FF5C5C; width:22%;">Expenses Category</th>
+                  <th style="text-align:right; width:10%;">Planned</th>
+                  <th style="text-align:right; color:#FF5C5C; width:11%;">Actual</th>
+                  <th style="text-align:right; color:#FF5C5C; width:11%;">Diff</th>
+                  <th style="width:2%;"></th>
+                  <th style="color:#19D96B; width:22%;">Income Category</th>
+                  <th style="text-align:right; width:10%;">Planned</th>
+                  <th style="text-align:right; color:#19D96B; width:11%;">Actual</th>
+                  <th style="text-align:right; color:#19D96B; width:11%;">Diff</th>
+                </tr>
+              </thead>
+              <tbody id="julySummaryBody">
+                <tr><td colspan="9" style="text-align:center; padding:20px; color:#AAA;">Loading July Summary...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- July Transactions (Expenses Side vs Income Side) -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+          <!-- Expenses Table -->
+          <div class="chart-card" style="border:1px solid rgba(255,92,92,0.3);">
+            <h4 style="color:#FF5C5C; font-size:15px; margin:0 0 12px 0;">💸 Expenses Transactions</h4>
+            <div style="overflow-y:auto; max-height:450px;">
+              <table class="custom-table">
+                <thead>
+                  <tr><th>Date</th><th>Amount</th><th>Description</th><th>Category</th></tr>
+                </thead>
+                <tbody id="julyExpTxnBody">
+                  <tr><td colspan="4" style="text-align:center; padding:16px; color:#AAA;">Loading Expense Transactions...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Income Table -->
+          <div class="chart-card" style="border:1px solid rgba(25,217,107,0.3);">
+            <h4 style="color:#19D96B; font-size:15px; margin:0 0 12px 0;">💰 Income Transactions</h4>
+            <div style="overflow-y:auto; max-height:450px;">
+              <table class="custom-table">
+                <thead>
+                  <tr><th>Date</th><th>Amount</th><th>Description</th><th>Category</th></tr>
+                </thead>
+                <tbody id="julyIncTxnBody">
+                  <tr><td colspan="4" style="text-align:center; padding:16px; color:#AAA;">Loading Income Transactions...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
   </main>
+
 
   <!-- ── Add Employee Modal ── -->
   <div class="modal-overlay" id="addEmpModal">
@@ -907,7 +980,9 @@
       }
 
       try {
-        if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
+        if(viewName === 'july_report') {
+          fetchJulyReport();
+        } else if(['service', 'upgrades', 'kits', 'vip_claims', 'expenses'].includes(viewName)) {
           fetchSheetData(viewName);
         } else if(viewName === 'inventory') {
           fetchInventory();
@@ -922,6 +997,64 @@
         console.warn("View data fetch warning:", err);
       }
     }
+
+    async function fetchJulyReport() {
+      try {
+        const res = await fetch('/api/july_report');
+        const data = await res.json();
+        if(!data.success) return;
+
+        const sumBody = document.getElementById('julySummaryBody');
+        if(sumBody && data.summary && data.summary.length > 0) {
+          let html = '';
+          data.summary.forEach((row, idx) => {
+            if(idx === 0) return;
+            const isHdr = (idx === 1);
+            html += `<tr style="${isHdr ? 'background:rgba(108,77,255,0.15); font-weight:bold; font-size:13px;' : 'border-bottom:1px solid rgba(255,255,255,0.05);'}">
+              <td style="padding:10px; color:${row[0] ? '#FFF' : 'transparent'}; font-weight:600;">${row[0] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#AAA;">${row[1] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#FF5C5C; font-weight:600;">${row[2] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#FF5C5C;">${row[3] || ''}</td>
+              <td style="width:20px;"></td>
+              <td style="padding:10px; color:${row[5] ? '#FFF' : 'transparent'}; font-weight:600;">${row[5] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#AAA;">${row[6] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#19D96B; font-weight:600;">${row[7] || ''}</td>
+              <td style="padding:10px; text-align:right; color:#19D96B;">${row[8] || ''}</td>
+            </tr>`;
+          });
+          sumBody.innerHTML = html;
+        }
+
+        const expBody = document.getElementById('julyExpTxnBody');
+        const incBody = document.getElementById('julyIncTxnBody');
+        if(data.transactions && data.transactions.length > 2) {
+          let expHtml = '', incHtml = '';
+          data.transactions.slice(2).forEach(r => {
+            if(r && r[0] && r[1]) {
+              expHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:8px; color:#AAA;">${r[0]}</td>
+                <td style="padding:8px; font-weight:600; color:#FF5C5C;">${r[1]}</td>
+                <td style="padding:8px; color:#DDD;">${r[2] || '-'}</td>
+                <td style="padding:8px;"><span class="badge" style="background:rgba(255,92,92,0.15); color:#FF5C5C;">${r[3] || 'Order'}</span></td>
+              </tr>`;
+            }
+            if(r && r[5] && r[6]) {
+              incHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:8px; color:#AAA;">${r[5]}</td>
+                <td style="padding:8px; font-weight:600; color:#19D96B;">${r[6]}</td>
+                <td style="padding:8px; color:#DDD;">${r[7] || '-'}</td>
+                <td style="padding:8px;"><span class="badge" style="background:rgba(25,217,107,0.15); color:#19D96B;">${r[8] || 'Income'}</span></td>
+              </tr>`;
+            }
+          });
+          if(expBody) expBody.innerHTML = expHtml || '<tr><td colspan="4" style="text-align:center; padding:16px; color:#666;">No Expense Transactions</td></tr>';
+          if(incBody) incBody.innerHTML = incHtml || '<tr><td colspan="4" style="text-align:center; padding:16px; color:#666;">No Income Transactions</td></tr>';
+        }
+      } catch(e) {
+        console.error("fetchJulyReport error:", e);
+      }
+    }
+
 
     async function fetchUserRoles() {
       try {

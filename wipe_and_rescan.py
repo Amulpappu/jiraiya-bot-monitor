@@ -143,15 +143,17 @@ async def on_ready():
                 print(f"      ❌ #{clean_display_name}: Error during scan: {e}")
 
     # 5. Final chronological sorting, sync & recalculations
-    print("\n[Step 4/4] Sorting all Google Sheets chronologically (July 1 -> July 31) & updating Dashboard...")
+    print("\n[Step 4/4] Sorting all Google Sheets chronologically (July 1 -> July 31) & updating July Summary & Dashboard...")
     try:
         sheets.sort_all_sheets_by_timestamp()
         sheets.force_refresh_all()
         sheets.update_employee_tracker()
         sheets.update_dashboard()
-        print("  ✓ Sheets sorted from July 1 to July 31 and Dashboard updated successfully!")
+        sheets.update_july_summary()
+        print("  ✓ Sheets sorted from July 1 to July 31 and July Summary & Dashboard updated successfully!")
     except Exception as e:
         print(f"  Notice during final sync: {e}")
+
 
     print("\n" + "=" * 70)
     print(f"🎉 [COMPLETE] FULL WIPE AND ORDER-WISE RE-SCAN FINISHED!")

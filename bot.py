@@ -341,11 +341,11 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     try:
         emp_name = resolve_employee_name(message.author)
         if qty["rk"] > 0 and rk_subtotal > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, rk_subtotal, emp_name, "Repair Kit", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(sheets.append_transaction_entry, rk_subtotal, emp_name, "Repair Kit", description=f"{qty['rk']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
         if qty["ck"] > 0 and ck_subtotal > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, ck_subtotal, emp_name, "Cleaning Kit", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(sheets.append_transaction_entry, ck_subtotal, emp_name, "Cleaning Kit", description=f"{qty['ck']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
         elif rk_subtotal == 0 and ck_subtotal == 0 and total > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, total, emp_name, "Repair Kit", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(sheets.append_transaction_entry, total, emp_name, "Repair Kit", description="1x", created_at=message.created_at, skip_tracker_update=is_backfill)
     except Exception as e:
         ocr.logger.error(f"Failed to write Transactions entries for message {message.id}: {e}")
 
@@ -436,6 +436,7 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
 
     amount = None
     image_hash = None
+    raw_text = ""
 
     if image_url:
         try:
@@ -463,6 +464,7 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
             return
 
     emp_name = resolve_employee_name(message.author)
+    exp_desc, exp_cat = ocr.extract_description_and_category(raw_text, message.content)
 
     try:
         await asyncio.to_thread(
@@ -477,11 +479,26 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
         ocr.logger.error(f"Failed to write expense entry for message {message.id}: {e}")
         return
 
+    try:
+        await asyncio.to_thread(
+            sheets.append_transaction_entry,
+            amount,
+            emp_name,
+            exp_cat,
+            description=exp_desc,
+            created_at=message.created_at,
+            skip_tracker_update=is_backfill,
+            is_expense=True,
+        )
+    except Exception as e:
+        ocr.logger.error(f"Failed to write expense transaction entry for message {message.id}: {e}")
+
     if image_hash:
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
     await add_reaction_if_enabled(message, "✅")
+
 
 
 def normalize_vip_category(raw_cat: str) -> str:

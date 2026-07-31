@@ -485,13 +485,31 @@ def get_sheet_data(sheet_name):
             "vip_claims": "VIP Claim",
             "vip": "VIP Claim",
             "expenses": "Expenses",
-            "bill_claim": "Expenses"
+            "bill_claim": "Expenses",
+            "july_summary": "July Summary",
+            "july_transactions": "July Transactions",
+            "transactions": "Transactions",
         }
-        internal_name = mapping.get(sheet_name.lower(), sheet_name)
+        internal_name = mapping.get(sheet_name.lower().replace("-", "_").replace(" ", "_"), sheet_name)
         rows = sheets._all_rows(internal_name)
         return jsonify({"success": True, "sheet": internal_name, "rows": rows})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/api/july_report")
+def get_july_report():
+    try:
+        summary_rows = sheets._all_rows("July Summary")
+        txn_rows = sheets._all_rows("July Transactions")
+        return jsonify({
+            "success": True,
+            "summary": summary_rows,
+            "transactions": txn_rows
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 
 
 @app.route("/api/vip_claim/claim", methods=["POST"])

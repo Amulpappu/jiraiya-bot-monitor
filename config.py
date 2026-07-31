@@ -292,7 +292,7 @@ def get_channel_config(channel_name: str):
 
 
 # ── Transactions ledger (consolidated log, matches in-game dropdown) ────
-TRANSACTION_CATEGORIES = [
+INCOME_CATEGORIES = [
     "Repair Kit",
     "Cleaning Kit",
     "Car UpGrade",
@@ -300,6 +300,26 @@ TRANSACTION_CATEGORIES = [
     "Service-Government",
     "Order",
 ]
+
+EXPENSE_CATEGORIES = [
+    "Food",
+    "Gifts",
+    "Health/medical",
+    "Home",
+    "Transportation",
+    "Personal",
+    "Pets",
+    "Utilities",
+    "Travel",
+    "Debt",
+    "Other",
+    "Birthday",
+    "Order",
+    "Custom category 3",
+]
+
+TRANSACTION_CATEGORIES = list(dict.fromkeys(INCOME_CATEGORIES + EXPENSE_CATEGORIES))
+
 
 # ── Service pricing (flat rate by customer category) ─────
 SERVICE_PRICES = {

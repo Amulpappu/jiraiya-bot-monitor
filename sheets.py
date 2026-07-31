@@ -569,14 +569,20 @@ def wipe_all_data_sheets():
             _apply_transactions_dropdown(ws_txn)
             ws_vip = _ensure_sheet("VIP Claim", VIP_CLAIM_HEADERS)
             _apply_vip_claim_dropdown(ws_vip)
+            ws_jtx = _ensure_july_transactions_sheet()
+            _with_retry(lambda: ws_jtx.clear())
+            hdr = ["Date", "Amount", "Description", "Category", "", "Date", "Amount", "Description", "Category"]
+            subhdr = ["Expenses", "", "", "", "", "Income", "", "", ""]
+            _with_retry(lambda: ws_jtx.update("A1", [subhdr, hdr]))
         except Exception:
             pass
 
         reset_dashboard_to_zero()
+        update_july_summary()
 
         with _CACHE_LOCK:
             _LOGGED_IDS_CACHE = set()
-            for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Transactions", "Employee Tracker"):
+            for sname in ("Service", "Upgrades", "Kits", "Expenses", "VIP Claim", "Transactions", "Employee Tracker", "July Transactions", "July Summary"):
                 _LAST_KNOWN_ROWS[sname] = []
                 _ROWS_CACHE[sname] = (time.time() + 300, [])
 
@@ -613,8 +619,12 @@ def setup_all_sheets():
     _ensure_sheet("Expenses", EXPENSE_HEADERS)
     _ensure_sheet("Inventory", INVENTORY_HEADERS)
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
+    _ensure_july_transactions_sheet()
+    _ensure_july_summary_sheet()
     _ensure_employee_tracker()
     _ensure_dashboard()
+    update_july_summary()
+
 
 
 # (Removed duplicate append_expense_entry — the canonical version is defined below at ~line 907)
@@ -747,9 +757,204 @@ def mark_vip_claim_as_claimed_in_sheet(timestamp_str: str, customer_name: str):
     threading.Thread(target=_do_cloud_mark, daemon=True).start()
 
 
-def append_transaction_entry(amount, employee: str, category: str, description: str = "", created_at: datetime.datetime = None, skip_tracker_update: bool = False):
-    """Logs one row to the consolidated Transactions ledger.
-    Automatically triggers Employee Tracker sheet update unless skip_tracker_update is True."""
+JULY_SUMMARY_SHEET_NAME = "July Summary"
+JULY_TRANSACTIONS_SHEET_NAME = "July Transactions"
+
+JULY_EXPENSE_CATEGORIES = [
+    "Food", "Gifts", "Health/medical", "Home", "Transportation", "Personal",
+    "Pets", "Utilities", "Travel", "Debt", "Other", "Birthday", "Order", "Custom category 3"
+]
+
+JULY_INCOME_CATEGORIES = [
+    "Repair Kit", "Cleaning Kit", "Car UpGrade", "Service-Civilian", "Service-Government", "Order"
+]
+
+
+def _ensure_july_summary_sheet():
+    ss = get_spreadsheet()
+    if not ss:
+        return None
+    try:
+        ws = _with_retry(lambda: ss.worksheet(JULY_SUMMARY_SHEET_NAME))
+    except gspread.WorksheetNotFound:
+        ws = _with_retry(lambda: ss.add_worksheet(title=JULY_SUMMARY_SHEET_NAME, rows=100, cols=10))
+    return ws
+
+
+def _ensure_july_transactions_sheet():
+    ss = get_spreadsheet()
+    if not ss:
+        return None
+    try:
+        ws = _with_retry(lambda: ss.worksheet(JULY_TRANSACTIONS_SHEET_NAME))
+    except gspread.WorksheetNotFound:
+        ws = _with_retry(lambda: ss.add_worksheet(title=JULY_TRANSACTIONS_SHEET_NAME, rows=2000, cols=10))
+        hdr = ["Date", "Amount", "Description", "Category", "", "Date", "Amount", "Description", "Category"]
+        subhdr = ["Expenses", "", "", "", "", "Income", "", "", ""]
+        _with_retry(lambda: ws.update("A1", [subhdr, hdr]))
+    return ws
+
+
+def update_july_summary():
+    """Recalculates category totals and updates the July Summary tab to mirror the manual report."""
+    try:
+        ss = get_spreadsheet()
+        if not ss:
+            return
+        ws_sum = _ensure_july_summary_sheet()
+        if not ws_sum:
+            return
+
+        exp_totals = defaultdict(float)
+        inc_totals = defaultdict(float)
+
+        ws_txns = _ensure_july_transactions_sheet()
+        if ws_txns:
+            rows = _with_retry(lambda: ws_txns.get_all_values())
+            if rows and len(rows) > 2:
+                for r in rows[2:]:
+                    # Expenses (Cols 0..3)
+                    if len(r) > 3 and r[1]:
+                        cat = r[3].strip()
+                        try:
+                            amt = float(str(r[1]).replace("₹", "").replace(",", "").strip())
+                            if amt > 0:
+                                exp_totals[cat] += amt
+                        except Exception:
+                            pass
+                    # Income (Cols 5..8)
+                    if len(r) > 8 and r[6]:
+                        cat = r[8].strip()
+                        try:
+                            amt = float(str(r[6]).replace("₹", "").replace(",", "").strip())
+                            if amt > 0:
+                                inc_totals[cat] += amt
+                        except Exception:
+                            pass
+
+        # Fallback/supplement from standard sheets if July Transactions is empty
+        if not exp_totals:
+            for r in _all_rows("Expenses"):
+                if len(r) > 1:
+                    try:
+                        amt = float(str(r[1]).replace("₹", "").replace(",", "").strip())
+                        exp_totals["Order"] += amt
+                    except Exception:
+                        pass
+
+        if not inc_totals:
+            for r in _all_rows("Kits"):
+                if len(r) > 3:
+                    try:
+                        amt = float(str(r[3]).replace("₹", "").replace(",", "").strip())
+                        cat = r[1].strip() if len(r) > 1 else ""
+                        if "Cleaning" in cat or "CK" in cat:
+                            inc_totals["Cleaning Kit"] += amt
+                        else:
+                            inc_totals["Repair Kit"] += amt
+                    except Exception:
+                        pass
+            for r in _all_rows("Upgrades"):
+                if len(r) > 3:
+                    try:
+                        amt = float(str(r[3]).replace("₹", "").replace(",", "").strip())
+                        inc_totals["Car UpGrade"] += amt
+                    except Exception:
+                        pass
+            for r in _all_rows("Service"):
+                if len(r) > 3:
+                    try:
+                        amt = float(str(r[3]).replace("₹", "").replace(",", "").strip())
+                        cat = r[1].strip().lower() if len(r) > 1 else ""
+                        if cat in ("gov", "government", "pd", "ems", "taxi", "police"):
+                            inc_totals["Service-Government"] += amt
+                        else:
+                            inc_totals["Service-Civilian"] += amt
+                    except Exception:
+                        pass
+
+        tot_exp = sum(exp_totals.values())
+        tot_inc = sum(inc_totals.values())
+
+        summary_rows = [
+            ["Expenses", "", "", "", "", "Income", "", "", ""],
+            ["Totals", "₹0", f"₹{tot_exp:,.0f}", f"-₹{tot_exp:,.0f}", "", "Totals", "₹0", f"₹{tot_inc:,.0f}", f"₹{tot_inc:,.0f}"]
+        ]
+
+        max_rows = max(len(JULY_EXPENSE_CATEGORIES), len(JULY_INCOME_CATEGORIES))
+        for i in range(max_rows):
+            exp_cat = JULY_EXPENSE_CATEGORIES[i] if i < len(JULY_EXPENSE_CATEGORIES) else ""
+            inc_cat = JULY_INCOME_CATEGORIES[i] if i < len(JULY_INCOME_CATEGORIES) else ""
+
+            exp_act = exp_totals.get(exp_cat, 0.0)
+            exp_diff = f"-₹{exp_act:,.0f}" if exp_act > 0 else "₹0"
+            exp_act_str = f"₹{exp_act:,.0f}" if exp_act > 0 else "₹0"
+
+            inc_act = inc_totals.get(inc_cat, 0.0)
+            inc_diff = f"₹{inc_act:,.0f}" if inc_act > 0 else "₹0"
+            inc_act_str = f"₹{inc_act:,.0f}" if inc_act > 0 else "₹0"
+
+            row = [
+                exp_cat, "₹0" if exp_cat else "", exp_act_str if exp_cat else "", exp_diff if exp_cat else "",
+                "",
+                inc_cat, "₹0" if inc_cat else "", inc_act_str if inc_cat else "", inc_diff if inc_cat else ""
+            ]
+            summary_rows.append(row)
+
+        _with_retry(lambda: ws_sum.clear())
+        _with_retry(lambda: ws_sum.update("A1", summary_rows))
+    except Exception as e:
+        import logging
+        logging.getLogger("sheets").error(f"update_july_summary failed: {e}")
+
+
+def append_july_transaction_entry(amount: float, category: str, description: str = "", created_at: datetime.datetime = None, is_expense: bool = False):
+    """Logs an entry to the July Transactions sheet on either the Expenses (Cols A-D) or Income (Cols F-I) table."""
+    try:
+        ws = _ensure_july_transactions_sheet()
+        if not ws:
+            return
+        dt_ist = _get_ist_dt(created_at)
+        date_str = dt_ist.strftime("%d/%m/%Y")
+        amt_str = f"₹{float(amount):,.0f}"
+
+        is_exp_cat = is_expense or (category in JULY_EXPENSE_CATEGORIES and category not in ("Repair Kit", "Cleaning Kit", "Car UpGrade", "Service-Civilian", "Service-Government"))
+
+        all_rows = _with_retry(lambda: ws.get_all_values())
+        if not all_rows or len(all_rows) < 2:
+            subhdr = ["Expenses", "", "", "", "", "Income", "", "", ""]
+            hdr = ["Date", "Amount", "Description", "Category", "", "Date", "Amount", "Description", "Category"]
+            _with_retry(lambda: ws.update("A1", [subhdr, hdr]))
+            all_rows = [subhdr, hdr]
+
+        exp_row_idx = len(all_rows) + 1
+        inc_row_idx = len(all_rows) + 1
+
+        if is_exp_cat:
+            for idx, r in enumerate(all_rows[2:], start=3):
+                if not r or not r[0].strip():
+                    exp_row_idx = idx
+                    break
+            range_name = f"A{exp_row_idx}:D{exp_row_idx}"
+            row_data = [date_str, amt_str, description or "", category]
+            _with_retry(lambda: ws.update(range_name, [row_data]))
+        else:
+            for idx, r in enumerate(all_rows[2:], start=3):
+                if len(r) < 6 or not r[5].strip():
+                    inc_row_idx = idx
+                    break
+            range_name = f"F{inc_row_idx}:I{inc_row_idx}"
+            row_data = [date_str, amt_str, description or "", category]
+            _with_retry(lambda: ws.update(range_name, [row_data]))
+
+        update_july_summary()
+    except Exception as e:
+        import logging
+        logging.getLogger("sheets").error(f"append_july_transaction_entry failed: {e}")
+
+
+def append_transaction_entry(amount, employee: str, category: str, description: str = "", created_at: datetime.datetime = None, skip_tracker_update: bool = False, is_expense: bool = False):
+    """Logs one row to the consolidated Transactions ledger & July Transactions / July Summary sheets."""
     if amount is None:
         return
     try:
@@ -769,12 +974,19 @@ def append_transaction_entry(amount, employee: str, category: str, description: 
             _LAST_KNOWN_ROWS["Transactions"].append(new_row)
             _ROWS_CACHE["Transactions"] = (time.time(), _LAST_KNOWN_ROWS["Transactions"])
 
+    try:
+        append_july_transaction_entry(num_amount, category, description=description, created_at=created_at, is_expense=is_expense)
+    except Exception as ex:
+        import logging
+        logging.getLogger("sheets").error(f"append_july_transaction_entry call error: {ex}")
+
     if not skip_tracker_update:
         try:
             update_employee_tracker()
         except Exception as e:
             import logging
             logging.getLogger("sheets").error(f"Employee Tracker update failed: {e}")
+
 
 
 def append_service_entry(category: str, total, employee: str, message_id: str, count=None, created_at: datetime.datetime = None, customer: str = None, skip_dashboard_update: bool = False):
