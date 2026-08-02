@@ -251,9 +251,9 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             skip_dashboard_update=is_backfill,
         )
         if rk_sub > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, rk_sub, emp_name, "Repair Kit", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(sheets.append_transaction_entry, rk_sub, emp_name, "Repair Kit", f"{qty['rk']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
         if ck_sub > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, ck_sub, emp_name, "Cleaning Kit", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(sheets.append_transaction_entry, ck_sub, emp_name, "Cleaning Kit", f"{qty['ck']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
     except Exception as e:
         logger.error(f"Failed to write Kit entry for message {message.id}: {e}")
         return
