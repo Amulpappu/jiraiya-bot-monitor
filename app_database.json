@@ -11,15 +11,6 @@
       "sidebar_bg": "#0E1320",
       "border_color": "#20283C"
     },
-    "sheet_theme": {
-      "header_color": "#1F2937",
-      "success_color": "#064E3B",
-      "warning_color": "#78350F",
-      "error_color": "#7F1D1D",
-      "transaction_color": "#1E1B4B",
-      "log_highlight": "#312E81",
-      "alt_row_color": "#111827"
-    },
     "bot_config": {
       "bot_token": "",
       "guild_id": "1327473501075122259",
@@ -27,17 +18,7 @@
       "credentials_file": "credentials.json",
       "auto_sync_interval": 15,
       "auto_backup": true,
-      "startup_autostart": true,
-      "log_reading_interval": 5
-    },
-    "notifications": {
-      "desktop_notifications": true,
-      "discord_notifications": true,
-      "sound_notifications": true,
-      "bot_offline_alert": true,
-      "sync_failed_alert": true,
-      "new_transaction_alert": true,
-      "employee_activity_alert": true
+      "startup_autostart": true
     }
   },
   "users": [
@@ -45,130 +26,20 @@
       "id": "1",
       "display_name": "AMULPAPPU",
       "discord_username": "AMULPAPPU",
-      "discord_tag": "@amulpappu",
-      "discord_id": "123456789012345678",
-      "email": "admin@jiraiya.customs",
       "role": "Administrator",
-      "permissions": "Full Access",
       "status": "Active",
-      "last_login": "2026-07-25 03:30:00 IST",
-      "created_at": "2026-07-01"
+      "last_login": "Just Now"
     }
   ],
   "alerts": [
     {
-      "timestamp": "2026-07-25 03:30:00",
-      "type": "System Status",
-      "message": "Bot monitor initialised and connected.",
+      "timestamp": "2026-08-02 16:45:00",
+      "type": "System Initialized",
+      "message": "Jiraiya Financial Intelligence & Bot Monitor active.",
       "severity": "info"
-    },
-    {
-      "timestamp": "2026-07-25 03:22:00",
-      "type": "Employee Added",
-      "message": "Staff mapped: Meenu Kutty -> @blari",
-      "severity": "success"
-    },
-    {
-      "timestamp": "2026-07-25 03:10:00",
-      "type": "Sheet Sync",
-      "message": "Google Sheets full sync completed successfully.",
-      "severity": "success"
-    },
-    {
-      "timestamp": "2026-07-24 22:15:00",
-      "type": "VIP Claim",
-      "message": "VIP Claim parsed: Emily - Teddy (₹24,750)",
-      "severity": "primary"
     }
   ],
-  "inventory": [
-    {
-      "id": "1",
-      "item_name": "Repair Kit",
-      "category": "Kits",
-      "qty": 286,
-      "unit_price": 500,
-      "min_alert": 50,
-      "last_updated": "2026-07-25 03:00:00"
-    },
-    {
-      "id": "2",
-      "item_name": "Cleaning Kit",
-      "category": "Kits",
-      "qty": 204,
-      "unit_price": 300,
-      "min_alert": 40,
-      "last_updated": "2026-07-25 03:00:00"
-    },
-    {
-      "id": "3",
-      "item_name": "Turbocharger Stage 3",
-      "category": "Upgrades",
-      "qty": 35,
-      "unit_price": 25000,
-      "min_alert": 5,
-      "last_updated": "2026-07-24 18:30:00"
-    },
-    {
-      "id": "4",
-      "item_name": "Engine Synthetic Oil",
-      "category": "Tuning",
-      "qty": 120,
-      "unit_price": 1500,
-      "min_alert": 20,
-      "last_updated": "2026-07-24 16:00:00"
-    },
-    {
-      "id": "5",
-      "item_name": "Kevlar Body Armor",
-      "category": "Parts",
-      "qty": 50,
-      "unit_price": 12000,
-      "min_alert": 10,
-      "last_updated": "2026-07-23 20:00:00"
-    },
-    {
-      "id": "6",
-      "item_name": "High Performance Brake Pads",
-      "category": "Parts",
-      "qty": 80,
-      "unit_price": 4500,
-      "min_alert": 15,
-      "last_updated": "2026-07-23 15:00:00"
-    }
-  ],
-  "expenses": [
-    {
-      "timestamp": "2026-07-24 20:00:00",
-      "amount": 45000,
-      "employee": "Eli",
-      "category": "Inventory Restock",
-      "desc": "Purchased 100x Repair Kits"
-    },
-    {
-      "timestamp": "2026-07-24 16:30:00",
-      "amount": 28000,
-      "employee": "AMULPAPPU",
-      "category": "Shop Maintenance",
-      "desc": "Hydraulic lift maintenance service"
-    },
-    {
-      "timestamp": "2026-07-23 18:00:00",
-      "amount": 15000,
-      "employee": "Meenu Kutty",
-      "category": "Tools & Supplies",
-      "desc": "Pneumatic wrench & cleaning supplies"
-    }
-  ],
-  "last_sync": "2026-07-26 02:27:05 IST",
-  "access_requests": [
-    {
-      "timestamp": "2026-07-26 15:30:14",
-      "username": "testuser",
-      "ign": "Test User",
-      "email": "test@gmail.com",
-      "role": "Employee",
-      "status": "Pending Approval"
-    }
-  ]
+  "inventory": [],
+  "expenses": [],
+  "last_sync": "2026-08-02 16:48:07 IST"
 }

@@ -1,8 +1,5 @@
 [phases.setup]
-nixPkgs = ["python311", "tesseract"]
-
-[phases.install]
-cmds = ["pip install -r requirements.txt"]
+nixPkgs = ["python3", "tesseract"]
 
 [start]
-cmd = "python bot.py"
+cmd = "python start_all.py"
