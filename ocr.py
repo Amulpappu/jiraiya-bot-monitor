@@ -49,8 +49,7 @@ def extract_numeric_amount(text: str) -> float:
     if not text:
         return None
 
-    # Priority 1: Check lines explicitly containing Total, Amount, Subtotal, Cost, Price, Pay
-    lines = text.split("\n")
+    lines = text.splitlines()
     for line in lines:
         if any(k in line.lower() for k in ("total", "amount", "subtotal", "price", "pay", "cost", "amt", "grand total")):
             m = re.search(r"[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)", line)
@@ -62,7 +61,17 @@ def extract_numeric_amount(text: str) -> float:
                 except ValueError:
                     pass
 
-    # Priority 2: Currency symbol followed by digits (e.g. $7000, ₹10,000, S14000)
+    # FiveM Tablet Invoice pattern: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
+    for line in lines:
+        m_tab = re.search(r"^(?:Unpaid|Paid)\s+\S+\s+.+?\s+[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)$", line.strip(), re.IGNORECASE)
+        if m_tab:
+            try:
+                val = float(m_tab.group(1).replace(",", ""))
+                if 100 <= val <= 1000000:
+                    return val
+            except ValueError:
+                pass
+
     m_curr = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d+)?)", text)
     if m_curr:
         try:
@@ -72,7 +81,6 @@ def extract_numeric_amount(text: str) -> float:
         except ValueError:
             pass
 
-    # Priority 3: Standalone numbers between 4 and 7 digits
     matches = re.findall(r"\b([\d,]{4,7})\b", text)
     for m in matches:
         try:
@@ -92,15 +100,47 @@ def _is_valid_name(name: str) -> bool:
     clean = name.strip()
     if len(clean) < 2 or len(clean) > 40:
         return False
-    if any(k in clean.lower() for k in ("total", "amount", "price", "invoice", "date", "service", "upgrade", "kit")):
+    if any(k in clean.lower() for k in ("total", "amount", "price", "invoice", "date", "service", "upgrade", "kit", "status", "unpaid", "paid", "refresh", "create")):
         return False
     return True
+
+
+def extract_recipient_name(text: str) -> str:
+    """Extracts Recipient / Customer name directly from invoice image text (e.g. 'Mr Sivakumar')."""
+    if not text:
+        return None
+
+    # FiveM Tablet Invoice pattern: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
+    lines = text.splitlines()
+    for line in lines:
+        line_clean = line.strip()
+        m_tab = re.search(r"^(?:Unpaid|Paid)\s+\S+\s+(.+?)\s+[\$₹§€£sS]?\s*[\d,]+(?:\.\d+)?$", line_clean, re.IGNORECASE)
+        if m_tab:
+            candidate = m_tab.group(1).strip()
+            if _is_valid_name(candidate):
+                return candidate
+
+    # Recipient / Billed To pattern
+    m_rec = re.search(r"(?:Recipient|Customer|Client|Name|Billed To|Billed|To)\s*[:\-]?\s*([^\n\$₹§€£\d]{2,35})", text, re.IGNORECASE)
+    if m_rec:
+        candidate = m_rec.group(1).strip()
+        if _is_valid_name(candidate):
+            return candidate
+
+    # Title prefix pattern (Mr/Ms/Mrs/Dr)
+    m_title = re.search(r"\b(Mr|Ms|Mrs|Dr)\.?\s+([A-Z][a-z0-9_]+(?:\s+[A-Z][a-z0-9_]+)?)", text)
+    if m_title:
+        candidate = f"{m_title.group(1)} {m_title.group(2)}".strip()
+        if _is_valid_name(candidate):
+            return candidate
+
+    return None
 
 
 async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
     """Downloads image, computes hash, executes OCR text extraction, and parses amount & customer name."""
     if fields is None:
-        fields = ["amount"]
+        fields = ["amount", "customer"]
 
     try:
         resp = requests.get(image_url, timeout=10)
@@ -126,13 +166,7 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
         logger.error(f"Tesseract OCR failed for image: {e}")
         return img_hash, parsed, ""
 
-    # Amount extraction
     parsed["amount"] = extract_numeric_amount(raw_text)
-
-    # Customer Name extraction if requested
-    if "customer" in fields:
-        m_cust = re.search(r"(?:customer|client|name|billed to)\s*[:\-]\s*([^\n]+)", raw_text, re.IGNORECASE)
-        if m_cust and _is_valid_name(m_cust.group(1)):
-            parsed["customer"] = m_cust.group(1).strip()
+    parsed["customer"] = extract_recipient_name(raw_text)
 
     return img_hash, parsed, raw_text

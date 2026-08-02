@@ -233,19 +233,23 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             cust_name = m_c.group(1).strip()
 
     full_text = (message.content or "") + " " + raw_text
+    amt_parsed = parsed.get("amount") or parse_text_amount(full_text)
+
     qty = kit_pricing.parse_kit_quantities(full_text)
-    if qty is None:
-        amt = parsed.get("amount") or parse_text_amount(full_text)
-        if amt and amt > 0:
-            est_rk = max(1, int(round(amt / 1000.0)))
-            qty = {"rk": est_rk, "ck": 0}
-        else:
-            qty = {"rk": 1, "ck": 0}
+    if qty is None and amt_parsed and amt_parsed > 0:
+        pred_rk, pred_ck = kit_pricing.predict_kit_quantities_from_amount(float(amt_parsed))
+        qty = {"rk": pred_rk, "ck": pred_ck}
+    elif qty is None:
+        qty = {"rk": 1, "ck": 0}
 
     total, discount_pct, total_kits, rk_sub, ck_sub = kit_pricing.calculate_kit_total(qty["rk"], qty["ck"])
-    amt_parsed = parsed.get("amount") or parse_text_amount(full_text)
     if amt_parsed and amt_parsed > 0:
         total = float(amt_parsed)
+        # Recalculate RK/CK quantities to match exact total amount
+        if total > 0:
+            pred_rk, pred_ck = kit_pricing.predict_kit_quantities_from_amount(total)
+            qty = {"rk": pred_rk, "ck": pred_ck}
+
     emp_name = resolve_employee_name(message.author)
 
     try:
@@ -388,9 +392,10 @@ async def route_invoice_message(message: discord.Message, is_backfill: bool = Fa
         await process_expense_message(message, cfg, is_backfill=is_backfill)
 
 
-async def backfill_channel_history(limit=500):
-    """Scans historical messages across all configured channels."""
-    logger.info("[Backfill Scan] Scanning history across all configured channels...")
+async def backfill_channel_history(limit=1000):
+    """Scans historical messages for August 2026 month onwards across all configured channels."""
+    logger.info("[Backfill Scan] Scanning history for August 2026 month across all configured channels...")
+    august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
     for guild in bot.guilds:
         for channel in guild.text_channels:
@@ -399,6 +404,9 @@ async def backfill_channel_history(limit=500):
                 continue
             try:
                 async for message in channel.history(limit=limit, oldest_first=True):
+                    # Only process messages from August 2026 onwards
+                    if message.created_at < august_start:
+                        continue
                     await route_invoice_message(message, is_backfill=True)
             except Exception as e:
                 logger.error(f"Backfill error on #{channel.name}: {e}")

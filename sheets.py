@@ -325,7 +325,14 @@ def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float, total: float
 
     dt_ist = _get_ist_dt(created_at)
     date_str = dt_ist.strftime(TIMESTAMP_FORMAT)
-    cat_str = "Repair Kit" if (rk_qty and not ck_qty) else ("Cleaning Kit" if (ck_qty and not rk_qty) else f"{rk_qty}x Repair Kit, {ck_qty}x Cleaning Kit")
+
+    parts = []
+    if rk_qty > 0:
+        parts.append(f"{rk_qty}x Repair Kit")
+    if ck_qty > 0:
+        parts.append(f"{ck_qty}x Cleaning Kit")
+
+    cat_str = ", ".join(parts) if parts else "Repair Kit"
 
     new_row = [
         date_str,
