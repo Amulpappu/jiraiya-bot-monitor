@@ -82,24 +82,9 @@ def parse_text_amount(text: str) -> float:
     return None
 
 
-def resolve_employee_name(user: discord.User or str) -> str:
-    if isinstance(user, str):
-        tag = user.strip().lower()
-        if tag in config.EMPLOYEE_MAPPING:
-            return config.EMPLOYEE_MAPPING[tag]
-        return user.strip()
-
-    if not user:
-        return "Unknown"
-
-    name_raw = user.display_name or user.name
-    tag_clean = "@" + user.name.lower()
-    if tag_clean in config.EMPLOYEE_MAPPING:
-        return config.EMPLOYEE_MAPPING[tag_clean]
-    if user.name.lower() in config.EMPLOYEE_MAPPING:
-        return config.EMPLOYEE_MAPPING[user.name.lower()]
-
-    return name_raw
+def resolve_employee_name(user) -> str:
+    """Resolves Discord user to exact Employee Name using config mapping table."""
+    return config.resolve_employee_from_author(user)
 
 
 async def add_reaction_if_enabled(message: discord.Message, emoji: str):
@@ -344,8 +329,21 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
             logger.error(f"OCR failed for expense message {message.id}: {e}")
 
     full_text = (message.content or "") + " " + raw_text
-    amount = parsed.get("amount") or parse_text_amount(full_text) or 5000.0
+    amount = parsed.get("amount") or parse_text_amount(full_text) or 0.0
     emp_name = resolve_employee_name(message.author)
+
+    # Extract description (e.g. Food and Water, Sicily Logistics ID : 92)
+    m_desc = re.search(r"(?:Description|Reason|For|Note|Item)\s*[:\-]\s*([^\n]+)", full_text, re.IGNORECASE)
+    if m_desc:
+        desc = m_desc.group(1).strip()
+    elif message.content:
+        desc = message.content.strip()
+    elif raw_text:
+        desc = raw_text.splitlines()[0].strip()
+    else:
+        desc = "Bill Claim Expense"
+
+    cat = "Food" if "food" in desc.lower() or "water" in desc.lower() else "Order"
 
     try:
         await asyncio.to_thread(
@@ -360,8 +358,8 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
             sheets.append_transaction_entry,
             amount=amount,
             employee=emp_name,
-            category="Expense / Bill",
-            description="Bill Claim Expense",
+            category=cat,
+            description=desc,
             created_at=message.created_at,
             skip_tracker_update=is_backfill,
         )
@@ -392,24 +390,39 @@ async def route_invoice_message(message: discord.Message, is_backfill: bool = Fa
         await process_expense_message(message, cfg, is_backfill=is_backfill)
 
 
+async def scan_channel_messages(ch, limit, august_start):
+    try:
+        async for message in ch.history(limit=limit, oldest_first=True):
+            if august_start and message.created_at < august_start:
+                continue
+            await route_invoice_message(message, is_backfill=True)
+    except Exception as e:
+        logger.error(f"Backfill scan error on #{getattr(ch, 'name', 'thread')}: {e}")
+
+
 async def backfill_channel_history(limit=1000):
-    """Scans historical messages for August 2026 month onwards across all configured channels."""
-    logger.info("[Backfill Scan] Scanning history for August 2026 month across all configured channels...")
+    """Scans historical messages for August 2026 month across configured channels & thread channels."""
+    logger.info("[Backfill Scan] Scanning history across configured channels & threads...")
     august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
     for guild in bot.guilds:
         for channel in guild.text_channels:
             cfg, _ = config.get_channel_config(channel.name)
-            if not cfg:
-                continue
-            try:
-                async for message in channel.history(limit=limit, oldest_first=True):
-                    # Only process messages from August 2026 onwards
-                    if message.created_at < august_start:
-                        continue
-                    await route_invoice_message(message, is_backfill=True)
-            except Exception as e:
-                logger.error(f"Backfill error on #{channel.name}: {e}")
+            if cfg:
+                await scan_channel_messages(channel, limit, august_start)
+
+            # Scan active threads under channel
+            if hasattr(channel, "threads"):
+                for thread in channel.threads:
+                    await scan_channel_messages(thread, limit, august_start)
+
+            # Scan archived threads under channel
+            if hasattr(channel, "archived_threads"):
+                try:
+                    async for thread in channel.archived_threads(limit=100):
+                        await scan_channel_messages(thread, limit, august_start)
+                except Exception:
+                    pass
 
     try:
         await asyncio.to_thread(sheets.update_employee_tracker)
