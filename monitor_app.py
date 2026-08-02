@@ -14,7 +14,7 @@ import database
 
 db = database.DatabaseManager()
 
-app = Flask(__name__, template_folder=os.path.join(APP_DIR, "templates"))
+app = Flask(__name__, template_folder=os.path.join(APP_DIR, "templates"), static_folder=os.path.join(APP_DIR, "static"))
 app.secret_key = os.getenv("SECRET_KEY", "jiraiya-secret-key-2026")
 application = app
 

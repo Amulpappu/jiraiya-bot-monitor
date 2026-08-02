@@ -39,8 +39,9 @@
 
         /* SIDEBAR */
         .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
-        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 24px 20px; border-bottom: 1px solid var(--border); }
-        .sidebar-brand .logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+        .sidebar-brand .logo { width: 48px; height: 48px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #1a1f2e; display: flex; align-items: center; justify-content: center; }
+        .sidebar-brand .logo img { width: 100%; height: 100%; object-fit: cover; }
         .sidebar-brand h2 { font-size: 17px; font-weight: 800; background: linear-gradient(135deg, var(--accent-light), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .sidebar-brand small { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
         .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
@@ -181,7 +182,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <div class="logo">🌀</div>
+            <div class="logo"><img src="/static/logo.png" alt="Manjummel Logo"></div>
             <div>
                 <h2>Jiraiya Bot</h2>
                 <small>Financial Intelligence</small>
@@ -247,6 +248,7 @@
                 </span>
                 <button class="btn btn-ghost" onclick="refreshAll()">🔄 Refresh</button>
                 <button class="btn btn-primary" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
+                <span id="topbar-user-pill" style="display:none;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);padding:7px 16px;border-radius:10px;font-size:13px;font-weight:600;color:var(--accent-light);">👤 <span id="topbar-user-name"></span></span>
             </div>
         </div>
 
@@ -401,16 +403,18 @@
 
     <!-- INVENTORY MODAL -->
     <div id="inv-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:560px;">
             <div class="modal-title" id="inv-modal-heading">Create New Item</div>
             <div class="modal-sub" id="inv-modal-sub">Add a new inventory item to the stock sheet.</div>
             <input type="hidden" id="inv-row-index" value="">
-            <input type="hidden" id="inv-bought" value="0">
-            <input type="hidden" id="inv-restock-date" value="">
             <div class="form-group"><label>Item Name</label><input type="text" id="inv-name" placeholder="e.g. Performance Part"></div>
             <div class="grid-2" style="gap:12px;">
-                <div class="form-group"><label>Quantity in Stock</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
-                <div class="form-group"><label>Unit Price (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
+                <div class="form-group"><label>Quantity in Stock (Current)</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
+                <div class="form-group"><label>Unit Price / Rate (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
+            </div>
+            <div class="grid-2" style="gap:12px;">
+                <div class="form-group"><label>Bought This Month</label><input type="number" id="inv-bought" placeholder="0" min="0" value="0"></div>
+                <div class="form-group"><label>Restock Date</label><input type="text" id="inv-restock-date" placeholder="e.g. 2026-08-01"></div>
             </div>
             <div id="inv-error" class="error-txt"></div>
             <div style="display: flex; gap: 10px; margin-top: 24px;">
@@ -448,13 +452,17 @@
     // ===== LOGIN STATE =====
     function setLoggedIn(name) {
         loggedInUser = name;
+        // Sidebar: hide login pill, show user pill
         document.getElementById('sidebar-login').style.display = 'none';
         document.getElementById('sidebar-user').style.display = 'flex';
         document.getElementById('user-display-name').textContent = name;
         document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-        document.getElementById('topbar-login-btn').innerHTML = '👤 ' + name;
-        document.getElementById('topbar-login-btn').onclick = null;
-        document.getElementById('topbar-login-btn').style.cursor = 'default';
+        // Topbar: hide login button, show user pill
+        document.getElementById('topbar-login-btn').style.display = 'none';
+        const pill = document.getElementById('topbar-user-pill');
+        document.getElementById('topbar-user-name').textContent = name;
+        pill.style.display = 'inline-flex';
+        pill.style.alignItems = 'center';
     }
 
     // ===== DASHBOARD =====
@@ -517,36 +525,58 @@
         if (!ctx) return;
         if (revenueChart) revenueChart.destroy();
 
-        // Format labels for display
+        if (!labels || labels.length === 0) {
+            // No data — show placeholder message on canvas
+            const c = ctx.getContext('2d');
+            c.clearRect(0, 0, ctx.width, ctx.height);
+            c.fillStyle = 'rgba(100,116,139,0.5)';
+            c.font = '14px Inter, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('No revenue data for this period', ctx.width / 2, ctx.height / 2);
+            return;
+        }
+
+        // Format labels for display — handle DD/MM/YYYY or raw strings
         const displayLabels = labels.map(l => {
             const parts = l.split('/');
-            if (parts.length >= 2) return parts[0] + ' Aug';
+            if (parts.length >= 3) return parts[0] + ' Aug';  // DD/MM/YYYY -> "DD Aug"
+            if (parts.length === 2) return parts[0] + ' Aug';  // DD/MM -> "DD Aug"
             return l;
         });
 
+        // Use bar chart for single data point (line with 1 point looks odd),
+        // otherwise use a smooth line chart
+        const chartType = labels.length === 1 ? 'bar' : 'line';
         const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
         gradient.addColorStop(1, 'rgba(99, 102, 241, 0.01)');
 
+        const dataset = chartType === 'bar' ? {
+            label: 'Revenue',
+            data: values,
+            backgroundColor: 'rgba(99, 102, 241, 0.7)',
+            borderColor: '#818CF8',
+            borderWidth: 1.5,
+            borderRadius: 8,
+            borderSkipped: false,
+        } : {
+            label: 'Revenue',
+            data: values,
+            borderColor: '#818CF8',
+            backgroundColor: gradient,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#818CF8',
+            pointBorderColor: '#0B0F19',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+        };
+
         revenueChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: displayLabels,
-                datasets: [{
-                    label: 'Revenue',
-                    data: values,
-                    borderColor: '#818CF8',
-                    backgroundColor: gradient,
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#818CF8',
-                    pointBorderColor: '#0B0F19',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
-                }]
-            },
+            type: chartType,
+            data: { labels: displayLabels, datasets: [dataset] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -561,13 +591,13 @@
                         cornerRadius: 10,
                         padding: 14,
                         callbacks: {
-                            label: ctx => 'Revenue: ₹' + Number(ctx.parsed.y).toLocaleString('en-IN')
+                            label: c => 'Revenue: ₹' + Number(c.parsed.y).toLocaleString('en-IN')
                         }
                     }
                 },
                 scales: {
                     x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 } } },
-                    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 }, callback: v => '₹' + (v/1000).toFixed(0) + 'k' } }
+                    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 }, callback: v => '₹' + (v/1000).toFixed(0) + 'k' }, beginAtZero: true }
                 },
                 interaction: { intersect: false, mode: 'index' }
             }
@@ -627,8 +657,8 @@
             document.getElementById('inv-bought').value = '0';
             document.getElementById('inv-restock-date').value = '';
         } else {
-            document.getElementById('inv-modal-heading').textContent = 'Edit Item: ' + (item ? item.name : '');
-            document.getElementById('inv-modal-sub').textContent = 'Update stock quantity, unit price, or item name.';
+            document.getElementById('inv-modal-heading').textContent = 'Edit: ' + (item ? item.name : '');
+            document.getElementById('inv-modal-sub').textContent = 'Update name, stock, bought this month, unit rate, and restock date.';
             document.getElementById('inv-submit-btn').innerHTML = '💾 Save Changes';
             document.getElementById('inv-name').value = item.name || '';
             document.getElementById('inv-stock').value = item.stock || 0;
@@ -646,16 +676,20 @@
         const name = document.getElementById('inv-name').value.trim();
         const stock = document.getElementById('inv-stock').value;
         const price = document.getElementById('inv-price').value;
+        const bought = document.getElementById('inv-bought').value;
+        const restock_date = document.getElementById('inv-restock-date').value;
         const err = document.getElementById('inv-error');
         if (!name) { err.textContent = 'Enter item name!'; err.style.display = 'block'; return; }
 
         const endpoint = invMode === 'create' ? '/api/inventory/create' : '/api/inventory/update';
         const body = {
-            name, stock: parseInt(stock) || 0, unit_price: parseFloat(price) || 0,
+            name,
+            stock: parseInt(stock) || 0,
+            unit_price: parseFloat(price) || 0,
+            bought: parseInt(bought) || 0,
+            restock_date: restock_date,
             user_name: loggedInUser || 'Admin',
             row_index: document.getElementById('inv-row-index').value,
-            bought: document.getElementById('inv-bought').value,
-            restock_date: document.getElementById('inv-restock-date').value
         };
         try {
             const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
