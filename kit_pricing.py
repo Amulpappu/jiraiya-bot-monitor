@@ -35,33 +35,13 @@ def parse_kit_quantities(text: str) -> dict:
 
 
 def predict_kit_quantities_from_amount(amount: float) -> tuple:
-    """Decomposes any total amount into exact integer quantities of Repair Kits (at ₹1,000) and Cleaning Kits (at ₹900).
-    For example: ₹19,000 → 10x Repair Kit (₹10,000) + 10x Cleaning Kit (₹9,000).
-    ₹541,500 → 285x Repair Kit + 285x Cleaning Kit."""
+    """Decomposes kit invoice total amount exclusively into Repair Kits (RK at ₹1,000) unless Cleaning Kits are explicitly specified."""
     if not amount or amount <= 0:
         return 1, 0
 
-    best_match = (1, 0)
-    min_diff = float("inf")
-    min_rk_ck_diff = float("inf")
-
-    for rk in range(0, 1000):
-        for ck in range(0, 1000):
-            if rk == 0 and ck == 0:
-                continue
-            tot = (rk * 1000.0) + (ck * 900.0)
-            diff = abs(tot - amount)
-            rk_ck_diff = abs(rk - ck)
-
-            if diff < min_diff:
-                min_diff = diff
-                min_rk_ck_diff = rk_ck_diff
-                best_match = (rk, ck)
-            elif diff == min_diff and rk_ck_diff < min_rk_ck_diff:
-                min_rk_ck_diff = rk_ck_diff
-                best_match = (rk, ck)
-
-    return best_match
+    rk_price = config.KIT_PRICES.get("rk", 1000.0)
+    rk_qty = max(1, int(round(amount / rk_price)))
+    return rk_qty, 0
 
 
 def calculate_kit_total(rk_qty: int, ck_qty: int) -> tuple:
