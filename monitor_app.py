@@ -132,6 +132,31 @@ def get_dashboard_data():
 
         total_rev = service_rev + upgrade_rev + kit_rev
         net_profit = total_rev - expenses_tot
+        total_txns = len(service_rows) + len(upgrade_rows) + len(kit_rows) + len(expense_rows)
+
+        # Top employees by transaction count
+        emp_counts = {}
+        for rows, col in [(service_rows, 4), (upgrade_rows, 3), (kit_rows, 4)]:
+            for r in rows:
+                if len(r) > col:
+                    emp = str(r[col]).strip()
+                    if emp and emp.lower() not in ("unknown", "high command", "high comman"):
+                        emp_counts[emp] = emp_counts.get(emp, 0) + 1
+
+        top_employees = sorted(emp_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Recent transactions (last 10)
+        recent = []
+        for r in service_rows[-5:]:
+            if len(r) > 4:
+                recent.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
+        for r in upgrade_rows[-3:]:
+            if len(r) > 3:
+                recent.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
+        for r in kit_rows[-3:]:
+            if len(r) > 4:
+                recent.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
+        recent.sort(key=lambda x: x.get("date", ""), reverse=True)
 
         return jsonify({
             "success": True,
@@ -141,12 +166,84 @@ def get_dashboard_data():
             "kit_revenue": kit_rev,
             "total_expenses": expenses_tot,
             "net_profit": net_profit,
-            "total_transactions": len(service_rows) + len(upgrade_rows) + len(kit_rows) + len(expense_rows),
+            "total_transactions": total_txns,
+            "service_count": len(service_rows),
+            "upgrade_count": len(upgrade_rows),
+            "kit_count": len(kit_rows),
+            "expense_count": len(expense_rows),
+            "top_employees": [{"name": e[0], "count": e[1]} for e in top_employees],
+            "recent_transactions": recent[:10],
             "maintenance_mode": IS_MAINTENANCE_MODE
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/employee-tracker")
+def get_employee_tracker():
+    try:
+        rows = sheets._all_rows("Employee Tracker")
+        employees = []
+        for r in rows:
+            if len(r) >= 7:
+                name = str(r[0]).strip()
+                if name and name.lower() not in ("unknown", "high command", "high comman"):
+                    employees.append({
+                        "name": name,
+                        "kits": r[1],
+                        "civilian": r[2],
+                        "govt": r[3],
+                        "service_logs": r[4],
+                        "upgrades": r[5],
+                        "total": r[6],
+                        "last_date": r[7] if len(r) > 7 else ""
+                    })
+        return jsonify({"success": True, "employees": employees})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/vip-claims")
+def get_vip_claims():
+    try:
+        rows = sheets._all_rows("VIP Claim")
+        claims = []
+        for r in rows:
+            if len(r) >= 6:
+                claims.append({
+                    "person": r[0],
+                    "category": r[1],
+                    "vehicle": r[2],
+                    "staff": r[3],
+                    "amount": r[4],
+                    "status": r[5],
+                    "timestamp": r[6] if len(r) > 6 else "",
+                })
+        return jsonify({"success": True, "claims": claims})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/inventory")
+def get_inventory():
+    try:
+        rows = sheets._all_rows("Inventory")
+        items = []
+        for r in rows:
+            if len(r) >= 6:
+                items.append({
+                    "name": r[0],
+                    "stock": r[1],
+                    "bought": r[2],
+                    "restock_date": r[3],
+                    "unit_price": r[4],
+                    "total_value": r[5],
+                })
+        return jsonify({"success": True, "items": items})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+

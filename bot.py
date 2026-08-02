@@ -375,6 +375,11 @@ async def route_invoice_message(message: discord.Message, is_backfill: bool = Fa
     if message.author.bot:
         return
 
+    # Skip "High Command" — not an employee, should not be logged
+    emp_name = resolve_employee_name(message.author)
+    if emp_name and emp_name.lower() in ("high command", "high comman", "highcommand", "high_command"):
+        return
+
     ch_name = getattr(message.channel, "name", "")
     cfg, _ = config.get_channel_config(ch_name)
     if not cfg:
