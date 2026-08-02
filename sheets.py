@@ -251,6 +251,25 @@ def wipe_all_data_sheets():
     logger.info("All data worksheets wiped successfully.")
 
 
+def append_user_audit_log(user_name: str, action_type: str, details: str = "", role: str = "Admin"):
+    """Appends an audit log entry to the existing User_Audit_Logs worksheet."""
+    try:
+        ws = _ensure_sheet("User_Audit_Logs")
+        if not ws:
+            return
+        dt_ist = _get_ist_dt()
+        date_str = dt_ist.strftime("%Y-%m-%d %I:%M:%S %p")
+        new_row = [date_str, action_type, user_name or "Anonymous", role, details]
+        _with_retry(lambda: ws.append_row(new_row))
+
+        with _CACHE_LOCK:
+            if "User_Audit_Logs" in _LAST_KNOWN_ROWS:
+                _LAST_KNOWN_ROWS["User_Audit_Logs"].append(new_row)
+                _ROWS_CACHE["User_Audit_Logs"] = (time.time(), _LAST_KNOWN_ROWS["User_Audit_Logs"])
+    except Exception as e:
+        logger.error(f"Failed to append to User_Audit_Logs: {e}")
+
+
 def append_transaction_entry(amount, employee: str, category: str, description: str = "", created_at: datetime.datetime = None, skip_tracker_update: bool = False):
     """Logs one row to the consolidated Transactions ledger: [Date, Amount, Description, Category, Employee Name]."""
     if amount is None:
