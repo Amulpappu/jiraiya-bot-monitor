@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jiraiya Bot Monitor — Financial Intelligence Dashboard</title>
-    <meta name="description" content="Real-time financial intelligence dashboard for Jiraiya Discord Bot. Monitor services, upgrades, kits, VIP claims, and employee performance.">
+    <meta name="description" content="Real-time financial intelligence dashboard for Jiraiya Discord Bot.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #0B0F19;
@@ -32,174 +33,59 @@
             --cyan: #06B6D4;
             --cyan-bg: rgba(6, 182, 212, 0.12);
             --sidebar-width: 260px;
-            --sidebar-collapsed: 72px;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
 
-        /* ============ SIDEBAR ============ */
-        .sidebar {
-            position: fixed;
-            top: 0; left: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            z-index: 100;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 24px 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        .sidebar-brand .logo {
-            width: 36px; height: 36px;
-            background: linear-gradient(135deg, var(--accent), var(--purple));
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; flex-shrink: 0;
-        }
-        .sidebar-brand h2 {
-            font-size: 17px; font-weight: 800;
-            background: linear-gradient(135deg, var(--accent-light), var(--purple));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-            white-space: nowrap;
-        }
-        .sidebar-brand small {
-            font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;
-            white-space: nowrap;
-        }
-
+        /* SIDEBAR */
+        .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 24px 20px; border-bottom: 1px solid var(--border); }
+        .sidebar-brand .logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .sidebar-brand h2 { font-size: 17px; font-weight: 800; background: linear-gradient(135deg, var(--accent-light), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar-brand small { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
         .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
         .nav-section { margin-bottom: 24px; }
-        .nav-section-label {
-            font-size: 10px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 1.2px; color: var(--text-muted);
-            padding: 0 8px; margin-bottom: 8px;
-        }
-        .nav-item {
-            display: flex; align-items: center; gap: 12px;
-            padding: 10px 12px; border-radius: 10px;
-            color: var(--text-secondary); font-size: 14px; font-weight: 500;
-            cursor: pointer; transition: all 0.2s ease;
-            text-decoration: none; margin-bottom: 2px;
-        }
+        .nav-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted); padding: 0 8px; margin-bottom: 8px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; margin-bottom: 2px; }
         .nav-item:hover { background: rgba(99, 102, 241, 0.08); color: var(--text-primary); }
-        .nav-item.active {
-            background: rgba(99, 102, 241, 0.15);
-            color: var(--accent-light); font-weight: 600;
-        }
+        .nav-item.active { background: rgba(99, 102, 241, 0.15); color: var(--accent-light); font-weight: 600; }
         .nav-item .icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+        .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+        .user-pill { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); }
+        .user-pill .avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+        .user-pill .uname { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .user-pill .urole { font-size: 11px; color: var(--text-muted); }
 
-        .sidebar-footer {
-            padding: 16px 20px;
-            border-top: 1px solid var(--border);
-        }
-
-        /* ============ MAIN CONTENT ============ */
-        .main {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Top Bar */
-        .topbar {
-            position: sticky; top: 0; z-index: 50;
-            background: rgba(11, 15, 25, 0.85);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 16px 32px;
-            display: flex; justify-content: space-between; align-items: center;
-        }
+        /* MAIN */
+        .main { margin-left: var(--sidebar-width); min-height: 100vh; }
+        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
         .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-left h1 {
-            font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
-        }
-        .month-badge {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 6px 14px; border-radius: 8px;
-            font-size: 13px; font-weight: 600; color: var(--text-secondary);
-            display: flex; align-items: center; gap: 6px;
-        }
+        .topbar-left h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        .month-badge { background: var(--bg-card); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
         .topbar-right { display: flex; align-items: center; gap: 12px; }
-        .status-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: var(--green);
-            animation: blink 2s infinite;
-        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
         .status-dot.maint { background: var(--amber); }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .badge {
-            padding: 6px 14px; border-radius: 20px;
-            font-size: 12px; font-weight: 600;
-            display: inline-flex; align-items: center; gap: 6px;
-        }
+        .badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
         .badge-live { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.25); }
         .badge-maint { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.25); }
-
-        .btn {
-            padding: 9px 18px; border-radius: 10px; border: none;
-            font-weight: 600; font-size: 13px; cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex; align-items: center; gap: 6px;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), #4F46E5);
-            color: white;
-            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
-        }
+        .btn { padding: 9px 18px; border-radius: 10px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), #4F46E5); color: white; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
         .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45); }
-        .btn-ghost {
-            background: transparent; color: var(--text-secondary);
-            border: 1px solid var(--border);
-        }
+        .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
         .btn-ghost:hover { background: rgba(255,255,255,0.04); border-color: var(--border-hover); color: var(--text-primary); }
-
-        /* Content Area */
+        .btn-green { background: linear-gradient(135deg, #10B981, #059669); color: white; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
+        .btn-green:hover { transform: translateY(-1px); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
         .content { padding: 28px 32px; }
-
-        /* Page Sections — only one visible at a time */
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ============ STAT CARDS ============ */
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px; margin-bottom: 28px;
-        }
-        .stat-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 22px 24px;
-            transition: all 0.25s ease;
-            position: relative; overflow: hidden;
-        }
-        .stat-card::before {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0; height: 3px;
-            border-radius: 16px 16px 0 0;
-            opacity: 0; transition: opacity 0.25s ease;
-        }
+        /* STAT CARDS */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 24px; }
+        .stat-card { background: var(--bg-card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; transition: all 0.25s ease; position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 16px 16px 0 0; opacity: 0; transition: opacity 0.25s ease; }
         .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
         .stat-card:hover::before { opacity: 1; }
         .stat-card.green::before { background: linear-gradient(90deg, var(--green), #34D399); }
@@ -208,148 +94,75 @@
         .stat-card.amber::before { background: linear-gradient(90deg, var(--amber), #FBBF24); }
         .stat-card.red::before { background: linear-gradient(90deg, var(--red), #F87171); }
         .stat-card.cyan::before { background: linear-gradient(90deg, var(--cyan), #22D3EE); }
-
-        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .stat-icon {
-            width: 42px; height: 42px; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px;
-        }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .stat-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
         .stat-icon.green { background: var(--green-bg); }
         .stat-icon.blue { background: var(--blue-bg); }
         .stat-icon.purple { background: var(--purple-bg); }
         .stat-icon.amber { background: var(--amber-bg); }
         .stat-icon.red { background: var(--red-bg); }
         .stat-icon.cyan { background: var(--cyan-bg); }
-        .stat-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
-        .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
-        .stat-sub .up { color: var(--green); }
-        .stat-sub .down { color: var(--red); }
+        .stat-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+        .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
-        /* ============ SECTION PANELS ============ */
-        .panel {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        .panel-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 20px;
-        }
+        /* PANELS */
+        .panel { background: var(--bg-card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .panel-title .icon { font-size: 18px; }
-
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
 
-        /* ============ TABLE ============ */
+        /* TABLE */
         table { width: 100%; border-collapse: collapse; }
-        thead th {
-            background: rgba(30, 41, 59, 0.5);
-            color: var(--text-muted); font-size: 11px; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.8px;
-            padding: 12px 14px; text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        tbody td {
-            padding: 12px 14px; font-size: 13px; color: var(--text-secondary);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        }
+        thead th { background: rgba(30, 41, 59, 0.5); color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+        tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
         tbody tr:hover td { background: rgba(99, 102, 241, 0.04); }
         .emp-name { color: var(--text-primary); font-weight: 600; }
-        .tag {
-            display: inline-block; padding: 3px 10px; border-radius: 6px;
-            font-size: 11px; font-weight: 600;
-        }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
         .tag-green { background: var(--green-bg); color: var(--green); }
         .tag-blue { background: var(--blue-bg); color: var(--blue); }
         .tag-purple { background: var(--purple-bg); color: var(--purple); }
         .tag-amber { background: var(--amber-bg); color: var(--amber); }
         .tag-red { background: var(--red-bg); color: var(--red); }
         .tag-cyan { background: var(--cyan-bg); color: var(--cyan); }
-
-        .rank-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 28px; height: 28px; border-radius: 8px;
-            font-size: 12px; font-weight: 800;
-        }
+        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 800; }
         .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; }
         .rank-2 { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
         .rank-3 { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
         .rank-other { background: rgba(255,255,255,0.06); color: var(--text-muted); }
 
-        /* ============ MAINTENANCE OVERLAY ============ */
-        .maint-overlay {
-            position: fixed; inset: 0;
-            background: rgba(9, 13, 22, 0.96);
-            backdrop-filter: blur(24px);
-            z-index: 999;
-            display: flex; justify-content: center; align-items: center;
-            padding: 24px;
-        }
-        .maint-box {
-            background: var(--bg-secondary);
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            border-radius: 24px;
-            padding: 52px 40px;
-            max-width: 520px; width: 100%;
-            text-align: center;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-        }
+        /* CHART */
+        .chart-container { position: relative; height: 280px; width: 100%; }
+
+        /* MAINTENANCE OVERLAY */
+        .maint-overlay { position: fixed; inset: 0; background: rgba(9, 13, 22, 0.96); backdrop-filter: blur(24px); z-index: 999; display: flex; justify-content: center; align-items: center; padding: 24px; }
+        .maint-box { background: var(--bg-secondary); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 24px; padding: 52px 40px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); }
         .maint-icon { font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         .maint-title { font-size: 26px; font-weight: 800; color: var(--amber); margin-bottom: 12px; }
         .maint-desc { color: var(--text-secondary); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
 
-        /* ============ MODAL ============ */
-        .modal {
-            position: fixed; inset: 0;
-            background: rgba(0, 0, 0, 0.65);
-            backdrop-filter: blur(10px);
-            z-index: 1000; display: none;
-            justify-content: center; align-items: center;
-            padding: 20px;
-        }
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 32px; max-width: 440px; width: 100%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
-        }
+        /* MODAL */
+        .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(10px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal-content { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
         .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
         .modal-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
         .form-group { margin-bottom: 16px; text-align: left; }
         label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        input[type="text"], input[type="password"] {
-            width: 100%; background: var(--bg-primary);
-            border: 1px solid var(--border); border-radius: 10px;
-            padding: 11px 16px; color: white; font-size: 14px; font-family: inherit;
-            outline: none; transition: border-color 0.2s;
-        }
+        input[type="text"], input[type="password"], input[type="number"] { width: 100%; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; color: white; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
         input:focus { border-color: var(--accent); }
         .error-txt { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
-
-        /* ============ EMPTY STATE ============ */
         .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); }
         .empty .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
-        .empty p { font-size: 14px; }
 
-        /* ============ RESPONSIVE ============ */
-        @media (max-width: 1024px) {
-            .grid-2, .grid-3 { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 1024px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
-            .sidebar { width: var(--sidebar-collapsed); }
-            .sidebar .sidebar-brand h2, .sidebar .sidebar-brand small, .sidebar .nav-item span, .sidebar .nav-section-label { display: none; }
-            .main { margin-left: var(--sidebar-collapsed); }
+            .sidebar { display: none; }
+            .main { margin-left: 0; }
             .content { padding: 20px 16px; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
-            .topbar { padding: 12px 16px; }
         }
     </style>
 </head>
@@ -388,10 +201,7 @@
                 </a>
             </div>
             <div class="nav-section">
-                <div class="nav-section-label">Logs</div>
-                <a class="nav-item" data-page="vip" onclick="switchPage('vip')">
-                    <span class="icon">👑</span> <span>VIP Claim Logs</span>
-                </a>
+                <div class="nav-section-label">Management</div>
                 <a class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
                     <span class="icon">📦</span> <span>Inventory</span>
                 </a>
@@ -404,13 +214,22 @@
                 <a class="nav-item" onclick="openAuthModal('maintenance')">
                     <span class="icon">🛠️</span> <span>Maintenance</span>
                 </a>
-                <a class="nav-item" onclick="openAuthModal('login')">
-                    <span class="icon">🔐</span> <span>Admin Login</span>
-                </a>
             </div>
         </nav>
         <div class="sidebar-footer">
-            <div style="font-size: 11px; color: var(--text-muted);">August 2026</div>
+            <div id="sidebar-user" class="user-pill" style="display: none;">
+                <div class="avatar" id="user-avatar">?</div>
+                <div>
+                    <div class="uname" id="user-display-name">Guest</div>
+                    <div class="urole">Admin</div>
+                </div>
+            </div>
+            <div id="sidebar-login" style="cursor:pointer;" onclick="openAuthModal('login')">
+                <div class="user-pill">
+                    <div class="avatar">🔐</div>
+                    <div><div class="uname">Log In</div><div class="urole">Click to authenticate</div></div>
+                </div>
+            </div>
         </div>
     </aside>
 
@@ -418,7 +237,7 @@
     <div class="main">
         <div class="topbar">
             <div class="topbar-left">
-                <h1>Dashboard</h1>
+                <h1 id="topbar-title">Dashboard</h1>
                 <div class="month-badge">📅 August 2026</div>
             </div>
             <div class="topbar-right">
@@ -427,62 +246,59 @@
                     {{ '⚠️ Maintenance' if is_maintenance else 'Live Synced' }}
                 </span>
                 <button class="btn btn-ghost" onclick="refreshAll()">🔄 Refresh</button>
-                <button class="btn btn-primary" onclick="openAuthModal('login')">👤 Log In</button>
+                <button class="btn btn-primary" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
             </div>
         </div>
 
         <div class="content">
 
-            <!-- ============ DASHBOARD PAGE ============ -->
+            <!-- ===== DASHBOARD PAGE ===== -->
             <div id="page-dashboard" class="page active">
                 <div class="stat-grid">
                     <div class="stat-card green">
-                        <div class="stat-header">
-                            <div class="stat-icon green">💰</div>
-                            <div class="stat-label">Total Revenue</div>
-                        </div>
-                        <div class="stat-value" id="s-total-rev">—</div>
-                        <div class="stat-sub"><span class="up">▲</span> August 2026</div>
-                    </div>
-                    <div class="stat-card blue">
-                        <div class="stat-header">
-                            <div class="stat-icon blue">🔧</div>
-                            <div class="stat-label">Services</div>
-                        </div>
-                        <div class="stat-value" id="s-service-rev">—</div>
-                        <div class="stat-sub" id="s-service-count">0 transactions</div>
-                    </div>
-                    <div class="stat-card purple">
-                        <div class="stat-header">
-                            <div class="stat-icon purple">⬆️</div>
-                            <div class="stat-label">Upgrades</div>
-                        </div>
-                        <div class="stat-value" id="s-upgrade-rev">—</div>
-                        <div class="stat-sub" id="s-upgrade-count">0 transactions</div>
-                    </div>
-                    <div class="stat-card cyan">
-                        <div class="stat-header">
-                            <div class="stat-icon cyan">🧰</div>
-                            <div class="stat-label">Kits</div>
-                        </div>
-                        <div class="stat-value" id="s-kit-rev">—</div>
-                        <div class="stat-sub" id="s-kit-count">0 transactions</div>
+                        <div class="stat-header"><div class="stat-icon green">💰</div><div class="stat-label">Total Sales</div></div>
+                        <div class="stat-value" id="s-total-sales">—</div>
+                        <div class="stat-sub">August 2026</div>
                     </div>
                     <div class="stat-card red">
-                        <div class="stat-header">
-                            <div class="stat-icon red">📤</div>
-                            <div class="stat-label">Expenses</div>
-                        </div>
-                        <div class="stat-value" id="s-expenses">—</div>
+                        <div class="stat-header"><div class="stat-icon red">📤</div><div class="stat-label">Expense</div></div>
+                        <div class="stat-value" id="s-expense">—</div>
                         <div class="stat-sub" id="s-expense-count">0 claims</div>
                     </div>
                     <div class="stat-card amber">
-                        <div class="stat-header">
-                            <div class="stat-icon amber">📈</div>
-                            <div class="stat-label">Net Profit</div>
-                        </div>
+                        <div class="stat-header"><div class="stat-icon amber">🏛️</div><div class="stat-label">Tax (15%)</div></div>
+                        <div class="stat-value" id="s-tax">—</div>
+                        <div class="stat-sub">15% of Total Sales</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-header"><div class="stat-icon purple">📈</div><div class="stat-label">Profit</div></div>
                         <div class="stat-value" id="s-profit">—</div>
-                        <div class="stat-sub">Revenue - Expenses</div>
+                        <div class="stat-sub">Sales − Expense − Tax</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-header"><div class="stat-icon blue">🔄</div><div class="stat-label">Total Transactions</div></div>
+                        <div class="stat-value" id="s-total-txns">—</div>
+                        <div class="stat-sub">All categories</div>
+                    </div>
+                    <div class="stat-card cyan">
+                        <div class="stat-header"><div class="stat-icon cyan">👥</div><div class="stat-label">Total Employees</div></div>
+                        <div class="stat-value" id="s-total-emp">—</div>
+                        <div class="stat-sub">Active staff</div>
+                    </div>
+                </div>
+
+                <!-- Monthly Revenue Chart -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span class="icon">📈</span> Monthly Revenue</div>
+                        <div style="display:flex;gap:6px;">
+                            <span class="tag tag-blue">Services</span>
+                            <span class="tag tag-purple">Upgrades</span>
+                            <span class="tag tag-cyan">Kits</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
                     </div>
                 </div>
 
@@ -491,235 +307,190 @@
                     <div class="panel">
                         <div class="panel-header">
                             <div class="panel-title"><span class="icon">💳</span> Recent Transactions</div>
-                            <span class="tag tag-blue" id="s-total-txns">0</span>
+                            <span class="tag tag-blue" id="s-txn-badge">0</span>
                         </div>
                         <table>
-                            <thead>
-                                <tr><th>Date</th><th>Type</th><th>Customer</th><th>Amount</th><th>Staff</th></tr>
-                            </thead>
-                            <tbody id="recent-txns-body">
-                                <tr><td colspan="5" class="empty"><p>Loading...</p></td></tr>
-                            </tbody>
+                            <thead><tr><th>Date</th><th>Type</th><th>Customer</th><th>Amount</th><th>Staff</th></tr></thead>
+                            <tbody id="recent-txns-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
                         </table>
                     </div>
-
                     <!-- Top Employees -->
                     <div class="panel">
-                        <div class="panel-header">
-                            <div class="panel-title"><span class="icon">🏆</span> Top Employees</div>
-                        </div>
-                        <div id="top-emp-list" style="display: flex; flex-direction: column; gap: 12px;">
-                            <div class="empty"><p>Loading...</p></div>
-                        </div>
+                        <div class="panel-header"><div class="panel-title"><span class="icon">🏆</span> Top Employees</div></div>
+                        <div id="top-emp-list" style="display: flex; flex-direction: column; gap: 10px;"><div class="empty"><p>Loading...</p></div></div>
                     </div>
                 </div>
             </div>
 
-            <!-- ============ EMPLOYEE TRACKER PAGE ============ -->
+            <!-- ===== EMPLOYEE TRACKER PAGE ===== -->
             <div id="page-employees" class="page">
                 <div class="panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">👥</span> Employee Performance Tracker</div>
-                        <button class="btn btn-ghost" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
+                        <button class="btn btn-ghost btn-sm" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
                     </div>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Employee</th>
-                                <th>Kit Logs</th>
-                                <th>Civilian</th>
-                                <th>Government</th>
-                                <th>Service Logs</th>
-                                <th>Upgrades</th>
-                                <th>Total</th>
-                                <th>Last Active</th>
-                            </tr>
-                        </thead>
-                        <tbody id="emp-tracker-body">
-                            <tr><td colspan="9" class="empty"><p>Loading Employee Tracker...</p></td></tr>
-                        </tbody>
+                        <thead><tr><th>#</th><th>Employee</th><th>Kit Logs</th><th>Civilian</th><th>Government</th><th>Service Logs</th><th>Upgrades</th><th>Total</th><th>Last Active</th></tr></thead>
+                        <tbody id="emp-tracker-body"><tr><td colspan="9" class="empty"><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- ============ TRANSACTIONS PAGE ============ -->
+            <!-- ===== TRANSACTIONS PAGE ===== -->
             <div id="page-transactions" class="page">
                 <div class="panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">💸</span> All Transactions (August 2026)</div>
-                        <button class="btn btn-ghost" onclick="fetchDashboard()">🔄 Refresh</button>
+                        <button class="btn btn-ghost btn-sm" onclick="fetchDashboard()">🔄 Refresh</button>
                     </div>
                     <table>
-                        <thead>
-                            <tr><th>Date</th><th>Type</th><th>Customer</th><th>Amount</th><th>Staff</th></tr>
-                        </thead>
-                        <tbody id="all-txns-body">
-                            <tr><td colspan="5" class="empty"><p>Loading...</p></td></tr>
-                        </tbody>
+                        <thead><tr><th>Date</th><th>Type</th><th>Customer</th><th>Amount</th><th>Staff</th></tr></thead>
+                        <tbody id="all-txns-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- ============ VIP CLAIM PAGE ============ -->
-            <div id="page-vip" class="page">
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><span class="icon">👑</span> VIP Claim Logs</div>
-                        <button class="btn btn-ghost" onclick="fetchVipClaims()">🔄 Refresh</button>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr><th>Person</th><th>Category</th><th>Vehicle</th><th>Staff</th><th>Amount</th><th>Status</th><th>Timestamp</th></tr>
-                        </thead>
-                        <tbody id="vip-claims-body">
-                            <tr><td colspan="7" class="empty"><p>Loading VIP Claims...</p></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ============ INVENTORY PAGE ============ -->
+            <!-- ===== INVENTORY PAGE ===== -->
             <div id="page-inventory" class="page">
                 <div class="panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">📦</span> Inventory (Stock & Restock)</div>
-                        <button class="btn btn-ghost" onclick="fetchInventory()">🔄 Refresh</button>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-green btn-sm" onclick="openInventoryModal('create')">➕ Create New Item</button>
+                            <button class="btn btn-ghost btn-sm" onclick="fetchInventory()">🔄 Refresh</button>
+                        </div>
                     </div>
                     <table>
-                        <thead>
-                            <tr><th>Item</th><th>In Stock</th><th>Bought This Month</th><th>Restock Date</th><th>Unit Price</th><th>Total Value</th></tr>
-                        </thead>
-                        <tbody id="inventory-body">
-                            <tr><td colspan="6" class="empty"><p>Loading Inventory...</p></td></tr>
-                        </tbody>
+                        <thead><tr><th>Item</th><th>In Stock</th><th>Bought</th><th>Restock Date</th><th>Unit Price</th><th>Total Value</th><th>Last Updated</th><th>Actions</th></tr></thead>
+                        <tbody id="inventory-body"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- ============ AUDIT LOGS PAGE ============ -->
+            <!-- ===== AUDIT LOGS PAGE ===== -->
             <div id="page-audit" class="page">
                 <div class="panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">📋</span> User Audit Logs</div>
-                        <button class="btn btn-ghost" onclick="fetchAuditLogs()">🔄 Refresh</button>
+                        <button class="btn btn-ghost btn-sm" onclick="fetchAuditLogs()">🔄 Refresh</button>
                     </div>
                     <table>
-                        <thead>
-                            <tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr>
-                        </thead>
-                        <tbody id="audit-logs-body">
-                            <tr><td colspan="5" class="empty"><p>Loading Audit Logs...</p></td></tr>
-                        </tbody>
+                        <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
+                        <tbody id="audit-logs-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
             </div>
 
-        </div><!-- /content -->
-    </div><!-- /main -->
+        </div>
+    </div>
 
     <!-- AUTH MODAL -->
     <div id="auth-modal" class="modal">
         <div class="modal-content">
             <div class="modal-title" id="modal-heading">User Authentication</div>
             <div class="modal-sub" id="modal-subtext">Enter your Name and Password to proceed.</div>
-            <div class="form-group">
-                <label>Your Name</label>
-                <input type="text" id="user-name-input" placeholder="e.g. Amul Pappu">
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="user-pass-input" placeholder="Enter admin password">
-            </div>
+            <div class="form-group"><label>Your Name</label><input type="text" id="user-name-input" placeholder="e.g. Amul Pappu"></div>
+            <div class="form-group"><label>Password</label><input type="password" id="user-pass-input" placeholder="Enter admin password"></div>
             <div id="auth-error" class="error-txt"></div>
             <div style="display: flex; gap: 10px; margin-top: 24px;">
-                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('auth-modal')">Cancel</button>
                 <button class="btn btn-primary" style="flex:1;" onclick="submitAuthAction()">Submit & Log</button>
             </div>
         </div>
     </div>
 
+    <!-- INVENTORY MODAL -->
+    <div id="inv-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title" id="inv-modal-heading">Create New Item</div>
+            <div class="modal-sub" id="inv-modal-sub">Add a new inventory item to the stock sheet.</div>
+            <input type="hidden" id="inv-row-index" value="">
+            <input type="hidden" id="inv-bought" value="0">
+            <input type="hidden" id="inv-restock-date" value="">
+            <div class="form-group"><label>Item Name</label><input type="text" id="inv-name" placeholder="e.g. Performance Part"></div>
+            <div class="grid-2" style="gap:12px;">
+                <div class="form-group"><label>Quantity in Stock</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
+                <div class="form-group"><label>Unit Price (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
+            </div>
+            <div id="inv-error" class="error-txt"></div>
+            <div style="display: flex; gap: 10px; margin-top: 24px;">
+                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('inv-modal')">Cancel</button>
+                <button class="btn btn-green" style="flex:1;" id="inv-submit-btn" onclick="submitInventory()">➕ Create Item</button>
+            </div>
+        </div>
+    </div>
+
 <script>
-    // ============ PAGE NAVIGATION ============
+    // ===== STATE =====
+    let loggedInUser = null;
+    let currentAction = 'login';
+    let invMode = 'create';
+    let revenueChart = null;
+
+    // ===== PAGE NAV =====
     function switchPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById('page-' + page).classList.add('active');
         document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
-        const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
-        if (navItem) navItem.classList.add('active');
-
-        // Update topbar title
-        const titles = {dashboard:'Dashboard',employees:'Employee Tracker',transactions:'Transactions',vip:'VIP Claim Logs',inventory:'Inventory',audit:'Audit Logs'};
-        document.querySelector('.topbar-left h1').textContent = titles[page] || 'Dashboard';
-
-        // Lazy load data for the page
+        const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+        if (nav) nav.classList.add('active');
+        const titles = {dashboard:'Dashboard',employees:'Employee Tracker',transactions:'Transactions',inventory:'Inventory',audit:'Audit Logs'};
+        document.getElementById('topbar-title').textContent = titles[page] || 'Dashboard';
         if (page === 'employees') fetchEmployeeTracker();
-        if (page === 'vip') fetchVipClaims();
         if (page === 'inventory') fetchInventory();
         if (page === 'audit') fetchAuditLogs();
     }
 
-    // ============ FORMAT HELPERS ============
-    function fmt(n) {
-        if (n === null || n === undefined || isNaN(n)) return '₹0';
-        return '₹' + Number(n).toLocaleString('en-IN');
-    }
-    function fmtNum(v) {
-        let n = parseFloat(String(v).replace(/[₹$,]/g, ''));
-        return isNaN(n) ? 0 : n;
+    // ===== FORMAT =====
+    function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+    function fmtNum(v) { let n = parseFloat(String(v).replace(/[₹$,]/g, '')); return isNaN(n) ? 0 : n; }
+
+    // ===== LOGIN STATE =====
+    function setLoggedIn(name) {
+        loggedInUser = name;
+        document.getElementById('sidebar-login').style.display = 'none';
+        document.getElementById('sidebar-user').style.display = 'flex';
+        document.getElementById('user-display-name').textContent = name;
+        document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('topbar-login-btn').innerHTML = '👤 ' + name;
+        document.getElementById('topbar-login-btn').onclick = null;
+        document.getElementById('topbar-login-btn').style.cursor = 'default';
     }
 
-    // ============ DASHBOARD ============
+    // ===== DASHBOARD =====
     async function fetchDashboard() {
         try {
             const res = await fetch('/api/dashboard');
             const d = await res.json();
             if (!d.success) return;
 
-            document.getElementById('s-total-rev').textContent = fmt(d.total_revenue);
-            document.getElementById('s-service-rev').textContent = fmt(d.service_revenue);
-            document.getElementById('s-upgrade-rev').textContent = fmt(d.upgrade_revenue);
-            document.getElementById('s-kit-rev').textContent = fmt(d.kit_revenue);
-            document.getElementById('s-expenses').textContent = fmt(d.total_expenses);
-            document.getElementById('s-profit').textContent = fmt(d.net_profit);
-            document.getElementById('s-service-count').textContent = (d.service_count || 0) + ' transactions';
-            document.getElementById('s-upgrade-count').textContent = (d.upgrade_count || 0) + ' transactions';
-            document.getElementById('s-kit-count').textContent = (d.kit_count || 0) + ' transactions';
+            document.getElementById('s-total-sales').textContent = fmt(d.total_sales);
+            document.getElementById('s-expense').textContent = fmt(d.total_expenses);
+            document.getElementById('s-tax').textContent = fmt(d.tax);
+            document.getElementById('s-profit').textContent = fmt(d.profit);
+            document.getElementById('s-total-txns').textContent = d.total_transactions || 0;
+            document.getElementById('s-total-emp').textContent = d.total_employees || 0;
             document.getElementById('s-expense-count').textContent = (d.expense_count || 0) + ' claims';
-            document.getElementById('s-total-txns').textContent = (d.total_transactions || 0) + ' total';
+            document.getElementById('s-txn-badge').textContent = (d.total_transactions || 0) + ' total';
+
+            // Profit color
+            const profitEl = document.getElementById('s-profit');
+            profitEl.style.color = d.profit >= 0 ? 'var(--green)' : 'var(--red)';
 
             // Recent transactions
             const tbody = document.getElementById('recent-txns-body');
-            if (d.recent_transactions && d.recent_transactions.length > 0) {
-                tbody.innerHTML = '';
-                d.recent_transactions.forEach(t => {
-                    const typeClass = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : 'tag-cyan';
-                    tbody.innerHTML += `<tr>
-                        <td>${t.date || ''}</td>
-                        <td><span class="tag ${typeClass}">${t.type}</span></td>
-                        <td class="emp-name">${t.customer || 'Unknown'}</td>
-                        <td style="color:var(--green);font-weight:700;">${fmt(fmtNum(t.amount))}</td>
-                        <td>${t.staff || ''}</td>
-                    </tr>`;
-                });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No recent transactions</p></td></tr>';
-            }
-
-            // Also populate all-txns page
             const allTbody = document.getElementById('all-txns-body');
             if (d.recent_transactions && d.recent_transactions.length > 0) {
-                allTbody.innerHTML = '';
+                let html = '';
                 d.recent_transactions.forEach(t => {
-                    const typeClass = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : 'tag-cyan';
-                    allTbody.innerHTML += `<tr>
-                        <td>${t.date || ''}</td>
-                        <td><span class="tag ${typeClass}">${t.type}</span></td>
-                        <td class="emp-name">${t.customer || 'Unknown'}</td>
-                        <td style="color:var(--green);font-weight:700;">${fmt(fmtNum(t.amount))}</td>
-                        <td>${t.staff || ''}</td>
-                    </tr>`;
+                    const tc = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : 'tag-cyan';
+                    html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:var(--green);font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
                 });
+                tbody.innerHTML = html;
+                allTbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No transactions yet</p></td></tr>';
+                allTbody.innerHTML = tbody.innerHTML;
             }
 
             // Top employees
@@ -727,191 +498,227 @@
             if (d.top_employees && d.top_employees.length > 0) {
                 empDiv.innerHTML = '';
                 d.top_employees.forEach((e, i) => {
-                    const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+                    const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
                     empDiv.innerHTML += `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);">
-                        <span class="rank-badge ${rankCls}">${i+1}</span>
-                        <div style="flex:1;">
-                            <div class="emp-name">${e.name}</div>
-                            <div style="font-size:12px;color:var(--text-muted);">${e.count} transactions</div>
-                        </div>
+                        <span class="rank-badge ${rc}">${i+1}</span>
+                        <div style="flex:1;"><div class="emp-name">${e.name}</div><div style="font-size:12px;color:var(--text-muted);">${e.count} txns</div></div>
                     </div>`;
                 });
-            } else {
-                empDiv.innerHTML = '<div class="empty"><p>No employee data yet</p></div>';
-            }
-        } catch(e) { console.error('Dashboard fetch error:', e); }
+            } else { empDiv.innerHTML = '<div class="empty"><p>No data</p></div>'; }
+
+            // Chart
+            renderChart(d.chart_labels || [], d.chart_values || []);
+        } catch(e) { console.error('Dashboard error:', e); }
     }
 
-    // ============ EMPLOYEE TRACKER ============
+    // ===== CHART =====
+    function renderChart(labels, values) {
+        const ctx = document.getElementById('revenueChart');
+        if (!ctx) return;
+        if (revenueChart) revenueChart.destroy();
+
+        // Format labels for display
+        const displayLabels = labels.map(l => {
+            const parts = l.split('/');
+            if (parts.length >= 2) return parts[0] + ' Aug';
+            return l;
+        });
+
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.01)');
+
+        revenueChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: displayLabels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: values,
+                    borderColor: '#818CF8',
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#818CF8',
+                    pointBorderColor: '#0B0F19',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1E293B',
+                        titleColor: '#F1F5F9',
+                        bodyColor: '#94A3B8',
+                        borderColor: 'rgba(99, 102, 241, 0.3)',
+                        borderWidth: 1,
+                        cornerRadius: 10,
+                        padding: 14,
+                        callbacks: {
+                            label: ctx => 'Revenue: ₹' + Number(ctx.parsed.y).toLocaleString('en-IN')
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 } } },
+                    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 }, callback: v => '₹' + (v/1000).toFixed(0) + 'k' } }
+                },
+                interaction: { intersect: false, mode: 'index' }
+            }
+        });
+    }
+
+    // ===== EMPLOYEE TRACKER =====
     async function fetchEmployeeTracker() {
         try {
             const res = await fetch('/api/employee-tracker');
             const d = await res.json();
             const tbody = document.getElementById('emp-tracker-body');
-            if (!d.success || !d.employees || d.employees.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="empty"><div class="icon">👥</div><p>No employee data</p></td></tr>';
-                return;
-            }
-            // Sort by total descending
+            if (!d.success || !d.employees || !d.employees.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty"><p>No employee data</p></td></tr>'; return; }
             d.employees.sort((a, b) => fmtNum(b.total) - fmtNum(a.total));
             tbody.innerHTML = '';
             d.employees.forEach((e, i) => {
-                const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
-                const total = fmtNum(e.total);
-                tbody.innerHTML += `<tr>
-                    <td><span class="rank-badge ${rankCls}">${i+1}</span></td>
-                    <td class="emp-name">${e.name}</td>
-                    <td><span class="tag tag-cyan">${e.kits || 0}</span></td>
-                    <td><span class="tag tag-blue">${e.civilian || 0}</span></td>
-                    <td><span class="tag tag-purple">${e.govt || 0}</span></td>
-                    <td>${e.service_logs || 0}</td>
-                    <td>${e.upgrades || 0}</td>
-                    <td style="font-weight:800;color:var(--green);">${total}</td>
-                    <td style="font-size:12px;color:var(--text-muted);">${e.last_date || '—'}</td>
-                </tr>`;
+                const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
+                tbody.innerHTML += `<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td class="emp-name">${e.name}</td><td><span class="tag tag-cyan">${e.kits||0}</span></td><td><span class="tag tag-blue">${e.civilian||0}</span></td><td><span class="tag tag-purple">${e.govt||0}</span></td><td>${e.service_logs||0}</td><td>${e.upgrades||0}</td><td style="font-weight:800;color:var(--green);">${fmtNum(e.total)}</td><td style="font-size:12px;color:var(--text-muted);">${e.last_date||'—'}</td></tr>`;
             });
-        } catch(e) { console.error('Employee tracker fetch error:', e); }
+        } catch(e) { console.error(e); }
     }
 
-    // ============ VIP CLAIMS ============
-    async function fetchVipClaims() {
-        try {
-            const res = await fetch('/api/vip-claims');
-            const d = await res.json();
-            const tbody = document.getElementById('vip-claims-body');
-            if (!d.success || !d.claims || d.claims.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="icon">👑</div><p>No VIP claims logged</p></td></tr>';
-                return;
-            }
-            tbody.innerHTML = '';
-            d.claims.forEach(c => {
-                const catClass = c.category === 'VIP' ? 'tag-amber' : c.category === 'Friends' ? 'tag-blue' : 'tag-purple';
-                const statusClass = c.status === 'Claimed' ? 'tag-green' : 'tag-red';
-                tbody.innerHTML += `<tr>
-                    <td class="emp-name">${c.person || 'Unknown'}</td>
-                    <td><span class="tag ${catClass}">${c.category}</span></td>
-                    <td>${c.vehicle || '—'}</td>
-                    <td>${c.staff || '—'}</td>
-                    <td style="font-weight:700;color:var(--green);">${fmt(fmtNum(c.amount))}</td>
-                    <td><span class="tag ${statusClass}">${c.status}</span></td>
-                    <td style="font-size:12px;color:var(--text-muted);">${c.timestamp || ''}</td>
-                </tr>`;
-            });
-        } catch(e) { console.error('VIP claims fetch error:', e); }
-    }
-
-    // ============ INVENTORY ============
+    // ===== INVENTORY =====
     async function fetchInventory() {
         try {
             const res = await fetch('/api/inventory');
             const d = await res.json();
             const tbody = document.getElementById('inventory-body');
-            if (!d.success || !d.items || d.items.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="icon">📦</div><p>No inventory data</p></td></tr>';
-                return;
-            }
+            if (!d.success || !d.items || !d.items.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty"><div class="icon">📦</div><p>No inventory items. Click "Create New Item" to add one.</p></td></tr>'; return; }
             tbody.innerHTML = '';
             d.items.forEach(item => {
                 tbody.innerHTML += `<tr>
                     <td class="emp-name">${item.name}</td>
                     <td><span class="tag tag-green">${item.stock}</span></td>
                     <td>${item.bought}</td>
-                    <td style="font-size:12px;">${item.restock_date || '—'}</td>
+                    <td style="font-size:12px;">${item.restock_date||'—'}</td>
                     <td style="color:var(--amber);font-weight:600;">${fmt(fmtNum(item.unit_price))}</td>
                     <td style="color:var(--green);font-weight:700;">${fmt(fmtNum(item.total_value))}</td>
+                    <td style="font-size:11px;color:var(--text-muted);">${item.last_updated||''}</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick='openEditInventory(${JSON.stringify(item)})'>✏️ Edit</button></td>
                 </tr>`;
             });
-        } catch(e) { console.error('Inventory fetch error:', e); }
+        } catch(e) { console.error(e); }
     }
 
-    // ============ AUDIT LOGS ============
+    function openInventoryModal(mode, item) {
+        invMode = mode;
+        document.getElementById('inv-error').style.display = 'none';
+        if (mode === 'create') {
+            document.getElementById('inv-modal-heading').textContent = 'Create New Item';
+            document.getElementById('inv-modal-sub').textContent = 'Add a new inventory item to the stock sheet.';
+            document.getElementById('inv-submit-btn').innerHTML = '➕ Create Item';
+            document.getElementById('inv-name').value = '';
+            document.getElementById('inv-stock').value = '';
+            document.getElementById('inv-price').value = '';
+            document.getElementById('inv-row-index').value = '';
+            document.getElementById('inv-bought').value = '0';
+            document.getElementById('inv-restock-date').value = '';
+        } else {
+            document.getElementById('inv-modal-heading').textContent = 'Edit Item: ' + (item ? item.name : '');
+            document.getElementById('inv-modal-sub').textContent = 'Update stock quantity, unit price, or item name.';
+            document.getElementById('inv-submit-btn').innerHTML = '💾 Save Changes';
+            document.getElementById('inv-name').value = item.name || '';
+            document.getElementById('inv-stock').value = item.stock || 0;
+            document.getElementById('inv-price').value = item.unit_price || 0;
+            document.getElementById('inv-row-index').value = item.row_index || '';
+            document.getElementById('inv-bought').value = item.bought || 0;
+            document.getElementById('inv-restock-date').value = item.restock_date || '';
+        }
+        document.getElementById('inv-modal').style.display = 'flex';
+    }
+
+    function openEditInventory(item) { openInventoryModal('edit', item); }
+
+    async function submitInventory() {
+        const name = document.getElementById('inv-name').value.trim();
+        const stock = document.getElementById('inv-stock').value;
+        const price = document.getElementById('inv-price').value;
+        const err = document.getElementById('inv-error');
+        if (!name) { err.textContent = 'Enter item name!'; err.style.display = 'block'; return; }
+
+        const endpoint = invMode === 'create' ? '/api/inventory/create' : '/api/inventory/update';
+        const body = {
+            name, stock: parseInt(stock) || 0, unit_price: parseFloat(price) || 0,
+            user_name: loggedInUser || 'Admin',
+            row_index: document.getElementById('inv-row-index').value,
+            bought: document.getElementById('inv-bought').value,
+            restock_date: document.getElementById('inv-restock-date').value
+        };
+        try {
+            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+            const d = await res.json();
+            if (d.success) {
+                closeModal('inv-modal');
+                alert(d.message);
+                fetchInventory();
+            } else { err.textContent = d.error || 'Failed!'; err.style.display = 'block'; }
+        } catch(e) { err.textContent = 'Server error!'; err.style.display = 'block'; }
+    }
+
+    // ===== AUDIT LOGS =====
     async function fetchAuditLogs() {
         try {
             const res = await fetch('/api/audit-logs');
             const d = await res.json();
             const tbody = document.getElementById('audit-logs-body');
-            if (!d.success || !d.logs || d.logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty"><div class="icon">📋</div><p>No audit logs</p></td></tr>';
-                return;
-            }
+            if (!d.success || !d.logs || !d.logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No audit logs</p></td></tr>'; return; }
             tbody.innerHTML = '';
             d.logs.slice(-25).reverse().forEach(r => {
-                const actionClass = (r[1]||'').includes('LOGIN') ? 'tag-green' : (r[1]||'').includes('MAINTENANCE') ? 'tag-amber' : 'tag-blue';
-                tbody.innerHTML += `<tr>
-                    <td style="font-size:12px;">${r[0] || ''}</td>
-                    <td><span class="tag ${actionClass}">${r[1] || ''}</span></td>
-                    <td class="emp-name">${r[2] || ''}</td>
-                    <td>${r[3] || ''}</td>
-                    <td style="font-size:12px;color:var(--text-muted);">${r[4] || ''}</td>
-                </tr>`;
+                const ac = (r[1]||'').includes('LOGIN') ? 'tag-green' : (r[1]||'').includes('MAINTENANCE') ? 'tag-amber' : (r[1]||'').includes('INVENTORY') ? 'tag-cyan' : 'tag-blue';
+                tbody.innerHTML += `<tr><td style="font-size:12px;">${r[0]||''}</td><td><span class="tag ${ac}">${r[1]||''}</span></td><td class="emp-name">${r[2]||''}</td><td>${r[3]||''}</td><td style="font-size:12px;color:var(--text-muted);">${r[4]||''}</td></tr>`;
             });
-        } catch(e) { console.error('Audit logs fetch error:', e); }
+        } catch(e) { console.error(e); }
     }
 
-    // ============ AUTH MODAL ============
-    let currentAction = 'login';
-
+    // ===== AUTH MODAL =====
     function openAuthModal(action) {
         currentAction = action;
-        const heading = document.getElementById('modal-heading');
-        const sub = document.getElementById('modal-subtext');
-        if (action === 'maintenance') {
-            heading.textContent = 'Toggle Maintenance Mode';
-            sub.textContent = 'Enter your Name & Password to switch Maintenance Mode ON or OFF.';
-        } else {
-            heading.textContent = 'User Access & Audit Login';
-            sub.textContent = 'Enter your Name & Password. Action will be logged in User_Audit_Logs.';
-        }
+        const h = document.getElementById('modal-heading');
+        const s = document.getElementById('modal-subtext');
+        if (action === 'maintenance') { h.textContent = 'Toggle Maintenance Mode'; s.textContent = 'Enter your Name & Password to switch Maintenance ON/OFF.'; }
+        else { h.textContent = 'User Access & Audit Login'; s.textContent = 'Enter your Name & Password. Action logged in User_Audit_Logs.'; }
         document.getElementById('auth-error').style.display = 'none';
         document.getElementById('auth-modal').style.display = 'flex';
     }
-
-    function closeModal() {
-        document.getElementById('auth-modal').style.display = 'none';
-    }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
     async function submitAuthAction() {
         const name = document.getElementById('user-name-input').value.trim();
         const pass = document.getElementById('user-pass-input').value.trim();
         const err = document.getElementById('auth-error');
-
         if (!name) { err.textContent = 'Enter your Name!'; err.style.display = 'block'; return; }
-        if (!pass) { err.textContent = 'Enter the Password!'; err.style.display = 'block'; return; }
+        if (!pass) { err.textContent = 'Enter Password!'; err.style.display = 'block'; return; }
 
         const endpoint = currentAction === 'maintenance' ? '/api/maintenance/toggle' : '/api/login';
         try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, password: pass})
-            });
+            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, password: pass}) });
             const d = await res.json();
             if (d.success) {
-                closeModal();
-                if (currentAction === 'maintenance') {
-                    alert(d.status_text);
-                    location.reload();
-                } else {
-                    alert(`Welcome ${name}!`);
-                    document.getElementById('maint-screen').style.display = 'none';
-                    fetchAuditLogs();
-                }
-            } else {
-                err.textContent = d.error || 'Failed!';
-                err.style.display = 'block';
-            }
-        } catch(e) {
-            err.textContent = 'Server communication error!';
-            err.style.display = 'block';
-        }
+                closeModal('auth-modal');
+                setLoggedIn(name);
+                if (currentAction === 'maintenance') { alert(d.status_text); location.reload(); }
+                else { alert(`Welcome ${name}!`); document.getElementById('maint-screen').style.display = 'none'; fetchAuditLogs(); }
+            } else { err.textContent = d.error || 'Failed!'; err.style.display = 'block'; }
+        } catch(e) { err.textContent = 'Server error!'; err.style.display = 'block'; }
     }
 
-    // ============ REFRESH ALL ============
-    function refreshAll() {
-        fetchDashboard();
-    }
+    // ===== REFRESH =====
+    function refreshAll() { fetchDashboard(); }
 
-    // ============ INIT ============
+    // ===== INIT =====
     fetchDashboard();
     setInterval(fetchDashboard, 15000);
 </script>

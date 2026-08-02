@@ -130,17 +130,20 @@ def get_dashboard_data():
         kit_rev = sum(sheets._sum_numeric([r[3]]) for r in kit_rows if len(r) > 3)
         expenses_tot = sum(sheets._sum_numeric([r[1]]) for r in expense_rows if len(r) > 1)
 
-        total_rev = service_rev + upgrade_rev + kit_rev
-        net_profit = total_rev - expenses_tot
+        total_sales = service_rev + upgrade_rev + kit_rev
+        tax = round(total_sales * 0.15, 2)
+        profit = round(total_sales - expenses_tot - tax, 2)
         total_txns = len(service_rows) + len(upgrade_rows) + len(kit_rows) + len(expense_rows)
 
-        # Top employees by transaction count
+        # Count unique employees
+        emp_set = set()
         emp_counts = {}
         for rows, col in [(service_rows, 4), (upgrade_rows, 3), (kit_rows, 4)]:
             for r in rows:
                 if len(r) > col:
                     emp = str(r[col]).strip()
                     if emp and emp.lower() not in ("unknown", "high command", "high comman"):
+                        emp_set.add(emp)
                         emp_counts[emp] = emp_counts.get(emp, 0) + 1
 
         top_employees = sorted(emp_counts.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -158,21 +161,37 @@ def get_dashboard_data():
                 recent.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
         recent.sort(key=lambda x: x.get("date", ""), reverse=True)
 
+        # Daily revenue breakdown for chart (group by day)
+        daily_rev = {}
+        for rows, col in [(service_rows, 3), (upgrade_rows, 2), (kit_rows, 3)]:
+            for r in rows:
+                if len(r) > col:
+                    date_str = str(r[0]).strip()
+                    day = date_str.split(" ")[0] if " " in date_str else date_str
+                    amt = sheets._sum_numeric([r[col]])
+                    daily_rev[day] = daily_rev.get(day, 0) + amt
+
+        chart_data = sorted(daily_rev.items(), key=lambda x: x[0])
+
         return jsonify({
             "success": True,
-            "total_revenue": total_rev,
+            "total_sales": total_sales,
+            "total_expenses": expenses_tot,
+            "tax": tax,
+            "profit": profit,
+            "total_transactions": total_txns,
+            "total_employees": len(emp_set),
             "service_revenue": service_rev,
             "upgrade_revenue": upgrade_rev,
             "kit_revenue": kit_rev,
-            "total_expenses": expenses_tot,
-            "net_profit": net_profit,
-            "total_transactions": total_txns,
             "service_count": len(service_rows),
             "upgrade_count": len(upgrade_rows),
             "kit_count": len(kit_rows),
             "expense_count": len(expense_rows),
             "top_employees": [{"name": e[0], "count": e[1]} for e in top_employees],
             "recent_transactions": recent[:10],
+            "chart_labels": [c[0] for c in chart_data],
+            "chart_values": [c[1] for c in chart_data],
             "maintenance_mode": IS_MAINTENANCE_MODE
         })
     except Exception as e:
@@ -203,43 +222,95 @@ def get_employee_tracker():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/vip-claims")
-def get_vip_claims():
-    try:
-        rows = sheets._all_rows("VIP Claim")
-        claims = []
-        for r in rows:
-            if len(r) >= 6:
-                claims.append({
-                    "person": r[0],
-                    "category": r[1],
-                    "vehicle": r[2],
-                    "staff": r[3],
-                    "amount": r[4],
-                    "status": r[5],
-                    "timestamp": r[6] if len(r) > 6 else "",
-                })
-        return jsonify({"success": True, "claims": claims})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route("/api/inventory")
 def get_inventory():
     try:
         rows = sheets._all_rows("Inventory")
         items = []
-        for r in rows:
+        for i, r in enumerate(rows):
             if len(r) >= 6:
                 items.append({
+                    "row_index": i + 2,  # 1-indexed header + data
                     "name": r[0],
                     "stock": r[1],
                     "bought": r[2],
                     "restock_date": r[3],
                     "unit_price": r[4],
                     "total_value": r[5],
+                    "last_updated": r[6] if len(r) > 6 else ""
                 })
         return jsonify({"success": True, "items": items})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/inventory/create", methods=["POST"])
+def create_inventory_item():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    stock = data.get("stock", 0)
+    unit_price = data.get("unit_price", 0)
+    user_name = data.get("user_name", session.get("user_name", "Admin"))
+
+    if not name:
+        return jsonify({"success": False, "error": "Item name is required!"}), 400
+
+    try:
+        stock_val = int(stock)
+        price_val = float(unit_price)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid stock or price!"}), 400
+
+    import datetime as _dt
+    now_str = _dt.datetime.now(sheets.IST).strftime("%Y-%m-%d %I:%M:%S %p")
+    total_value = stock_val * price_val
+    new_row = [name, stock_val, 0, now_str, price_val, total_value, now_str]
+
+    try:
+        ws = sheets._ensure_sheet("Inventory")
+        if ws:
+            sheets._with_retry(lambda: ws.append_row(new_row))
+            sheets.clear_rows_cache("Inventory")
+            sheets.append_user_audit_log(user_name, "INVENTORY_CREATE", f"Created item: {name} (Stock: {stock_val}, Price: {price_val})")
+            return jsonify({"success": True, "message": f"Item '{name}' created!"})
+        return jsonify({"success": False, "error": "Could not access Inventory sheet!"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/inventory/update", methods=["POST"])
+def update_inventory_item():
+    data = request.get_json() or {}
+    row_index = data.get("row_index")
+    name = data.get("name", "").strip()
+    stock = data.get("stock", 0)
+    unit_price = data.get("unit_price", 0)
+    user_name = data.get("user_name", session.get("user_name", "Admin"))
+
+    if not row_index:
+        return jsonify({"success": False, "error": "Row index required!"}), 400
+
+    try:
+        stock_val = int(stock)
+        price_val = float(unit_price)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid stock or price!"}), 400
+
+    import datetime as _dt
+    now_str = _dt.datetime.now(sheets.IST).strftime("%Y-%m-%d %I:%M:%S %p")
+    total_value = stock_val * price_val
+
+    try:
+        ws = sheets._ensure_sheet("Inventory")
+        if ws:
+            row_num = int(row_index)
+            updated_row = [name, stock_val, data.get("bought", 0), data.get("restock_date", now_str), price_val, total_value, now_str]
+            cell_range = f"A{row_num}:G{row_num}"
+            sheets._with_retry(lambda: ws.update(cell_range, [updated_row]))
+            sheets.clear_rows_cache("Inventory")
+            sheets.append_user_audit_log(user_name, "INVENTORY_UPDATE", f"Updated item: {name} (Stock: {stock_val}, Price: {price_val})")
+            return jsonify({"success": True, "message": f"Item '{name}' updated!"})
+        return jsonify({"success": False, "error": "Could not access Inventory sheet!"}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

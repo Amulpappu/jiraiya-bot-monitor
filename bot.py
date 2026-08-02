@@ -370,9 +370,25 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
     await add_reaction_if_enabled(message, "✅")
 
 
+def is_ignored_category(channel) -> bool:
+    """Returns True if the channel belongs to MJ FUELS or other non-Jiraiya categories."""
+    cat = getattr(channel, "category", None)
+    if not cat and hasattr(channel, "parent"):
+        cat = getattr(channel.parent, "category", None)
+    if cat and getattr(cat, "name", None):
+        cat_name = cat.name.lower()
+        if any(kw in cat_name for kw in ("mj", "fuel")):
+            return True
+    return False
+
+
 async def route_invoice_message(message: discord.Message, is_backfill: bool = False):
     """Routes an incoming Discord message to the correct channel handler."""
     if message.author.bot:
+        return
+
+    # Skip MJ FUELS channels (e.g. yellow box BILL_CLAIM)
+    if is_ignored_category(message.channel):
         return
 
     # Skip "High Command" — not an employee, should not be logged
@@ -412,6 +428,8 @@ async def backfill_channel_history(limit=1000):
 
     for guild in bot.guilds:
         for channel in guild.text_channels:
+            if is_ignored_category(channel):
+                continue
             cfg, _ = config.get_channel_config(channel.name)
             if cfg:
                 await scan_channel_messages(channel, limit, august_start)
