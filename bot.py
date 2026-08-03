@@ -237,10 +237,10 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             logger.error(f"OCR failed for kit message {message.id}: {e}")
 
     cust_name = parsed.get("customer")
-    if not cust_name and message.content:
-        m_c = re.search(r"(?:customer|client|name|billed to)\s*[:\-]\s*([^\n]+)", message.content, re.IGNORECASE)
-        if m_c:
-            cust_name = m_c.group(1).strip()
+    if (not cust_name or cust_name.strip().lower() in ("unknown", "none", "")) and message.content:
+        cust_name = parse_customer_from_text(message.content)
+    if not cust_name or cust_name.strip().lower() in ("unknown", "none", ""):
+        cust_name = "Unknown"
 
     full_text = (message.content or "") + " " + raw_text
     amt_parsed = parsed.get("amount") or parse_text_amount(full_text)
