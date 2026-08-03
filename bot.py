@@ -184,9 +184,11 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
     emp_name = resolve_employee_name(message.author)
 
     if is_upgrade:
-        # Route to Car Upgrade sheet using exact parsed amount
-        if amount is None or amount <= 0:
-            logger.warning(f"[Upgrade] Amount not parsed for message {message.id} from {emp_name}. content={message.content!r} raw_text_snippet={raw_text[:200]!r}")
+        # Require either a valid amount > 0 or a customer name to log an Upgrade entry (prevents non-invoice junk rows)
+        if (amount is None or amount <= 0) and (not cust_name or cust_name.strip().lower() in ("unknown", "none", "")):
+            logger.info(f"[Upgrade] Skipping non-invoice message {message.id} (no amount and no customer name)")
+            return
+
         upgrade_amount = float(amount) if (amount and amount > 0) else 0.0
         try:
             await asyncio.to_thread(

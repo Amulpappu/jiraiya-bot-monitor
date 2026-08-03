@@ -384,6 +384,9 @@ def append_entry(sheet_name: str, value, employee: str, message_id: str, created
     except (ValueError, TypeError):
         val_float = 0.0
 
+    if val_float <= 0 and (not customer or customer.strip().lower() in ("unknown", "none", "")):
+        return
+
     ws = _ensure_sheet(sheet_name, UPGRADE_HEADERS)
     if not ws:
         return
