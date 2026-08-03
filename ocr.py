@@ -258,7 +258,10 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
         fields = ["amount", "customer"]
 
     try:
-        resp = requests.get(image_url, timeout=15)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        resp = requests.get(image_url, headers=headers, timeout=15)
         resp.raise_for_status()
         img_bytes = resp.content
     except Exception as e:
