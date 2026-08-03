@@ -145,14 +145,13 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
 
     full_text = (message.content or "") + " " + raw_text
 
-    # Check thread/channel name first for explicit Service or Upgrade designation
     ch_name_lower = getattr(message.channel, "name", "").lower()
     if "upgrade" in ch_name_lower:
         is_upgrade = True
-    elif "service" in ch_name_lower:
-        is_upgrade = False
+    elif service_pricing.is_upgrade_message(full_text, amount):
+        is_upgrade = True
     else:
-        is_upgrade = service_pricing.is_upgrade_message(full_text, amount)
+        is_upgrade = False
 
     emp_name = resolve_employee_name(message.author)
 
