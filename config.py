@@ -8,7 +8,7 @@ except ImportError:
     pass
 
 # Read secrets from environment variables for Render deployment
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
 SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", "1Tz2YxzNO0ibySgftxNGltulxx0o7NLx3HCLbk-RpNRM")
 CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
 

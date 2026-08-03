@@ -120,7 +120,15 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
             cust_name = m_c.group(1).strip()
 
     full_text = (message.content or "") + " " + raw_text
-    is_upgrade = service_pricing.is_upgrade_message(full_text, amount)
+
+    # Check thread/channel name first for explicit Service or Upgrade designation
+    ch_name_lower = getattr(message.channel, "name", "").lower()
+    if "upgrade" in ch_name_lower:
+        is_upgrade = True
+    elif "service" in ch_name_lower:
+        is_upgrade = False
+    else:
+        is_upgrade = service_pricing.is_upgrade_message(full_text, amount)
 
     emp_name = resolve_employee_name(message.author)
 
@@ -434,6 +442,8 @@ async def route_invoice_message(message: discord.Message, is_backfill: bool = Fa
 
     ch_name = getattr(message.channel, "name", "")
     cfg, _ = config.get_channel_config(ch_name)
+    if not cfg and hasattr(message.channel, "parent") and message.channel.parent:
+        cfg, _ = config.get_channel_config(message.channel.parent.name)
     if not cfg:
         return
 
@@ -463,25 +473,59 @@ async def backfill_channel_history(limit=1000):
     august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
     for guild in bot.guilds:
+        # Collect all channels and threads to scan
+        channels_to_scan = []
         for channel in guild.text_channels:
             if is_ignored_category(channel):
                 continue
-            cfg, _ = config.get_channel_config(channel.name)
-            if cfg:
-                await scan_channel_messages(channel, limit, august_start)
+            channels_to_scan.append(channel)
 
-            # Scan active threads under channel
+        threads_to_scan = []
+        if hasattr(guild, "threads"):
+            threads_to_scan.extend(guild.threads)
+        if hasattr(guild, "active_threads"):
+            try:
+                act_threads = await guild.active_threads()
+                threads_to_scan.extend(act_threads)
+            except Exception as e:
+                logger.error(f"Error fetching guild active threads: {e}")
+
+        for channel in guild.text_channels:
+            if is_ignored_category(channel):
+                continue
             if hasattr(channel, "threads"):
-                for thread in channel.threads:
-                    await scan_channel_messages(thread, limit, august_start)
-
-            # Scan archived threads under channel
+                threads_to_scan.extend(channel.threads)
             if hasattr(channel, "archived_threads"):
                 try:
                     async for thread in channel.archived_threads(limit=100):
-                        await scan_channel_messages(thread, limit, august_start)
+                        threads_to_scan.append(thread)
                 except Exception:
                     pass
+
+        # Scan text channels first
+        for ch in channels_to_scan:
+            cfg, _ = config.get_channel_config(ch.name)
+            if cfg:
+                logger.info(f"[Backfill Scan] Scanning channel #{ch.name}...")
+                await scan_channel_messages(ch, limit, august_start)
+
+        # Scan deduplicated threads
+        seen_threads = set()
+        for thread in threads_to_scan:
+            if not thread or thread.id in seen_threads:
+                continue
+            seen_threads.add(thread.id)
+            if is_ignored_category(thread):
+                continue
+
+            ch_name = getattr(thread, "name", "")
+            cfg, _ = config.get_channel_config(ch_name)
+            if not cfg and hasattr(thread, "parent") and thread.parent:
+                cfg, _ = config.get_channel_config(thread.parent.name)
+
+            if cfg:
+                logger.info(f"[Backfill Scan] Scanning thread #{ch_name} (parent #{getattr(thread.parent, 'name', 'N/A')})...")
+                await scan_channel_messages(thread, limit, august_start)
 
     try:
         await asyncio.to_thread(sheets.update_employee_tracker)
