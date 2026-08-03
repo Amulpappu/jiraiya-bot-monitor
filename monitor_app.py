@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import datetime
+import json
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,9 +26,103 @@ IS_MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The website is currently undergoing scheduled maintenance. Please check back shortly!"
 
 
+PERMISSIONS_FILE = os.path.join(APP_DIR, "role_permissions.json")
+
+DEFAULT_ROLE_PERMISSIONS = {
+    "Admin": {
+        "dashboard": True,
+        "employees": True,
+        "transactions": True,
+        "inventory": True,
+        "audit": True,
+        "maintenance": True,
+        "wipe": True
+    },
+    "Manager": {
+        "dashboard": True,
+        "employees": True,
+        "transactions": True,
+        "inventory": True,
+        "audit": False,
+        "maintenance": False,
+        "wipe": False
+    },
+    "Employee": {
+        "dashboard": False,
+        "employees": True,
+        "transactions": True,
+        "inventory": True,
+        "audit": False,
+        "maintenance": False,
+        "wipe": False
+    }
+}
+
+
+def load_role_permissions():
+    if os.path.exists(PERMISSIONS_FILE):
+        try:
+            with open(PERMISSIONS_FILE, "r") as f:
+                saved = json.load(f)
+                perms = json.loads(json.dumps(DEFAULT_ROLE_PERMISSIONS))
+                for role, options in saved.items():
+                    if role in perms:
+                        perms[role].update(options)
+                return perms
+        except Exception as e:
+            print(f"[PERMISSIONS] Load error: {e}")
+    return json.loads(json.dumps(DEFAULT_ROLE_PERMISSIONS))
+
+
+def save_role_permissions(perms):
+    try:
+        with open(PERMISSIONS_FILE, "w") as f:
+            json.dump(perms, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"[PERMISSIONS] Save error: {e}")
+        return False
+
+
 @app.route("/")
 def index():
     return render_template("index.html", is_maintenance=IS_MAINTENANCE_MODE, maintenance_msg=MAINTENANCE_MESSAGE)
+
+
+@app.route("/login")
+def login_page():
+    return render_template("login.html")
+
+
+@app.route("/api/permissions", methods=["GET"])
+def get_permissions():
+    perms = load_role_permissions()
+    return jsonify({"success": True, "permissions": perms})
+
+
+@app.route("/api/permissions", methods=["POST"])
+def update_permissions():
+    data = request.get_json() or {}
+    new_perms = data.get("permissions")
+    password = data.get("password", "").strip()
+    user_name = data.get("user_name", session.get("user_name", "Admin"))
+
+    if password and password != ADMIN_PASSWORD:
+        return jsonify({"success": False, "error": "Admin password required to update access control!"}), 401
+
+    if not new_perms or not isinstance(new_perms, dict):
+        return jsonify({"success": False, "error": "Invalid permissions payload!"}), 400
+
+    current = load_role_permissions()
+    for r in ("Admin", "Manager", "Employee"):
+        if r in new_perms and isinstance(new_perms[r], dict):
+            for opt, val in new_perms[r].items():
+                current[r][opt] = bool(val)
+
+    if save_role_permissions(current):
+        sheets.append_user_audit_log(user_name, "ROLE_PERMISSIONS_UPDATE", "Updated dynamic access control settings", role="Admin")
+        return jsonify({"success": True, "message": "Access control permissions saved successfully!", "permissions": current})
+    return jsonify({"success": False, "error": "Failed to save permissions file!"}), 500
 
 
 @app.route("/api/status")

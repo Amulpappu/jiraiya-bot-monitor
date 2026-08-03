@@ -1,0 +1,29 @@
+{
+  "Admin": {
+    "dashboard": true,
+    "employees": true,
+    "transactions": true,
+    "inventory": true,
+    "audit": true,
+    "maintenance": true,
+    "wipe": true
+  },
+  "Manager": {
+    "dashboard": true,
+    "employees": true,
+    "transactions": true,
+    "inventory": true,
+    "audit": false,
+    "maintenance": false,
+    "wipe": false
+  },
+  "Employee": {
+    "dashboard": false,
+    "employees": true,
+    "transactions": true,
+    "inventory": true,
+    "audit": false,
+    "maintenance": false,
+    "wipe": false
+  }
+}

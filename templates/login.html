@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jiraiya Bot — System Login Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0B0F19;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(99, 102, 241, 0.4);
+            --accent: #6366F1;
+            --accent-light: #818CF8;
+            --purple: #8B5CF6;
+            --cyan: #38BDF8;
+            --green: #34D399;
+            --text-main: #F8FAFC;
+            --text-sub: #94A3B8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient Glow Background Spheres */
+        .glow-1 {
+            position: absolute;
+            top: -15%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            filter: blur(60px);
+            animation: float 8s ease-in-out infinite alternate;
+        }
+        .glow-2 {
+            position: absolute;
+            bottom: -15%;
+            right: -10%;
+            width: 550px;
+            height: 550px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.22) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            filter: blur(70px);
+            animation: float 10s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px) scale(1); }
+            100% { transform: translateY(30px) scale(1.08); }
+        }
+
+        .login-wrapper {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 480px;
+            padding: 24px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px 36px;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .login-card:hover {
+            border-color: rgba(99, 102, 241, 0.25);
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .brand-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+        }
+        .brand-title {
+            font-size: 22px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818CF8, #C084FC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .brand-sub {
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        /* ROLE TABS */
+        .role-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-sub);
+            margin-bottom: 10px;
+        }
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .role-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .role-card:hover {
+            border-color: var(--border-hover);
+            background: rgba(99, 102, 241, 0.08);
+            transform: translateY(-2px);
+        }
+        .role-card.active.role-admin {
+            border-color: #818CF8;
+            background: rgba(129, 140, 248, 0.18);
+            box-shadow: 0 4px 16px rgba(129, 140, 248, 0.25);
+        }
+        .role-card.active.role-manager {
+            border-color: #38BDF8;
+            background: rgba(56, 189, 248, 0.18);
+            box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25);
+        }
+        .role-card.active.role-employee {
+            border-color: #34D399;
+            background: rgba(52, 211, 153, 0.18);
+            box-shadow: 0 4px 16px rgba(52, 211, 153, 0.25);
+        }
+        .role-card .icon { font-size: 22px; margin-bottom: 4px; }
+        .role-card .name { font-size: 13px; font-weight: 700; color: var(--text-main); }
+
+        .role-desc-box {
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 12.5px;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            line-height: 1.4;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+            position: relative;
+        }
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 16px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        input:focus {
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .eye-btn {
+            position: absolute;
+            right: 14px;
+            top: 36px;
+            cursor: pointer;
+            opacity: 0.7;
+            font-size: 16px;
+            user-select: none;
+            transition: opacity 0.2s;
+        }
+        .eye-btn:hover { opacity: 1; }
+
+        .error-msg {
+            color: #F87171;
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 10px 14px;
+            border-radius: 10px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+            margin-top: 10px;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.45);
+        }
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text-sub);
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+            
+            <div class="brand-header">
+                <div class="brand-logo">🐸</div>
+                <div class="brand-title">Jiraiya Financial Monitor</div>
+                <div class="brand-sub">Select your account role to sign in</div>
+            </div>
+
+            <!-- Role Selector Tabs -->
+            <div class="role-section-label">Access Role</div>
+            <div class="role-grid">
+                <div class="role-card active role-admin" id="card-Admin" onclick="selectRole('Admin')">
+                    <div class="icon">👑</div>
+                    <div class="name">Admin</div>
+                </div>
+                <div class="role-card role-manager" id="card-Manager" onclick="selectRole('Manager')">
+                    <div class="icon">💼</div>
+                    <div class="name">Manager</div>
+                </div>
+                <div class="role-card role-employee" id="card-Employee" onclick="selectRole('Employee')">
+                    <div class="icon">👤</div>
+                    <div class="name">Employee</div>
+                </div>
+            </div>
+
+            <!-- Role Description Box -->
+            <div id="role-info-box" class="role-desc-box">
+                <span id="role-icon" style="font-size:18px;">🛡️</span>
+                <span id="role-desc">Full System Access: Dashboard, Employee Performance, Stock & Edit, Transactions, Audit Logs & System Maintenance.</span>
+            </div>
+
+            <!-- Inputs -->
+            <div class="form-group">
+                <label>Your Name / Staff Name</label>
+                <input type="text" id="user-name-input" list="staff-list" placeholder="e.g. Amul Pappu" autocomplete="off">
+                <datalist id="staff-list">
+                    <option value="Amul">
+                    <option value="Jiyana Shree">
+                    <option value="Maria">
+                    <option value="Sandy">
+                    <option value="Sylas">
+                    <option value="Benny">
+                    <option value="Lara">
+                    <option value="Abrar">
+                    <option value="Arivu">
+                    <option value="Eli">
+                    <option value="Alexia">
+                    <option value="Mitchell">
+                    <option value="Lissa">
+                    <option value="Nesuko">
+                    <option value="Mikasa">
+                    <option value="TomCat">
+                    <option value="Mathew">
+                    <option value="EVE">
+                    <option value="Meenu Kutty">
+                </datalist>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="user-pass-input" placeholder="Enter password (e.g. admin2026)">
+                <span class="eye-btn" onclick="toggleEye()" title="Show/Hide Password">👁️</span>
+            </div>
+
+            <div id="error-box" class="error-msg"></div>
+
+            <button class="submit-btn" onclick="login()">🔐 Enter Workspace</button>
+
+            <div class="footer-note">
+                Encrypted Auth • User Audit Trail Active
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let selectedRole = 'Admin';
+
+        function selectRole(role) {
+            selectedRole = role;
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('card-' + role).classList.add('active');
+
+            const icon = document.getElementById('role-icon');
+            const desc = document.getElementById('role-desc');
+            const passInp = document.getElementById('user-pass-input');
+
+            if (role === 'Admin') {
+                icon.textContent = '👑';
+                desc.textContent = 'Full System Access: Dashboard, Employee Performance, Stock & Edit, Transactions, Audit Logs & System Maintenance.';
+                passInp.placeholder = 'Enter admin password (e.g. admin2026)';
+            } else if (role === 'Manager') {
+                icon.textContent = '💼';
+                desc.textContent = 'Manager Access: Dashboard, Employee Performance, Stock & Edit, and Transactions.';
+                passInp.placeholder = 'Enter manager password (e.g. manager8686)';
+            } else {
+                icon.textContent = '👤';
+                desc.textContent = 'Employee Access: Employee Performance, Stock & Edit, and Transactions.';
+                passInp.placeholder = 'Enter employee password (e.g. employee7878)';
+            }
+        }
+
+        function toggleEye() {
+            const p = document.getElementById('user-pass-input');
+            p.type = p.type === 'password' ? 'text' : 'password';
+        }
+
+        async function login() {
+            const name = document.getElementById('user-name-input').value.trim();
+            const pass = document.getElementById('user-pass-input').value.trim();
+            const err = document.getElementById('error-box');
+
+            if (!name) { err.textContent = 'Please enter your Name!'; err.style.display = 'block'; return; }
+            if (!pass) { err.textContent = 'Please enter Password!'; err.style.display = 'block'; return; }
+
+            err.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, password: pass, role: selectedRole })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    localStorage.setItem('jiraiya_user', data.user_name || name);
+                    localStorage.setItem('jiraiya_role', data.user_role || selectedRole);
+                    window.location.href = '/';
+                } else {
+                    err.textContent = data.error || 'Invalid credentials!';
+                    err.style.display = 'block';
+                }
+            } catch (e) {
+                err.textContent = 'Server connection error!';
+                err.style.display = 'block';
+            }
+        }
+
+        // Enter key listener
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
