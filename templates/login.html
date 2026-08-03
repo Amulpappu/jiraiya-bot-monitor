@@ -327,7 +327,7 @@
 
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" id="user-pass-input" placeholder="Enter password (e.g. admin2026)">
+                <input type="password" id="user-pass-input" placeholder="Enter your password">
                 <span class="eye-btn" onclick="toggleEye()" title="Show/Hide Password">👁️</span>
             </div>
 
@@ -357,15 +357,15 @@
             if (role === 'Admin') {
                 icon.textContent = '👑';
                 desc.textContent = 'Full System Access: Dashboard, Employee Performance, Stock & Edit, Transactions, Audit Logs & System Maintenance.';
-                passInp.placeholder = 'Enter admin password (e.g. admin2026)';
+                passInp.placeholder = 'Enter your password';
             } else if (role === 'Manager') {
                 icon.textContent = '💼';
                 desc.textContent = 'Manager Access: Dashboard, Employee Performance, Stock & Edit, and Transactions.';
-                passInp.placeholder = 'Enter manager password (e.g. manager8686)';
+                passInp.placeholder = 'Enter your password';
             } else {
                 icon.textContent = '👤';
                 desc.textContent = 'Employee Access: Employee Performance, Stock & Edit, and Transactions.';
-                passInp.placeholder = 'Enter employee password (e.g. employee7878)';
+                passInp.placeholder = 'Enter your password';
             }
         }
 

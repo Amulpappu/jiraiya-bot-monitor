@@ -499,6 +499,10 @@
                 <div class="form-group"><label>Quantity in Stock (Current)</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
                 <div class="form-group"><label>Unit Price / Rate (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
             </div>
+            <div class="grid-2" style="gap:12px;">
+                <div class="form-group"><label>Bought This Month</label><input type="number" id="inv-bought" placeholder="0" min="0"></div>
+                <div class="form-group"><label>Restock Date</label><input type="text" id="inv-restock-date" placeholder="e.g. 01/08/2026"></div>
+            </div>
             <div id="inv-error" class="error-txt"></div>
             <div style="display: flex; gap: 10px; margin-top: 24px;">
                 <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('inv-modal')">Cancel</button>
@@ -713,6 +717,8 @@
     }
 
     // ===== INVENTORY =====
+    let currentInventoryItems = [];
+
     async function fetchInventory() {
         try {
             const res = await fetch('/api/inventory');
@@ -720,7 +726,8 @@
             const tbody = document.getElementById('inventory-body');
             if (!d.success || !d.items || !d.items.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty"><div class="icon">📦</div><p>No inventory items. Click "Create New Item" to add one.</p></td></tr>'; return; }
             tbody.innerHTML = '';
-            d.items.forEach(item => {
+            currentInventoryItems = d.items;
+            d.items.forEach((item, idx) => {
                 tbody.innerHTML += `<tr>
                     <td class="emp-name">${item.name}</td>
                     <td><span class="tag tag-green">${item.stock}</span></td>
@@ -729,7 +736,7 @@
                     <td style="color:var(--amber);font-weight:600;">${fmt(fmtNum(item.unit_price))}</td>
                     <td style="color:var(--green);font-weight:700;">${fmt(fmtNum(item.total_value))}</td>
                     <td style="font-size:11px;color:var(--text-muted);">${item.last_updated||''}</td>
-                    <td><button class="btn btn-ghost btn-sm" onclick='openEditInventory(${JSON.stringify(item)})'>✏️ Edit</button></td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="openEditInventory(${idx})">✏️ Edit</button></td>
                 </tr>`;
             });
         } catch(e) { console.error(e); }
@@ -762,7 +769,10 @@
         document.getElementById('inv-modal').style.display = 'flex';
     }
 
-    function openEditInventory(item) { openInventoryModal('edit', item); }
+    function openEditInventory(itemOrIdx) {
+        const item = (typeof itemOrIdx === 'number') ? currentInventoryItems[itemOrIdx] : itemOrIdx;
+        openInventoryModal('edit', item);
+    }
 
     async function submitInventory() {
         const name = document.getElementById('inv-name').value.trim();
