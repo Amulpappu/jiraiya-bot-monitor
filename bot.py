@@ -88,6 +88,30 @@ def resolve_employee_name(user) -> str:
 
 
 
+def parse_customer_from_text(content: str) -> str:
+    """Parses customer name from Discord message content (e.g. 'civ services -Luna Alice', 'civ service - Butty Paul', '- Luna Alice')."""
+    if not content:
+        return None
+    lines = [l.strip() for l in content.splitlines() if l.strip()]
+    for line in lines:
+        # 1. Hyphen/colon pattern: "civ services -Luna Alice", "civ service - Butty Paul", "- Luna Alice"
+        m_hyphen = re.search(r"(?:services?|upgrades?|civ|pd|ems|kit|kits|civilian|govt)?\s*[\-\:]\s*([A-Za-z0-9_\. ]{2,35})", line, re.IGNORECASE)
+        if m_hyphen:
+            cand = m_hyphen.group(1).strip()
+            cand = re.sub(r"^[^\w]+|[^\w\.]+$", "", cand).strip()
+            if ocr._is_valid_name(cand):
+                return cand
+
+        # 2. Standard labels: customer: Luna Alice, client: Luna Alice, name: Luna Alice, billed to: Luna Alice
+        m_label = re.search(r"(?:customer|client|name|billed to|for|to)\s*[:\-]?\s*([A-Za-z0-9_\. ]{2,35})", line, re.IGNORECASE)
+        if m_label:
+            cand = m_label.group(1).strip()
+            cand = re.sub(r"^[^\w]+|[^\w\.]+$", "", cand).strip()
+            if ocr._is_valid_name(cand):
+                return cand
+    return None
+
+
 async def process_service_or_upgrade_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """Processes messages in Services/Upgrades combined channels (e.g. 🌀┆aug-ʟᴏɢꜱ)."""
     if is_backfill and str(message.id) in sheets.get_all_logged_message_ids():
@@ -114,10 +138,10 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
         amount = parse_text_amount(raw_text)
 
     cust_name = parsed.get("customer")
-    if not cust_name and message.content:
-        m_c = re.search(r"(?:customer|client|name|billed to)\s*[:\-]\s*([^\n]+)", message.content, re.IGNORECASE)
-        if m_c:
-            cust_name = m_c.group(1).strip()
+    if (not cust_name or cust_name.strip().lower() in ("unknown", "none", "")) and message.content:
+        cust_name = parse_customer_from_text(message.content)
+    if not cust_name or cust_name.strip().lower() in ("unknown", "none", ""):
+        cust_name = "Unknown"
 
     full_text = (message.content or "") + " " + raw_text
 
