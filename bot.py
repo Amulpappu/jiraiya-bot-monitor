@@ -136,6 +136,9 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
         amount = parse_text_amount(message.content)
     if (amount is None or amount <= 0) and raw_text:
         amount = parse_text_amount(raw_text)
+    # Last-resort: try ocr module's extract_numeric_amount which has more patterns
+    if (amount is None or amount <= 0) and raw_text:
+        amount = ocr.extract_numeric_amount(raw_text)
 
     cust_name = parsed.get("customer")
     if (not cust_name or cust_name.strip().lower() in ("unknown", "none", "")) and message.content:
@@ -149,7 +152,6 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
     ch_name_lower = getattr(message.channel, "name", "").lower()
     parent = getattr(message.channel, "parent", None)
     parent_name_lower = getattr(parent, "name", "").lower() if parent else ""
-    thread_cat = getattr(getattr(message.channel, "category", None), "name", "").lower()
 
     if "upgrade" in ch_name_lower or "upgrade" in parent_name_lower:
         is_upgrade = True
@@ -163,7 +165,7 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
     if is_upgrade:
         # Route to Car Upgrade sheet using exact parsed amount
         if amount is None or amount <= 0:
-            logger.warning(f"[Upgrade] Amount not parsed for message {message.id} from {emp_name}. raw_text snippet: {raw_text[:120]!r}")
+            logger.warning(f"[Upgrade] Amount not parsed for message {message.id} from {emp_name}. content={message.content!r} raw_text_snippet={raw_text[:200]!r}")
         upgrade_amount = float(amount) if (amount and amount > 0) else 0.0
         try:
             await asyncio.to_thread(
