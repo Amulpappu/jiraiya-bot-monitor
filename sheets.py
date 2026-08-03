@@ -380,11 +380,9 @@ def append_kit_entry(rk_qty: int, ck_qty: int, discount_pct: float, total: float
 def append_entry(sheet_name: str, value, employee: str, message_id: str, created_at: datetime.datetime = None, customer: str = None, skip_dashboard_update: bool = False):
     """Logs an Upgrade entry: [Date, Customer Name, Total Amount, Staff, Message ID]."""
     try:
-        val_float = float(value)
-        if val_float <= 0:
-            return
+        val_float = float(value) if value is not None else 0.0
     except (ValueError, TypeError):
-        return
+        val_float = 0.0
 
     ws = _ensure_sheet(sheet_name, UPGRADE_HEADERS)
     if not ws:
