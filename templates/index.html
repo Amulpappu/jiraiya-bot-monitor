@@ -499,10 +499,14 @@
                 <div class="form-group"><label>Quantity in Stock (Current)</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
                 <div class="form-group"><label>Unit Price / Rate (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
             </div>
-            <div class="grid-2" style="gap:12px;">
-                <div class="form-group"><label>Bought This Month</label><input type="number" id="inv-bought" placeholder="0" min="0" value="0"></div>
-                <div class="form-group"><label>Restock Date</label><input type="text" id="inv-restock-date" placeholder="e.g. 2026-08-01"></div>
+            <div id="inv-error" class="error-txt"></div>
+            <div style="display: flex; gap: 10px; margin-top: 24px;">
+                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('inv-modal')">Cancel</button>
+                <button class="btn btn-green" style="flex:1;" id="inv-submit-btn" onclick="submitInventory()">➕ Create Item</button>
             </div>
+        </div>
+    </div>
+
     <!-- ROLE ACCESS CONTROL MODAL -->
     <div id="permissions-modal" class="modal">
         <div class="modal-content" style="max-width:600px;">
