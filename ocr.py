@@ -252,6 +252,32 @@ def extract_recipient_name(text: str) -> str:
     return None
 
 
+def ocr_space_fallback(image_url: str) -> str:
+    """Fallback OCR using OCR.space free public API if local Tesseract is unavailable or returns empty text."""
+    try:
+        api_url = "https://api.ocr.space/parse/image"
+        payload = {
+            "url": image_url,
+            "apikey": "helloworld",
+            "language": "eng",
+            "isOverlayRequired": False,
+            "scale": True,
+            "OCREngine": 2,
+        }
+        res = requests.post(api_url, data=payload, timeout=12)
+        if res.status_code == 200:
+            data = res.json()
+            results = data.get("ParsedResults", [])
+            if results:
+                txt = results[0].get("ParsedText", "")
+                if txt and len(txt.strip()) > 3:
+                    logger.info(f"[OCR.SPACE SUCCESS] URL={image_url[-50:]} Extracted {len(txt)} chars")
+                    return txt.strip()
+    except Exception as e:
+        logger.warning(f"OCR.space fallback failed: {e}")
+    return ""
+
+
 async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
     """Downloads image, computes hash, executes multi-pass OCR text extraction, and parses amount & customer name."""
     if fields is None:
@@ -272,45 +298,49 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
     raw_text = ""
     parsed = {"amount": None, "customer": None}
 
-    if pytesseract is None:
-        logger.warning("Pytesseract not installed/available. Skipping OCR text extraction.")
-        return img_hash, parsed, ""
-
-    try:
-        img = Image.open(io.BytesIO(img_bytes))
-        texts = []
-
-        # Pass 1: Original Image with default PSM
+    # 1. Local Tesseract OCR Attempts
+    if pytesseract is not None:
         try:
-            t1 = pytesseract.image_to_string(img)
-            if t1 and len(t1.strip()) > 5:
-                texts.append(t1.strip())
-        except Exception as e1:
-            logger.debug(f"OCR Pass 1 failed: {e1}")
+            img = Image.open(io.BytesIO(img_bytes))
+            texts = []
 
-        # Pass 2: Preprocessed Image (inverted/contrast enhanced)
-        try:
-            proc_img = preprocess_image(img)
-            t2 = pytesseract.image_to_string(proc_img)
-            if t2 and len(t2.strip()) > 5:
-                texts.append(t2.strip())
-        except Exception as e2:
-            logger.debug(f"OCR Pass 2 failed: {e2}")
+            # Pass 1: Original Image
+            try:
+                t1 = pytesseract.image_to_string(img)
+                if t1 and len(t1.strip()) > 5:
+                    texts.append(t1.strip())
+            except Exception as e1:
+                logger.debug(f"OCR Pass 1 failed: {e1}")
 
-        # Pass 3: Preprocessed Image with PSM 6
-        try:
-            proc_img = preprocess_image(img)
-            t3 = pytesseract.image_to_string(proc_img, config=r'--oem 3 --psm 6')
-            if t3 and len(t3.strip()) > 5:
-                texts.append(t3.strip())
-        except Exception as e3:
-            logger.debug(f"OCR Pass 3 failed: {e3}")
+            # Pass 2: Preprocessed Image
+            try:
+                proc_img = preprocess_image(img)
+                t2 = pytesseract.image_to_string(proc_img)
+                if t2 and len(t2.strip()) > 5:
+                    texts.append(t2.strip())
+            except Exception as e2:
+                logger.debug(f"OCR Pass 2 failed: {e2}")
 
-        raw_text = "\n".join(texts)
-        logger.info(f"[OCR RAW] URL={image_url[-60:]}\n{raw_text[:300]}\n---")
-    except Exception as e:
-        logger.error(f"Tesseract OCR failed for image: {e}")
-        return img_hash, parsed, ""
+            # Pass 3: Preprocessed Image with PSM 6
+            try:
+                proc_img = preprocess_image(img)
+                t3 = pytesseract.image_to_string(proc_img, config=r'--oem 3 --psm 6')
+                if t3 and len(t3.strip()) > 5:
+                    texts.append(t3.strip())
+            except Exception as e3:
+                logger.debug(f"OCR Pass 3 failed: {e3}")
+
+            raw_text = "\n".join(texts)
+        except Exception as e:
+            logger.error(f"Tesseract OCR failed: {e}")
+
+    # 2. If Tesseract returned empty text or is unavailable, use Cloud OCR API fallback
+    if not raw_text or len(raw_text.strip()) < 5:
+        logger.info(f"[OCR] Tesseract returned empty text for {image_url[-50:]}. Trying OCR.space cloud fallback...")
+        raw_text = ocr_space_fallback(image_url)
+
+    if raw_text:
+        logger.info(f"[OCR RAW TOTAL] URL={image_url[-60:]}\n{raw_text[:300]}\n---")
 
     parsed["amount"] = extract_numeric_amount(raw_text)
     parsed["customer"] = extract_recipient_name(raw_text)
