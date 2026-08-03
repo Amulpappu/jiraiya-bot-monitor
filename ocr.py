@@ -33,8 +33,14 @@ def compute_image_hash(image_bytes: bytes) -> str:
 
 
 def preprocess_image(img: Image.Image) -> Image.Image:
-    """Enhances image for Tesseract OCR — inverts dark UI backgrounds, boosts contrast."""
+    """Enhances image for Tesseract OCR — inverts dark UI backgrounds, boosts contrast, upscales small images."""
     try:
+        # Upscale small images for better OCR accuracy
+        w, h = img.size
+        if w < 800 or h < 600:
+            scale = max(800 / w, 600 / h, 2.0)
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
         gray = img.convert("L")
         # Check if image is dark-on-light or light-on-dark
         import statistics
@@ -44,6 +50,11 @@ def preprocess_image(img: Image.Image) -> Image.Image:
             # Dark background (like FiveM tablet) — invert so text is dark on white
             from PIL import ImageOps
             gray = ImageOps.invert(gray)
+
+        # Sharpen before contrast boost
+        from PIL import ImageFilter
+        gray = gray.filter(ImageFilter.SHARPEN)
+
         enhancer = ImageEnhance.Contrast(gray)
         enhanced = enhancer.enhance(3.0)
         return enhanced
@@ -58,38 +69,48 @@ def extract_numeric_amount(text: str) -> float:
         return None
 
     lines = text.splitlines()
+
+    # 1. Lines containing total/amount keywords
     for line in lines:
         if any(k in line.lower() for k in ("total", "amount", "subtotal", "price", "pay", "cost", "amt", "grand total")):
             m = re.search(r"[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)", line)
             if m:
                 try:
                     val = float(m.group(1).replace(",", ""))
-                    if 100 <= val <= 1000000:
+                    if 50 <= val <= 1000000:
                         return val
                 except ValueError:
                     pass
 
-    # FiveM Tablet Invoice pattern: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
+    # 2. FiveM Tablet Invoice row pattern (relaxed — status can be garbled OCR text)
+    #    Matches lines like: "(Gea) 8/2/2026 Suna Pana $480 i @®"
+    #    or: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
+    #    or: "=) 8/1/2026 Mr Sivakumar $541,500 Hii"
     for line in lines:
-        m_tab = re.search(r"^(?:Unpaid|Paid)\s+\S+\s+.+?\s+[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)$", line.strip(), re.IGNORECASE)
+        m_tab = re.search(
+            r"\d{1,2}/\d{1,2}/\d{2,4}\s+.+?\s+[\$₹§€£sS]\s*([\d,]+(?:\.\d+)?)",
+            line.strip(), re.IGNORECASE
+        )
         if m_tab:
             try:
                 val = float(m_tab.group(1).replace(",", ""))
-                if 100 <= val <= 1000000:
+                if 50 <= val <= 1000000:
                     return val
             except ValueError:
                 pass
 
+    # 3. Any dollar/rupee sign followed by a number
     m_curr = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d+)?)", text)
     if m_curr:
         try:
             val = float(m_curr.group(1).replace(",", ""))
-            if 100 <= val <= 1000000:
+            if 50 <= val <= 1000000:
                 return val
         except ValueError:
             pass
 
-    matches = re.findall(r"\b([\d,]{4,7})\b", text)
+    # 4. Standalone large number (4-7 digit groups)
+    matches = re.findall(r"\b([\d,]{3,9})\b", text)
     for m in matches:
         try:
             val = float(m.replace(",", ""))
@@ -108,22 +129,28 @@ def _is_valid_name(name: str) -> bool:
     clean = name.strip()
     if len(clean) < 2 or len(clean) > 40:
         return False
-    if any(k in clean.lower() for k in ("total", "amount", "price", "invoice", "date", "service", "upgrade", "kit", "status", "unpaid", "paid", "refresh", "create")):
+    if any(k in clean.lower() for k in ("total", "amount", "price", "invoice", "date", "service", "upgrade", "kit", "status", "unpaid", "paid", "refresh", "create", "page", "show", "next", "previous", "home", "duty", "connect", "vehicle", "logout")):
+        return False
+    # Must contain at least one letter
+    if not re.search(r"[A-Za-z]", clean):
         return False
     return True
 
 
 def extract_recipient_name(text: str) -> str:
-    """Extracts Recipient / Customer name directly from invoice image text (e.g. 'Tara Maaran', 'Suna Pana', 'SenthamizhanA', 'Mr Sivakumar')."""
+    """Extracts Recipient / Customer name directly from invoice image text (e.g. 'Tara Maaran', 'Suna Pana', 'SenthamizhanA', 'Mr Sivakumar', 'Butty Paul')."""
     if not text:
         return None
 
     lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-    # 1. FiveM Tablet Row pattern: "[Status] <Date> <Name> $<Amount>"
+    # 1. FiveM Tablet Row pattern (relaxed — status can be garbled OCR text)
+    #    Matches: "(Gea) 8/2/2026 Suna Pana $480 i @®"
+    #    or: "=) 8/1/2026 Mr Sivakumar $541,500 Hii"
+    #    or: "(Unpaid) 8/3/2026 Butty Paul $1,500"
     for line in lines:
         m_row = re.search(
-            r"(?:\([^\)]+\)|\S+)?\s*[\d]{1,2}/[\d]{1,2}/[\d]{2,4}\s+([A-Za-z0-9_\. ]+?)\s+[\$₹§€£sS]\s*[\d,]+",
+            r"\d{1,2}/\d{1,2}/\d{2,4}\s+([A-Za-z][A-Za-z0-9_\. ]{1,35}?)\s+[\$₹§€£sS]\s*[\d,]+",
             line,
             re.IGNORECASE
         )
@@ -133,7 +160,7 @@ def extract_recipient_name(text: str) -> str:
             if _is_valid_name(candidate):
                 return candidate
 
-    # 2. Line with Name + Amount: "<Name> $<Amount>" (handles OCR line-breaks between Date and Name)
+    # 2. Line with Name + Amount: "<Name> $<Amount>"
     for line in lines:
         m_name_amt = re.search(
             r"^([A-Za-z][A-Za-z0-9_\. ]{1,35})\s+[\$₹§€£sS]\s*[\d,]+",
@@ -148,7 +175,7 @@ def extract_recipient_name(text: str) -> str:
 
     # 3. Match date line followed immediately by name line
     for i, line in enumerate(lines):
-        if re.search(r"[\d]{1,2}/[\d]{1,2}/[\d]{2,4}", line):
+        if re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", line):
             if i + 1 < len(lines):
                 next_line = lines[i + 1]
                 m_next = re.search(r"^([A-Za-z][A-Za-z0-9_\. ]{1,35})", next_line)
@@ -175,6 +202,18 @@ def extract_recipient_name(text: str) -> str:
         if _is_valid_name(candidate):
             return candidate
 
+    # 6. Look for any capitalized name-like words between header columns and dollar amounts
+    #    This catches cases where OCR splits the row across lines
+    for line in lines:
+        # Skip header lines and navigation lines
+        if any(h in line.lower() for h in ("status", "recipient", "invoices", "refresh", "create", "previous", "home", "logout")):
+            continue
+        m_cap = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})", line)
+        if m_cap:
+            candidate = m_cap.group(1).strip()
+            if _is_valid_name(candidate) and len(candidate) >= 3:
+                return candidate
+
     return None
 
 
@@ -184,7 +223,7 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
         fields = ["amount", "customer"]
 
     try:
-        resp = requests.get(image_url, timeout=10)
+        resp = requests.get(image_url, timeout=15)
         resp.raise_for_status()
         img_bytes = resp.content
     except Exception as e:
@@ -202,12 +241,22 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
     try:
         img = Image.open(io.BytesIO(img_bytes))
         proc_img = preprocess_image(img)
-        raw_text = pytesseract.image_to_string(proc_img)
+        # Use PSM 6 (uniform block of text) for better table row recognition
+        custom_config = r'--oem 3 --psm 6'
+        raw_text = pytesseract.image_to_string(proc_img, config=custom_config)
         # Log raw OCR output for debugging customer name issues
         logger.info(f"[OCR RAW] URL={image_url[-60:]}\n{raw_text.strip()}\n---")
     except Exception as e:
         logger.error(f"Tesseract OCR failed for image: {e}")
-        return img_hash, parsed, ""
+        # Try again with default config as fallback
+        try:
+            img = Image.open(io.BytesIO(img_bytes))
+            proc_img = preprocess_image(img)
+            raw_text = pytesseract.image_to_string(proc_img)
+            logger.info(f"[OCR RAW FALLBACK] URL={image_url[-60:]}\n{raw_text.strip()}\n---")
+        except Exception as e2:
+            logger.error(f"Tesseract OCR fallback also failed: {e2}")
+            return img_hash, parsed, ""
 
     parsed["amount"] = extract_numeric_amount(raw_text)
     parsed["customer"] = extract_recipient_name(raw_text)

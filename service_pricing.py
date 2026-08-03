@@ -26,18 +26,12 @@ def parse_service_category(text: str) -> str:
 
 def is_upgrade_message(text: str, amount: float = None) -> bool:
     """Detects whether a message represents a Vehicle Upgrade (vs standard Car Service).
-    Upgrade amounts do not exceed ₹40,000."""
+    Uses keyword detection only — upgrade amounts vary per transaction."""
     if not text:
         text = ""
     t = text.lower()
     if any(k in t for k in ("upgrade", "stage", "turbo", "engine", "brakes", "armor", "tuning", "custom")):
         return True
-    if amount is not None and amount >= 15000.0:
-        # Amount 15,000+ that doesn't cleanly match 7,000 or 10,000 service multiples
-        if amount % 7000 != 0 and amount % 10000 != 0:
-            return True
-        if amount >= 35000.0:
-            return True
     return False
 
 
