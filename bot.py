@@ -133,8 +133,8 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
     emp_name = resolve_employee_name(message.author)
 
     if is_upgrade:
-        # Route to Car Upgrade sheet (capped at max ₹40,000)
-        upgrade_amount = min(40000.0, amount) if (amount and amount > 0) else 40000.0
+        # Route to Car Upgrade sheet using exact parsed amount
+        upgrade_amount = float(amount) if (amount and amount > 0) else 0.0
         try:
             await asyncio.to_thread(
                 sheets.append_entry,
