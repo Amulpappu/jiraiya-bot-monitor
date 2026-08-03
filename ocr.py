@@ -224,7 +224,7 @@ def extract_recipient_name(text: str) -> str:
 
 
 async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
-    """Downloads image, computes hash, executes OCR text extraction, and parses amount & customer name."""
+    """Downloads image, computes hash, executes multi-pass OCR text extraction, and parses amount & customer name."""
     if fields is None:
         fields = ["amount", "customer"]
 
@@ -246,23 +246,39 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
 
     try:
         img = Image.open(io.BytesIO(img_bytes))
-        proc_img = preprocess_image(img)
-        # Use PSM 6 (uniform block of text) for better table row recognition
-        custom_config = r'--oem 3 --psm 6'
-        raw_text = pytesseract.image_to_string(proc_img, config=custom_config)
-        # Log raw OCR output for debugging customer name issues
-        logger.info(f"[OCR RAW] URL={image_url[-60:]}\n{raw_text.strip()}\n---")
+        texts = []
+
+        # Pass 1: Original Image with default PSM
+        try:
+            t1 = pytesseract.image_to_string(img)
+            if t1 and len(t1.strip()) > 5:
+                texts.append(t1.strip())
+        except Exception as e1:
+            logger.debug(f"OCR Pass 1 failed: {e1}")
+
+        # Pass 2: Preprocessed Image (inverted/contrast enhanced)
+        try:
+            proc_img = preprocess_image(img)
+            t2 = pytesseract.image_to_string(proc_img)
+            if t2 and len(t2.strip()) > 5:
+                texts.append(t2.strip())
+        except Exception as e2:
+            logger.debug(f"OCR Pass 2 failed: {e2}")
+
+        # Pass 3: Preprocessed Image with PSM 6
+        try:
+            proc_img = preprocess_image(img)
+            t3 = pytesseract.image_to_string(proc_img, config=r'--oem 3 --psm 6')
+            if t3 and len(t3.strip()) > 5:
+                texts.append(t3.strip())
+        except Exception as e3:
+            logger.debug(f"OCR Pass 3 failed: {e3}")
+
+        raw_text = "\n".join(texts)
+        logger.info(f"[OCR RAW] URL={image_url[-60:]}\n{raw_text[:300]}\n---")
     except Exception as e:
         logger.error(f"Tesseract OCR failed for image: {e}")
-        # Try again with default config as fallback
-        try:
-            img = Image.open(io.BytesIO(img_bytes))
-            proc_img = preprocess_image(img)
-            raw_text = pytesseract.image_to_string(proc_img)
-            logger.info(f"[OCR RAW FALLBACK] URL={image_url[-60:]}\n{raw_text.strip()}\n---")
-        except Exception as e2:
-            logger.error(f"Tesseract OCR fallback also failed: {e2}")
-            return img_hash, parsed, ""
+        return img_hash, parsed, ""
 
     parsed["amount"] = extract_numeric_amount(raw_text)
     parsed["customer"] = extract_recipient_name(raw_text)
