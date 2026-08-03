@@ -188,8 +188,6 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    await add_reaction_if_enabled(message, "✅")
-
 
 async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """Processes messages in Kit channels (e.g. 🧰┆aug-ᴋɪᴛꜱ)."""
@@ -306,8 +304,6 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    await add_reaction_if_enabled(message, "✅")
-
 
 async def process_vip_claim_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """Processes messages in VIP Claim channels (e.g. 💸┆vip-claim-logs)."""
@@ -353,8 +349,6 @@ async def process_vip_claim_message(message: discord.Message, cfg: dict, is_back
     except Exception as e:
         logger.error(f"Failed to write VIP Claim entry for message {message.id}: {e}")
         return
-
-    await add_reaction_if_enabled(message, "✅")
 
 
 async def process_expense_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
@@ -410,8 +404,6 @@ async def process_expense_message(message: discord.Message, cfg: dict, is_backfi
     except Exception as e:
         logger.error(f"Failed to write Expense entry for message {message.id}: {e}")
         return
-
-    await add_reaction_if_enabled(message, "✅")
 
 
 def is_ignored_category(channel) -> bool:
@@ -506,7 +498,39 @@ async def on_ready():
 
     await asyncio.to_thread(sheets.setup_all_sheets)
     logger.info("Ready! Triggering initial channel scan...")
+    asyncio.create_task(check_control_flags())
     asyncio.create_task(backfill_channel_history(limit=500))
+
+
+async def check_control_flags():
+    """Monitors control flag files created by monitor_app (e.g. via /api/wipe or /api/rescan)."""
+    global processed_hashes
+    while True:
+        try:
+            await asyncio.sleep(2)
+            if os.path.exists("wipe_trigger.flag"):
+                try:
+                    os.remove("wipe_trigger.flag")
+                except Exception:
+                    pass
+                logger.info("[Control Flag] Wipe & Rescan triggered...")
+                processed_hashes.clear()
+                save_processed_hashes(set())
+                await asyncio.to_thread(sheets.wipe_all_data_sheets)
+                asyncio.create_task(backfill_channel_history(limit=1000))
+
+            elif os.path.exists("rescan_trigger.flag"):
+                try:
+                    os.remove("rescan_trigger.flag")
+                except Exception:
+                    pass
+                logger.info("[Control Flag] Rescan triggered...")
+                processed_hashes.clear()
+                save_processed_hashes(set())
+                await asyncio.to_thread(sheets.clear_rows_cache, hard=True)
+                asyncio.create_task(backfill_channel_history(limit=1000))
+        except Exception as e:
+            logger.error(f"Error checking control flags: {e}")
 
 
 async def _deferred_dashboard_update():
@@ -538,12 +562,19 @@ async def _handle_live_message(message: discord.Message):
 @bot.command(name="rescan")
 async def cmd_rescan(ctx):
     """Triggers channel history rescan silently."""
+    global processed_hashes
+    processed_hashes.clear()
+    save_processed_hashes(set())
+    await asyncio.to_thread(sheets.clear_rows_cache, hard=True)
     asyncio.create_task(backfill_channel_history(limit=1000))
 
 
 @bot.command(name="wipe")
 async def cmd_wipe(ctx):
     """Wipes worksheets and rescans silently."""
+    global processed_hashes
+    processed_hashes.clear()
+    save_processed_hashes(set())
     await asyncio.to_thread(sheets.wipe_all_data_sheets)
     asyncio.create_task(backfill_channel_history(limit=1000))
 

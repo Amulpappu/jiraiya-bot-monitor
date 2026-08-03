@@ -128,7 +128,7 @@ def _ensure_sheet(sheet_name: str, headers: list = None):
 
 
 def clear_rows_cache(ws_name=None, hard=False):
-    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _WORKSHEET_CACHE
+    global _ROWS_CACHE, _LAST_KNOWN_ROWS, _WORKSHEET_CACHE, _LOGGED_IDS_CACHE
     with _CACHE_LOCK:
         if ws_name:
             _ROWS_CACHE.pop(ws_name, None)
@@ -137,6 +137,7 @@ def clear_rows_cache(ws_name=None, hard=False):
         else:
             _ROWS_CACHE.clear()
             _WORKSHEET_CACHE.clear()
+            _LOGGED_IDS_CACHE = None
             if hard:
                 _LAST_KNOWN_ROWS.clear()
 

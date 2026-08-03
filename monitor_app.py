@@ -318,18 +318,17 @@ def update_inventory_item():
 
 @app.route("/api/wipe", methods=["POST"])
 def api_wipe():
-    """Wipes all data sheets and clears processed hashes. Password protected."""
+    """Wipes all data sheets and triggers bot rescan. Password protected."""
     data = request.get_json() or {}
     password = data.get("password", "").strip()
     if password != ADMIN_PASSWORD:
         return jsonify({"success": False, "error": "Invalid password!"}), 401
     try:
-        sheets.wipe_all_data_sheets()
-        # Clear processed image hashes so re-scan picks up all images
-        import json as _json
-        with open("processed_images.json", "w") as f:
-            _json.dump([], f)
-        return jsonify({"success": True, "message": "All data wiped. Bot will rescan on next !rescan or restart."})
+        # Touch wipe_trigger.flag to signal bot to wipe memory & rescan
+        with open("wipe_trigger.flag", "w") as f:
+            import time as _t
+            f.write(str(_t.time()))
+        return jsonify({"success": True, "message": "All data wiped! Bot will now rescan all Discord channels."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
