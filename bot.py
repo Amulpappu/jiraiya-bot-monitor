@@ -221,21 +221,49 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     amt_parsed = parsed.get("amount") or parse_text_amount(full_text)
 
     qty = kit_pricing.parse_kit_quantities(full_text)
+
+    # If OCR/text explicitly mentions "cleaning kit" or "ck", use ck price for breakdown
+    full_lower = full_text.lower()
+    is_ck_explicit = any(k in full_lower for k in ("cleaning kit", "cleaning", " ck ", "ck:"))
+
     if qty is None and amt_parsed and amt_parsed > 0:
-        pred_rk, pred_ck = kit_pricing.predict_kit_quantities_from_amount(float(amt_parsed))
-        qty = {"rk": pred_rk, "ck": pred_ck}
+        if is_ck_explicit:
+            ck_price = config.KIT_PRICES.get("ck", 1000.0)
+            pred_ck = max(1, int(round(float(amt_parsed) / ck_price)))
+            qty = {"rk": 0, "ck": pred_ck}
+        else:
+            pred_rk, pred_ck = kit_pricing.predict_kit_quantities_from_amount(float(amt_parsed))
+            qty = {"rk": pred_rk, "ck": pred_ck}
     elif qty is None:
         qty = {"rk": 1, "ck": 0}
 
     total, discount_pct, total_kits, rk_sub, ck_sub = kit_pricing.calculate_kit_total(qty["rk"], qty["ck"])
+
+    # Override with exact parsed amount but keep existing qty breakdown
     if amt_parsed and amt_parsed > 0:
         total = float(amt_parsed)
-        # Recalculate RK/CK quantities to match exact total amount
-        if total > 0:
-            pred_rk, pred_ck = kit_pricing.predict_kit_quantities_from_amount(total)
-            qty = {"rk": pred_rk, "ck": pred_ck}
+        # Only re-derive qty from amount if we don't already have a valid explicit qty
+        if qty["rk"] == 0 and qty["ck"] == 0:
+            if is_ck_explicit:
+                ck_price = config.KIT_PRICES.get("ck", 1000.0)
+                qty["ck"] = max(1, int(round(total / ck_price)))
+            else:
+                qty["rk"] = max(1, int(round(total / config.KIT_PRICES.get("rk", 1000.0))))
 
     emp_name = resolve_employee_name(message.author)
+
+    # Recalculate subtotals AFTER quantity/amount override so ck_sub is correct
+    rk_price = config.KIT_PRICES.get("rk", 1000.0)
+    ck_price = config.KIT_PRICES.get("ck", 1000.0)
+    rk_sub = qty["rk"] * rk_price
+    ck_sub = qty["ck"] * ck_price
+    # Use exact parsed amount as the recorded total (not the calculated total)
+    final_total = float(amt_parsed) if (amt_parsed and amt_parsed > 0) else total
+
+    # Build human-readable description
+    rk_desc = f"{qty['rk']}x Repair Kit" if qty['rk'] > 0 else ""
+    ck_desc = f"{qty['ck']}x Cleaning Kit" if qty['ck'] > 0 else ""
+    combined_desc = " + ".join(filter(None, [rk_desc, ck_desc])) or "Kit Sale"
 
     try:
         await asyncio.to_thread(
@@ -243,7 +271,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             rk_qty=qty["rk"],
             ck_qty=qty["ck"],
             discount_pct=discount_pct,
-            total=total,
+            total=final_total,
             employee=emp_name,
             message_id=str(message.id),
             created_at=message.created_at,
@@ -251,9 +279,30 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             skip_dashboard_update=is_backfill,
         )
         if rk_sub > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, rk_sub, emp_name, "Repair Kit", f"{qty['rk']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(
+                sheets.append_transaction_entry,
+                rk_sub, emp_name, "Repair Kit",
+                f"{qty['rk']}x Repair Kit",
+                created_at=message.created_at,
+                skip_tracker_update=is_backfill,
+            )
         if ck_sub > 0:
-            await asyncio.to_thread(sheets.append_transaction_entry, ck_sub, emp_name, "Cleaning Kit", f"{qty['ck']}x", created_at=message.created_at, skip_tracker_update=is_backfill)
+            await asyncio.to_thread(
+                sheets.append_transaction_entry,
+                ck_sub, emp_name, "Cleaning Kit",
+                f"{qty['ck']}x Cleaning Kit",
+                created_at=message.created_at,
+                skip_tracker_update=is_backfill,
+            )
+        # If both are 0 (shouldn't happen) write a single combined entry
+        if rk_sub == 0 and ck_sub == 0 and final_total > 0:
+            await asyncio.to_thread(
+                sheets.append_transaction_entry,
+                final_total, emp_name, "Kit Sale",
+                combined_desc,
+                created_at=message.created_at,
+                skip_tracker_update=is_backfill,
+            )
     except Exception as e:
         logger.error(f"Failed to write Kit entry for message {message.id}: {e}")
         return
