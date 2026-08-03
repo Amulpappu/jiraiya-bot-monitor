@@ -452,6 +452,8 @@
     // ===== LOGIN STATE =====
     function setLoggedIn(name) {
         loggedInUser = name;
+        // Persist across page refreshes
+        sessionStorage.setItem('jiraiya_user', name);
         // Sidebar: hide login pill, show user pill
         document.getElementById('sidebar-login').style.display = 'none';
         document.getElementById('sidebar-user').style.display = 'flex';
@@ -463,6 +465,8 @@
         document.getElementById('topbar-user-name').textContent = name;
         pill.style.display = 'inline-flex';
         pill.style.alignItems = 'center';
+        // Always hide maintenance screen for logged-in users
+        document.getElementById('maint-screen').style.display = 'none';
     }
 
     // ===== DASHBOARD =====
@@ -743,8 +747,16 @@
             if (d.success) {
                 closeModal('auth-modal');
                 setLoggedIn(name);
-                if (currentAction === 'maintenance') { alert(d.status_text); location.reload(); }
-                else { alert(`Welcome ${name}!`); document.getElementById('maint-screen').style.display = 'none'; fetchAuditLogs(); }
+                if (currentAction === 'maintenance') {
+                    // Keep session so maintenance overlay is bypassed after reload
+                    sessionStorage.setItem('jiraiya_user', name);
+                    alert(d.status_text);
+                    location.reload();
+                } else {
+                    // Normal login: just bypass maintenance screen silently
+                    document.getElementById('maint-screen').style.display = 'none';
+                    fetchAuditLogs();
+                }
             } else { err.textContent = d.error || 'Failed!'; err.style.display = 'block'; }
         } catch(e) { err.textContent = 'Server error!'; err.style.display = 'block'; }
     }
@@ -753,6 +765,12 @@
     function refreshAll() { fetchDashboard(); }
 
     // ===== INIT =====
+    // Restore session from previous login (persists across refreshes, clears on browser close)
+    const _savedUser = sessionStorage.getItem('jiraiya_user');
+    if (_savedUser) {
+        // Silently restore — no API call, just restore UI + bypass maintenance screen
+        setLoggedIn(_savedUser);
+    }
     fetchDashboard();
     setInterval(fetchDashboard, 15000);
 </script>
