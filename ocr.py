@@ -3,19 +3,35 @@ import re
 import io
 import hashlib
 import logging
+import subprocess
 import requests
 from PIL import Image, ImageEnhance
 
 try:
     import pytesseract
+    # Set tesseract path — Windows paths first, then Linux
+    _tess_found = False
     for tess_path in [
         r"C:\Program Files\Tesseract-OCR\tesseract.exe",
         r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
         r"C:\Users\lohit\AppData\Local\Programs\Tesseract-OCR\tesseract.exe",
+        "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/nix/var/nix/profiles/default/bin/tesseract",
     ]:
         if os.path.exists(tess_path):
             pytesseract.pytesseract.tesseract_cmd = tess_path
+            _tess_found = True
             break
+    if not _tess_found:
+        # Try finding via PATH
+        try:
+            result = subprocess.run(["which", "tesseract"], capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                pytesseract.pytesseract.tesseract_cmd = result.stdout.strip()
+                _tess_found = True
+        except Exception:
+            pass
 except ImportError:
     pytesseract = None
 
@@ -25,6 +41,21 @@ if not logger.handlers:
     handler = logging.FileHandler("ocr_errors.log", encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
     logger.addHandler(handler)
+
+
+def _verify_tesseract():
+    """Logs tesseract version on startup so we know if it's working."""
+    if pytesseract is None:
+        logger.error("[OCR] pytesseract NOT imported — install pytesseract")
+        return
+    try:
+        ver = pytesseract.get_tesseract_version()
+        logger.info(f"[OCR] Tesseract OK — version {ver} at {pytesseract.pytesseract.tesseract_cmd}")
+    except Exception as e:
+        logger.error(f"[OCR] Tesseract NOT working: {e} — cmd={pytesseract.pytesseract.tesseract_cmd!r}")
+
+_verify_tesseract()
+
 
 
 def compute_image_hash(image_bytes: bytes) -> str:
