@@ -113,13 +113,11 @@ def extract_numeric_amount(text: str) -> float:
                 except ValueError:
                     pass
 
-    # 2. FiveM Tablet Invoice row pattern (relaxed — status can be garbled OCR text)
-    #    Matches lines like: "(Gea) 8/2/2026 Suna Pana $480 i @®"
-    #    or: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
-    #    or: "=) 8/1/2026 Mr Sivakumar $541,500 Hii"
+    # 2. FiveM Tablet Invoice row pattern (relaxed — currency symbol optional)
+    #    Matches: "8/2/2026 Suna Pana $480", "8/3/2026 Butty Paul 1500", "Unpaid 8/1/2026 541500"
     for line in lines:
         m_tab = re.search(
-            r"\d{1,2}/\d{1,2}/\d{2,4}\s+.+?\s+[\$₹§€£sS]\s*([\d,]+(?:\.\d+)?)",
+            r"\d{1,2}/\d{1,2}/\d{2,4}\s+.+?\s+[\$₹§€£sS]?\s*([\d,]{3,7}(?:\.\d+)?)",
             line.strip(), re.IGNORECASE
         )
         if m_tab:
@@ -131,7 +129,7 @@ def extract_numeric_amount(text: str) -> float:
                 pass
 
     # 3. Any dollar/rupee sign followed by a number
-    m_curr = re.search(r"[\$₹§€£]\s*([\d,]+(?:\.\d+)?)", text)
+    m_curr = re.search(r"[\$₹§€£sS]\s*([\d,]+(?:\.\d+)?)", text)
     if m_curr:
         try:
             val = float(m_curr.group(1).replace(",", ""))
@@ -140,12 +138,12 @@ def extract_numeric_amount(text: str) -> float:
         except ValueError:
             pass
 
-    # 4. Standalone large number (4-7 digit groups)
-    matches = re.findall(r"\b([\d,]{3,9})\b", text)
+    # 4. Standalone numbers between 50 and 1,000,000 anywhere in text
+    matches = re.findall(r"\b([\d,]{3,7})\b", text)
     for m in matches:
         try:
             val = float(m.replace(",", ""))
-            if 100 <= val <= 1000000:
+            if 50 <= val <= 1000000:
                 return val
         except ValueError:
             continue
