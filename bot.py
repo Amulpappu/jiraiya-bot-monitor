@@ -145,8 +145,13 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
 
     full_text = (message.content or "") + " " + raw_text
 
+    # Check channel name AND thread parent name for upgrade designation
     ch_name_lower = getattr(message.channel, "name", "").lower()
-    if "upgrade" in ch_name_lower:
+    parent = getattr(message.channel, "parent", None)
+    parent_name_lower = getattr(parent, "name", "").lower() if parent else ""
+    thread_cat = getattr(getattr(message.channel, "category", None), "name", "").lower()
+
+    if "upgrade" in ch_name_lower or "upgrade" in parent_name_lower:
         is_upgrade = True
     elif service_pricing.is_upgrade_message(full_text, amount):
         is_upgrade = True
@@ -157,6 +162,8 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
 
     if is_upgrade:
         # Route to Car Upgrade sheet using exact parsed amount
+        if amount is None or amount <= 0:
+            logger.warning(f"[Upgrade] Amount not parsed for message {message.id} from {emp_name}. raw_text snippet: {raw_text[:120]!r}")
         upgrade_amount = float(amount) if (amount and amount > 0) else 0.0
         try:
             await asyncio.to_thread(
