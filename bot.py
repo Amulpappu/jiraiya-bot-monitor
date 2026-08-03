@@ -66,16 +66,16 @@ def parse_text_amount(text: str) -> float:
     if not text:
         return None
     patterns = [
-        r"(?:total|amount|price|subtotal|pay|cost|amt)\s*[:\-]?\s*[\$₹§€£]?\s*([\d,]+(?:\.\d+)?)",
-        r"[\$₹§€£]\s*([\d,]+(?:\.\d+)?)",
-        r"\b([\d,]{4,10})\b",
+        r"(?:total|amount|price|subtotal|pay|cost|amt)\s*[:\-]?\s*[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)",
+        r"[\$₹§€£sS]\s*([\d,]+(?:\.\d+)?)",
+        r"\b([\d,]{3,7})\b",
     ]
     for pat in patterns:
         matches = re.findall(pat, text, re.IGNORECASE)
         for m in matches:
             try:
                 val = float(m.replace(",", ""))
-                if 100 <= val <= 1000000:
+                if 50 <= val <= 1000000:
                     return val
             except ValueError:
                 continue
