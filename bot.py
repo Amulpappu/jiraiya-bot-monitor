@@ -87,10 +87,6 @@ def resolve_employee_name(user) -> str:
     return config.resolve_employee_from_author(user)
 
 
-async def add_reaction_if_enabled(message: discord.Message, emoji: str):
-    """Silent mode — no reactions or messages are sent to Discord channels."""
-    return
-
 
 async def process_service_or_upgrade_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """Processes messages in Services/Upgrades combined channels (e.g. 🌀┆aug-ʟᴏɢꜱ)."""
@@ -109,7 +105,6 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
 
     if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
         if str(message.id) in sheets.get_all_logged_message_ids():
-            await add_reaction_if_enabled(message, "🔁")
             return
 
     amount = parsed.get("amount")
