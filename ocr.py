@@ -185,15 +185,23 @@ def extract_recipient_name(text: str) -> str:
                     if _is_valid_name(candidate):
                         return candidate
 
-    # 4. Recipient / Customer label pattern
-    m_rec = re.search(
-        r"(?:Recipient|Customer|Client|Name|Billed To|Billed|To)\s*[:\-]?\s*([^\n\$₹§€£\d]{2,35})",
-        text, re.IGNORECASE
-    )
-    if m_rec:
-        candidate = m_rec.group(1).strip()
-        if _is_valid_name(candidate):
-            return candidate
+    # 4. Recipient / Customer label pattern (same line or next line)
+    for i, line in enumerate(lines):
+        m_lbl = re.search(r"(?:Recipient|Customer|Client|Billed To|Billed|To)\s*[:\-]?\s*([^\n\$₹§€£\d]{2,35})", line, re.IGNORECASE)
+        if m_lbl:
+            candidate = m_lbl.group(1).strip()
+            candidate = re.sub(r"^[^\w]+|[^\w\.]+$", "", candidate).strip()
+            if _is_valid_name(candidate):
+                return candidate
+        if any(lbl in line.lower() for lbl in ("recipient", "customer", "client", "billed to")):
+            if i + 1 < len(lines):
+                next_line = lines[i + 1]
+                m_next = re.search(r"([A-Za-z][A-Za-z0-9_\. ]{1,35})", next_line)
+                if m_next:
+                    candidate = m_next.group(1).strip()
+                    candidate = re.sub(r"^[^\w]+|[^\w\.]+$", "", candidate).strip()
+                    if _is_valid_name(candidate):
+                        return candidate
 
     # 5. Title prefix pattern (Mr/Ms/Mrs/Dr)
     m_title = re.search(r"\b(Mr|Ms|Mrs|Dr)\.?\s+([A-Z][a-z0-9_]+(?:\s+[A-Z][a-z0-9_]+)?)", text)
@@ -202,13 +210,11 @@ def extract_recipient_name(text: str) -> str:
         if _is_valid_name(candidate):
             return candidate
 
-    # 6. Look for any capitalized name-like words between header columns and dollar amounts
-    #    This catches cases where OCR splits the row across lines
+    # 6. Look for any capitalized name-like words (excluding UI navigation keywords)
     for line in lines:
-        # Skip header lines and navigation lines
-        if any(h in line.lower() for h in ("status", "recipient", "invoices", "refresh", "create", "previous", "home", "logout")):
+        if any(h in line.lower() for h in ("invoices", "refresh", "create", "previous", "home", "duty", "connect", "vehicle", "logout", "page", "show", "next")):
             continue
-        m_cap = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})", line)
+        m_cap = re.search(r"\b([A-Z][a-z]{1,15}(?:\s+[A-Z][a-z]{1,15}){1,3})\b", line)
         if m_cap:
             candidate = m_cap.group(1).strip()
             if _is_valid_name(candidate) and len(candidate) >= 3:
