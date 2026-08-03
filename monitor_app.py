@@ -19,8 +19,8 @@ app.secret_key = os.getenv("SECRET_KEY", "jiraiya-secret-key-2026")
 application = app
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin2026")
-MANAGER_PASSWORD = os.getenv("MANAGER_PASSWORD", "manager2026")
-EMPLOYEE_PASSWORD = os.getenv("EMPLOYEE_PASSWORD", "employee2026")
+MANAGER_PASSWORD = os.getenv("MANAGER_PASSWORD", "manager8686")
+EMPLOYEE_PASSWORD = os.getenv("EMPLOYEE_PASSWORD", "employee7878")
 IS_MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The website is currently undergoing scheduled maintenance. Please check back shortly!"
 
