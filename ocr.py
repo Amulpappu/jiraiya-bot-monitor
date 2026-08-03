@@ -33,11 +33,19 @@ def compute_image_hash(image_bytes: bytes) -> str:
 
 
 def preprocess_image(img: Image.Image) -> Image.Image:
-    """Enhances image contrast and converts to grayscale for optimal Tesseract OCR accuracy."""
+    """Enhances image for Tesseract OCR — inverts dark UI backgrounds, boosts contrast."""
     try:
         gray = img.convert("L")
+        # Check if image is dark-on-light or light-on-dark
+        import statistics
+        pixels = list(gray.getdata())
+        avg = statistics.mean(pixels)
+        if avg < 128:
+            # Dark background (like FiveM tablet) — invert so text is dark on white
+            from PIL import ImageOps
+            gray = ImageOps.invert(gray)
         enhancer = ImageEnhance.Contrast(gray)
-        enhanced = enhancer.enhance(2.0)
+        enhanced = enhancer.enhance(3.0)
         return enhanced
     except Exception as e:
         logger.warning(f"Image preprocessing fallback: {e}")
@@ -106,28 +114,61 @@ def _is_valid_name(name: str) -> bool:
 
 
 def extract_recipient_name(text: str) -> str:
-    """Extracts Recipient / Customer name directly from invoice image text (e.g. 'Mr Sivakumar')."""
+    """Extracts Recipient / Customer name directly from invoice image text (e.g. 'Tara Maaran', 'Suna Pana', 'SenthamizhanA', 'Mr Sivakumar')."""
     if not text:
         return None
 
-    # FiveM Tablet Invoice pattern: "Unpaid 8/1/2026 Mr Sivakumar $541,500"
-    lines = text.splitlines()
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+    # 1. FiveM Tablet Row pattern: "[Status] <Date> <Name> $<Amount>"
     for line in lines:
-        line_clean = line.strip()
-        m_tab = re.search(r"^(?:Unpaid|Paid)\s+\S+\s+(.+?)\s+[\$₹§€£sS]?\s*[\d,]+(?:\.\d+)?$", line_clean, re.IGNORECASE)
-        if m_tab:
-            candidate = m_tab.group(1).strip()
+        m_row = re.search(
+            r"(?:\([^\)]+\)|\S+)?\s*[\d]{1,2}/[\d]{1,2}/[\d]{2,4}\s+([A-Za-z0-9_\. ]+?)\s+[\$₹§€£sS]\s*[\d,]+",
+            line,
+            re.IGNORECASE
+        )
+        if m_row:
+            candidate = m_row.group(1).strip()
+            candidate = re.sub(r"^[^\w]+|[^\w\.]+$", "", candidate).strip()
             if _is_valid_name(candidate):
                 return candidate
 
-    # Recipient / Billed To pattern
-    m_rec = re.search(r"(?:Recipient|Customer|Client|Name|Billed To|Billed|To)\s*[:\-]?\s*([^\n\$₹§€£\d]{2,35})", text, re.IGNORECASE)
+    # 2. Line with Name + Amount: "<Name> $<Amount>" (handles OCR line-breaks between Date and Name)
+    for line in lines:
+        m_name_amt = re.search(
+            r"^([A-Za-z][A-Za-z0-9_\. ]{1,35})\s+[\$₹§€£sS]\s*[\d,]+",
+            line,
+            re.IGNORECASE
+        )
+        if m_name_amt:
+            candidate = m_name_amt.group(1).strip()
+            candidate = re.sub(r"^[^\w]+|[^\w\.]+$", "", candidate).strip()
+            if _is_valid_name(candidate):
+                return candidate
+
+    # 3. Match date line followed immediately by name line
+    for i, line in enumerate(lines):
+        if re.search(r"[\d]{1,2}/[\d]{1,2}/[\d]{2,4}", line):
+            if i + 1 < len(lines):
+                next_line = lines[i + 1]
+                m_next = re.search(r"^([A-Za-z][A-Za-z0-9_\. ]{1,35})", next_line)
+                if m_next:
+                    candidate = m_next.group(1).strip()
+                    candidate = re.sub(r"^[^\w]+|[^\w\.]+$", "", candidate).strip()
+                    if _is_valid_name(candidate):
+                        return candidate
+
+    # 4. Recipient / Customer label pattern
+    m_rec = re.search(
+        r"(?:Recipient|Customer|Client|Name|Billed To|Billed|To)\s*[:\-]?\s*([^\n\$₹§€£\d]{2,35})",
+        text, re.IGNORECASE
+    )
     if m_rec:
         candidate = m_rec.group(1).strip()
         if _is_valid_name(candidate):
             return candidate
 
-    # Title prefix pattern (Mr/Ms/Mrs/Dr)
+    # 5. Title prefix pattern (Mr/Ms/Mrs/Dr)
     m_title = re.search(r"\b(Mr|Ms|Mrs|Dr)\.?\s+([A-Z][a-z0-9_]+(?:\s+[A-Z][a-z0-9_]+)?)", text)
     if m_title:
         candidate = f"{m_title.group(1)} {m_title.group(2)}".strip()
@@ -162,6 +203,8 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
         img = Image.open(io.BytesIO(img_bytes))
         proc_img = preprocess_image(img)
         raw_text = pytesseract.image_to_string(proc_img)
+        # Log raw OCR output for debugging customer name issues
+        logger.info(f"[OCR RAW] URL={image_url[-60:]}\n{raw_text.strip()}\n---")
     except Exception as e:
         logger.error(f"Tesseract OCR failed for image: {e}")
         return img_hash, parsed, ""

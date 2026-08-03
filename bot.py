@@ -457,6 +457,9 @@ async def route_invoice_message(message: discord.Message, is_backfill: bool = Fa
         await process_expense_message(message, cfg, is_backfill=is_backfill)
 
 
+_BACKFILL_LOCK = asyncio.Lock()
+
+
 async def scan_channel_messages(ch, limit, august_start):
     try:
         async for message in ch.history(limit=limit, oldest_first=True):
@@ -469,8 +472,10 @@ async def scan_channel_messages(ch, limit, august_start):
 
 async def backfill_channel_history(limit=1000):
     """Scans historical messages for August 2026 month across configured channels & thread channels."""
-    logger.info("[Backfill Scan] Scanning history across configured channels & threads...")
-    august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    async with _BACKFILL_LOCK:
+        logger.info("[Backfill Scan] Scanning history across configured channels & threads...")
+        august_start = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        await asyncio.to_thread(sheets.clear_rows_cache, hard=True)
 
     for guild in bot.guilds:
         # Collect all channels and threads to scan
