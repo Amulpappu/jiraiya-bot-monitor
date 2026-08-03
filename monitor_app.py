@@ -19,6 +19,8 @@ app.secret_key = os.getenv("SECRET_KEY", "jiraiya-secret-key-2026")
 application = app
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin2026")
+MANAGER_PASSWORD = os.getenv("MANAGER_PASSWORD", "manager2026")
+EMPLOYEE_PASSWORD = os.getenv("EMPLOYEE_PASSWORD", "employee2026")
 IS_MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The website is currently undergoing scheduled maintenance. Please check back shortly!"
 
@@ -44,26 +46,69 @@ def user_login():
     data = request.get_json() or {}
     user_name = data.get("name", "").strip()
     password = data.get("password", "").strip()
+    role = data.get("role", "Admin").strip().title()
 
     if not user_name:
         return jsonify({"success": False, "error": "Please enter your Name!"}), 400
+    if not password:
+        return jsonify({"success": False, "error": "Please enter Password!"}), 400
 
-    if password != ADMIN_PASSWORD:
-        sheets.append_user_audit_log(user_name, "LOGIN_FAILED", "Invalid Password Attempt", role="Visitor")
-        return jsonify({"success": False, "error": "Invalid Password! Access Denied."}), 401
+    target_pass = ADMIN_PASSWORD
+    if role == "Manager":
+        target_pass = MANAGER_PASSWORD
+    elif role == "Employee":
+        target_pass = EMPLOYEE_PASSWORD
+
+    if password != target_pass and password != ADMIN_PASSWORD:
+        sheets.append_user_audit_log(user_name, "LOGIN_FAILED", f"Invalid Password Attempt for {role}", role=role)
+        return jsonify({"success": False, "error": f"Invalid Password for {role} role! Access Denied."}), 401
+
+    is_admin = (role == "Admin" or password == ADMIN_PASSWORD)
+    is_manager = (role in ("Admin", "Manager") or password in (ADMIN_PASSWORD, MANAGER_PASSWORD))
+    is_employee = True
 
     session["user_name"] = user_name
-    session["is_admin"] = True
+    session["user_role"] = role
+    session["is_admin"] = is_admin
+    session["is_manager"] = is_manager
+    session["is_employee"] = is_employee
 
-    # Log successful login to User_Audit_Logs sheet
-    sheets.append_user_audit_log(user_name, "USER_LOGIN", "Web/App Auth Success", role="Admin")
+    sheets.append_user_audit_log(user_name, "USER_LOGIN", f"Web Auth Success ({role})", role=role)
 
     return jsonify({
         "success": True,
-        "message": f"Welcome {user_name}!",
+        "message": f"Welcome {user_name} ({role})!",
         "user_name": user_name,
-        "is_admin": True
+        "user_role": role,
+        "is_admin": is_admin,
+        "is_manager": is_manager,
+        "is_employee": is_employee
     })
+
+
+@app.route("/api/me", methods=["GET"])
+def get_current_user():
+    user_name = session.get("user_name")
+    role = session.get("user_role", "Employee")
+    if not user_name:
+        return jsonify({"logged_in": False, "role": "Visitor"})
+    return jsonify({
+        "logged_in": True,
+        "user_name": user_name,
+        "user_role": role,
+        "is_admin": session.get("is_admin", False),
+        "is_manager": session.get("is_manager", False),
+        "is_employee": True
+    })
+
+
+@app.route("/api/logout", methods=["POST"])
+def user_logout():
+    user_name = session.get("user_name", "User")
+    role = session.get("user_role", "User")
+    session.clear()
+    sheets.append_user_audit_log(user_name, "USER_LOGOUT", f"User logged out ({role})", role=role)
+    return jsonify({"success": True, "message": "Logged out successfully!"})
 
 
 @app.route("/api/maintenance/status", methods=["GET"])

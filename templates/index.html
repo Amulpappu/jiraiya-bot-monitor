@@ -147,7 +147,7 @@
 
         /* MODAL */
         .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(10px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
+        .modal-content { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
         .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
         .modal-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
         .form-group { margin-bottom: 16px; text-align: left; }
@@ -157,6 +157,20 @@
         .error-txt { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
         .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); }
         .empty .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+
+        /* ROLE SELECTION STYLES */
+        .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        .role-card { background: var(--bg-primary); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; user-select: none; }
+        .role-card:hover { border-color: var(--border-hover); background: rgba(99, 102, 241, 0.06); transform: translateY(-1px); }
+        .role-card.active { border-color: var(--accent-light); background: rgba(99, 102, 241, 0.16); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
+        .role-card.active.role-admin { border-color: #818CF8; background: rgba(129, 140, 248, 0.16); }
+        .role-card.active.role-manager { border-color: #38BDF8; background: rgba(56, 189, 248, 0.16); }
+        .role-card.active.role-employee { border-color: #34D399; background: rgba(52, 211, 153, 0.16); }
+        .role-card .role-icon { font-size: 24px; margin-bottom: 6px; }
+        .role-card .role-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .role-card .role-tag { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        .role-info-box { background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 18px; display: flex; align-items: center; gap: 10px; line-height: 1.4; }
+
 
         @media (max-width: 1024px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
@@ -398,17 +412,75 @@
         </div>
     </div>
 
-    <!-- AUTH MODAL -->
+    <!-- MULTI-ROLE AUTH MODAL -->
     <div id="auth-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-title" id="modal-heading">User Authentication</div>
-            <div class="modal-sub" id="modal-subtext">Enter your Name and Password to proceed.</div>
-            <div class="form-group"><label>Your Name</label><input type="text" id="user-name-input" placeholder="e.g. Amul Pappu"></div>
-            <div class="form-group"><label>Password</label><input type="password" id="user-pass-input" placeholder="Enter admin password"></div>
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-title" id="modal-heading">System Portal Authentication</div>
+            <div class="modal-sub" id="modal-subtext">Select your role tab (Admin, Manager, or Employee) and sign in.</div>
+
+            <!-- Role Selector Tabs -->
+            <label>Select Your Access Role</label>
+            <div class="role-grid">
+                <div class="role-card active role-admin" id="role-card-Admin" onclick="selectRole('Admin')">
+                    <div class="role-icon">👑</div>
+                    <div class="role-name">Admin</div>
+                    <div class="role-tag">Full System</div>
+                </div>
+                <div class="role-card role-manager" id="role-card-Manager" onclick="selectRole('Manager')">
+                    <div class="role-icon">💼</div>
+                    <div class="role-name">Manager</div>
+                    <div class="role-tag">Reports & Inv</div>
+                </div>
+                <div class="role-card role-employee" id="role-card-Employee" onclick="selectRole('Employee')">
+                    <div class="role-icon">👤</div>
+                    <div class="role-name">Employee</div>
+                    <div class="role-tag">Staff Portal</div>
+                </div>
+            </div>
+
+            <!-- Role Permissions Scope Box -->
+            <div id="role-scope-box" class="role-info-box">
+                <span id="role-info-icon" style="font-size:18px;">🛡️</span>
+                <span id="role-info-text">Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Wipe Data.</span>
+            </div>
+
+            <div class="form-group">
+                <label>Your Name / Staff Name</label>
+                <input type="text" id="user-name-input" list="staff-list" placeholder="e.g. Amul Pappu" autocomplete="off">
+                <datalist id="staff-list">
+                    <option value="Amul">
+                    <option value="Jiyana Shree">
+                    <option value="Maria">
+                    <option value="Sandy">
+                    <option value="Sylas">
+                    <option value="Benny">
+                    <option value="Lara">
+                    <option value="Abrar">
+                    <option value="Arivu">
+                    <option value="Eli">
+                    <option value="Alexia">
+                    <option value="Mitchell">
+                    <option value="Lissa">
+                    <option value="Nesuko">
+                    <option value="Mikasa">
+                    <option value="TomCat">
+                    <option value="Mathew">
+                    <option value="EVE">
+                    <option value="Meenu Kutty">
+                </datalist>
+            </div>
+
+            <div class="form-group" style="position:relative;">
+                <label>Role Password</label>
+                <input type="password" id="user-pass-input" placeholder="Enter password (e.g. admin2026)">
+                <span onclick="togglePasswordVisibility()" style="position:absolute;right:14px;top:34px;cursor:pointer;opacity:0.75;font-size:16px;" title="Show/Hide Password">👁️</span>
+            </div>
+
             <div id="auth-error" class="error-txt"></div>
+
             <div style="display: flex; gap: 10px; margin-top: 24px;">
                 <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('auth-modal')">Cancel</button>
-                <button class="btn btn-primary" style="flex:1;" onclick="submitAuthAction()">Submit & Log</button>
+                <button class="btn btn-primary" style="flex:1.3;" id="auth-submit-btn" onclick="submitAuthAction()">🔐 Sign In & Authenticate</button>
             </div>
         </div>
     </div>
@@ -733,54 +805,137 @@
         } catch(e) { console.error(e); }
     }
 
-    // ===== AUTH MODAL =====
+    // ===== AUTH & ROLE MANAGEMENT =====
+    let selectedRole = 'Admin';
+    let loggedInUser = null;
+    let loggedInRole = null;
+    let currentAction = 'login';
+    let invMode = 'create';
+    let revenueChart = null;
+
+    function selectRole(role) {
+        selectedRole = role;
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+        const card = document.getElementById('role-card-' + role);
+        if (card) card.classList.add('active');
+
+        const iconEl = document.getElementById('role-info-icon');
+        const textEl = document.getElementById('role-info-text');
+        const passInp = document.getElementById('user-pass-input');
+
+        if (role === 'Admin') {
+            iconEl.textContent = '👑';
+            textEl.textContent = 'Full access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Data Wipe.';
+            passInp.placeholder = 'Enter admin password (e.g. admin2026)';
+        } else if (role === 'Manager') {
+            iconEl.textContent = '💼';
+            textEl.textContent = 'Manager access: Dashboard, Financial Reports, Employee Tracker & Inventory Management.';
+            passInp.placeholder = 'Enter manager password (e.g. manager2026)';
+        } else {
+            iconEl.textContent = '👤';
+            textEl.textContent = 'Employee access: Dashboard, Staff Performance & Inventory View.';
+            passInp.placeholder = 'Enter employee password (e.g. employee2026)';
+        }
+    }
+
+    function togglePasswordVisibility() {
+        const inp = document.getElementById('user-pass-input');
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
     function openAuthModal(action) {
         currentAction = action;
         const h = document.getElementById('modal-heading');
         const s = document.getElementById('modal-subtext');
-        if (action === 'maintenance') { h.textContent = 'Toggle Maintenance Mode'; s.textContent = 'Enter your Name & Password to switch Maintenance ON/OFF.'; }
-        else { h.textContent = 'User Access & Audit Login'; s.textContent = 'Enter your Name & Password. Action logged in User_Audit_Logs.'; }
+        if (action === 'maintenance') {
+            h.textContent = 'Toggle Maintenance Mode';
+            s.textContent = 'Select Admin or Manager role and enter password to toggle Maintenance.';
+            selectRole('Admin');
+        } else {
+            h.textContent = 'System Portal Authentication';
+            s.textContent = 'Select your role tab (Admin, Manager, or Employee) and sign in.';
+            selectRole('Admin');
+        }
         document.getElementById('auth-error').style.display = 'none';
         document.getElementById('auth-modal').style.display = 'flex';
     }
+
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function setLoggedIn(name, role = 'Admin', is_admin = true, is_manager = true) {
+        loggedInUser = name;
+        loggedInRole = role;
+
+        localStorage.setItem('jiraiya_user', name);
+        localStorage.setItem('jiraiya_role', role);
+
+        const roleIcon = role === 'Admin' ? '👑' : role === 'Manager' ? '💼' : '👤';
+
+        // Update Sidebar user pill
+        const userAvatar = document.getElementById('user-avatar');
+        if (userAvatar) userAvatar.textContent = roleIcon;
+        const userDisp = document.getElementById('user-display-name');
+        if (userDisp) userDisp.textContent = name;
+        const userRoleEl = document.querySelector('.sidebar-footer .urole');
+        if (userRoleEl) userRoleEl.textContent = role;
+
+        const sbUser = document.getElementById('sidebar-user');
+        if (sbUser) sbUser.style.display = 'flex';
+        const sbLogin = document.getElementById('sidebar-login');
+        if (sbLogin) sbLogin.style.display = 'none';
+
+        // Update Topbar login pill
+        const tbBtn = document.getElementById('topbar-login-btn');
+        if (tbBtn) tbBtn.style.display = 'none';
+        const tbPill = document.getElementById('topbar-user-pill');
+        if (tbPill) {
+            tbPill.innerHTML = `${roleIcon} <span>${name}</span> <span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,0.12);margin-left:4px;">${role}</span> <button class="btn btn-ghost btn-sm" onclick="logout()" style="padding:2px 8px;font-size:11px;margin-left:6px;">Exit</button>`;
+            tbPill.style.display = 'inline-flex';
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('jiraiya_user');
+        localStorage.removeItem('jiraiya_role');
+        fetch('/api/logout', { method: 'POST' }).catch(() => {});
+        location.reload();
+    }
 
     async function submitAuthAction() {
         const name = document.getElementById('user-name-input').value.trim();
         const pass = document.getElementById('user-pass-input').value.trim();
         const err = document.getElementById('auth-error');
-        if (!name) { err.textContent = 'Enter your Name!'; err.style.display = 'block'; return; }
-        if (!pass) { err.textContent = 'Enter Password!'; err.style.display = 'block'; return; }
+        if (!name) { err.textContent = 'Please enter your Name!'; err.style.display = 'block'; return; }
+        if (!pass) { err.textContent = 'Please enter Password!'; err.style.display = 'block'; return; }
 
+        const body = { name, password: pass, role: selectedRole };
         const endpoint = currentAction === 'maintenance' ? '/api/maintenance/toggle' : '/api/login';
         try {
-            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, password: pass}) });
+            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
             const d = await res.json();
             if (d.success) {
                 closeModal('auth-modal');
-                setLoggedIn(name);
+                const userRole = d.user_role || selectedRole;
+                setLoggedIn(d.user_name || name, userRole, d.is_admin, d.is_manager);
                 if (currentAction === 'maintenance') {
-                    // Keep session so maintenance overlay is bypassed after reload
-                    localStorage.setItem('jiraiya_user', name);
-                    alert(d.status_text);
+                    alert(d.status_text || 'Maintenance toggled!');
                     location.reload();
                 } else {
-                    // Normal login: just bypass maintenance screen silently
                     document.getElementById('maint-screen').style.display = 'none';
                     fetchAuditLogs();
                 }
-            } else { err.textContent = d.error || 'Failed!'; err.style.display = 'block'; }
-        } catch(e) { err.textContent = 'Server error!'; err.style.display = 'block'; }
+            } else { err.textContent = d.error || 'Invalid Password! Access Denied.'; err.style.display = 'block'; }
+        } catch(e) { err.textContent = 'Server connection error!'; err.style.display = 'block'; }
     }
 
     // ===== REFRESH =====
     function refreshAll() { fetchDashboard(); }
 
     // ===== INIT =====
-    // Restore session — uses localStorage so it survives closing/reopening browser
     const _savedUser = localStorage.getItem('jiraiya_user');
+    const _savedRole = localStorage.getItem('jiraiya_role') || 'Admin';
     if (_savedUser) {
-        setLoggedIn(_savedUser);
+        setLoggedIn(_savedUser, _savedRole);
     }
     fetchDashboard();
     setInterval(fetchDashboard, 15000);
