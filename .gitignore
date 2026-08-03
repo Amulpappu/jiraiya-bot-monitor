@@ -5,3 +5,5 @@ venv/
 credentials.json
 ocr_errors.log
 processed_images.json
+auto_push.ps1
+*.flag
