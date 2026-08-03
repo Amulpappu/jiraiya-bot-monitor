@@ -227,18 +227,18 @@
                     <span class="icon">💸</span> <span>Transactions</span>
                 </a>
             </div>
-            <div class="nav-section">
+            <div class="nav-section" id="nav-sec-management">
                 <div class="nav-section-label">Management</div>
                 <a class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
-                    <span class="icon">📦</span> <span>Inventory</span>
+                    <span class="icon">📦</span> <span>Stock & Edit</span>
                 </a>
                 <a class="nav-item" data-page="audit" onclick="switchPage('audit')">
                     <span class="icon">📋</span> <span>Audit Logs</span>
                 </a>
             </div>
-            <div class="nav-section">
+            <div class="nav-section" id="nav-sec-system">
                 <div class="nav-section-label">System</div>
-                <a class="nav-item" onclick="openAuthModal('maintenance')">
+                <a class="nav-item" id="nav-item-maintenance" onclick="openAuthModal('maintenance')">
                     <span class="icon">🛠️</span> <span>Maintenance</span>
                 </a>
             </div>
@@ -825,15 +825,15 @@
 
         if (role === 'Admin') {
             iconEl.textContent = '👑';
-            textEl.textContent = 'Full access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Data Wipe.';
+            textEl.textContent = 'Full access: Dashboard, Employee Performance, Stock & Edit, Transactions, Audit Logs & System Maintenance.';
             passInp.placeholder = 'Enter admin password (e.g. admin2026)';
         } else if (role === 'Manager') {
             iconEl.textContent = '💼';
-            textEl.textContent = 'Manager access: Dashboard, Financial Reports, Employee Tracker & Inventory Management.';
+            textEl.textContent = 'Manager access: Dashboard, Employee Performance, Stock & Edit, and Transactions.';
             passInp.placeholder = 'Enter manager password (e.g. manager2026)';
         } else {
             iconEl.textContent = '👤';
-            textEl.textContent = 'Employee access: Dashboard, Staff Performance & Inventory View.';
+            textEl.textContent = 'Employee access: Employee Performance, Stock & Edit, and Transactions.';
             passInp.placeholder = 'Enter employee password (e.g. employee2026)';
         }
     }
@@ -870,6 +870,52 @@
         localStorage.setItem('jiraiya_role', role);
 
         const roleIcon = role === 'Admin' ? '👑' : role === 'Manager' ? '💼' : '👤';
+
+        // Apply Role-Based Navigation & Page Visibility Rules:
+        // Employee: Employee Performance, Stock & Edit, Transactions
+        // Manager: Dashboard, Employee Performance, Stock & Edit, Transactions
+        // Admin: Full Access (Dashboard, Employee Performance, Stock & Edit, Transactions, Audit Logs, Maintenance)
+        const navDashboard = document.querySelector('.nav-item[data-page="dashboard"]');
+        const navEmployees = document.querySelector('.nav-item[data-page="employees"]');
+        const navTransactions = document.querySelector('.nav-item[data-page="transactions"]');
+        const navInventory = document.querySelector('.nav-item[data-page="inventory"]');
+        const navAudit = document.querySelector('.nav-item[data-page="audit"]');
+        const navMaintenance = document.getElementById('nav-item-maintenance');
+        const secSystem = document.getElementById('nav-sec-system');
+
+        if (role === 'Employee') {
+            if (navDashboard) navDashboard.style.display = 'none';
+            if (navEmployees) navEmployees.style.display = 'flex';
+            if (navTransactions) navTransactions.style.display = 'flex';
+            if (navInventory) navInventory.style.display = 'flex';
+            if (navAudit) navAudit.style.display = 'none';
+            if (navMaintenance) navMaintenance.style.display = 'none';
+            if (secSystem) secSystem.style.display = 'none';
+
+            // Land on Employee Performance page
+            switchPage('employees');
+        } else if (role === 'Manager') {
+            if (navDashboard) navDashboard.style.display = 'flex';
+            if (navEmployees) navEmployees.style.display = 'flex';
+            if (navTransactions) navTransactions.style.display = 'flex';
+            if (navInventory) navInventory.style.display = 'flex';
+            if (navAudit) navAudit.style.display = 'none';
+            if (navMaintenance) navMaintenance.style.display = 'none';
+            if (secSystem) secSystem.style.display = 'none';
+
+            // Land on Dashboard page
+            switchPage('dashboard');
+        } else { // Admin
+            if (navDashboard) navDashboard.style.display = 'flex';
+            if (navEmployees) navEmployees.style.display = 'flex';
+            if (navTransactions) navTransactions.style.display = 'flex';
+            if (navInventory) navInventory.style.display = 'flex';
+            if (navAudit) navAudit.style.display = 'flex';
+            if (navMaintenance) navMaintenance.style.display = 'flex';
+            if (secSystem) secSystem.style.display = 'block';
+
+            switchPage('dashboard');
+        }
 
         // Update Sidebar user pill
         const userAvatar = document.getElementById('user-avatar');
