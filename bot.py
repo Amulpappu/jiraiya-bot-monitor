@@ -112,6 +112,26 @@ def parse_customer_from_text(content: str) -> str:
     return None
 
 
+def parse_amount_from_content(content: str) -> float:
+    """Parses explicit amount typed in Discord message, e.g. '1500', '₹1,500', 'amt 1500'."""
+    if not content:
+        return None
+    patterns = [
+        r"(?:amt|amount|total|cost|price|upgrade|charge)\s*[:\-]?\s*[\$₹§€£sS]?\s*([\d,]+(?:\.\d+)?)",
+        r"[\$₹§€£sS]\s*([\d,]+(?:\.\d+)?)",
+        r"\b([\d,]{3,7})\b",
+    ]
+    for pat in patterns:
+        for m in re.findall(pat, content, re.IGNORECASE):
+            try:
+                val = float(str(m).replace(",", ""))
+                if 50 <= val <= 1000000:
+                    return val
+            except ValueError:
+                continue
+    return None
+
+
 async def process_service_or_upgrade_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """Processes messages in Services/Upgrades combined channels (e.g. 🌀┆aug-ʟᴏɢꜱ)."""
     if is_backfill and str(message.id) in sheets.get_all_logged_message_ids():
@@ -133,10 +153,11 @@ async def process_service_or_upgrade_message(message: discord.Message, cfg: dict
 
     amount = parsed.get("amount")
     if (amount is None or amount <= 0) and message.content:
+        amount = parse_amount_from_content(message.content)
+    if (amount is None or amount <= 0) and message.content:
         amount = parse_text_amount(message.content)
     if (amount is None or amount <= 0) and raw_text:
         amount = parse_text_amount(raw_text)
-    # Last-resort: try ocr module's extract_numeric_amount which has more patterns
     if (amount is None or amount <= 0) and raw_text:
         amount = ocr.extract_numeric_amount(raw_text)
 
