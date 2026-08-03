@@ -166,6 +166,18 @@
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
+    <!-- PRE-RENDER: instantly bypass maintenance overlay if user is already logged in -->
+    <!-- This runs BEFORE the DOM paints so there is zero flash of the maintenance screen -->
+    <script>
+        (function() {
+            if (localStorage.getItem('jiraiya_user')) {
+                // Inject a style rule to hide the overlay before the DOM is painted
+                var s = document.createElement('style');
+                s.textContent = '#maint-screen { display: none !important; }';
+                document.head.appendChild(s);
+            }
+        })();
+    </script>
 </head>
 <body>
 
@@ -452,8 +464,8 @@
     // ===== LOGIN STATE =====
     function setLoggedIn(name) {
         loggedInUser = name;
-        // Persist across page refreshes
-        sessionStorage.setItem('jiraiya_user', name);
+        // Persist permanently (until browser storage is cleared)
+        localStorage.setItem('jiraiya_user', name);
         // Sidebar: hide login pill, show user pill
         document.getElementById('sidebar-login').style.display = 'none';
         document.getElementById('sidebar-user').style.display = 'flex';
@@ -749,7 +761,7 @@
                 setLoggedIn(name);
                 if (currentAction === 'maintenance') {
                     // Keep session so maintenance overlay is bypassed after reload
-                    sessionStorage.setItem('jiraiya_user', name);
+                    localStorage.setItem('jiraiya_user', name);
                     alert(d.status_text);
                     location.reload();
                 } else {
@@ -765,10 +777,9 @@
     function refreshAll() { fetchDashboard(); }
 
     // ===== INIT =====
-    // Restore session from previous login (persists across refreshes, clears on browser close)
-    const _savedUser = sessionStorage.getItem('jiraiya_user');
+    // Restore session — uses localStorage so it survives closing/reopening browser
+    const _savedUser = localStorage.getItem('jiraiya_user');
     if (_savedUser) {
-        // Silently restore — no API call, just restore UI + bypass maintenance screen
         setLoggedIn(_savedUser);
     }
     fetchDashboard();
