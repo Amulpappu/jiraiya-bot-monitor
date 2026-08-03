@@ -514,12 +514,30 @@ async def on_ready():
     asyncio.create_task(backfill_channel_history(limit=500))
 
 
+async def _deferred_dashboard_update():
+    """Waits 3 seconds then updates the dashboard and employee tracker in the background."""
+    await asyncio.sleep(3)
+    try:
+        await asyncio.to_thread(sheets.update_employee_tracker)
+        await asyncio.to_thread(sheets.update_dashboard)
+    except Exception as e:
+        logger.error(f"Deferred dashboard update failed: {e}")
+
+
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
-    await route_invoice_message(message, is_backfill=False)
+    # Fire-and-forget: process immediately in background so Discord gateway never lags
+    asyncio.create_task(_handle_live_message(message))
     await bot.process_commands(message)
+
+
+async def _handle_live_message(message: discord.Message):
+    """Processes a live (real-time) message: writes to sheet immediately, then defers dashboard update."""
+    await route_invoice_message(message, is_backfill=False)
+    # Trigger a lightweight deferred dashboard refresh 3 seconds later
+    asyncio.create_task(_deferred_dashboard_update())
 
 
 @bot.command(name="rescan")

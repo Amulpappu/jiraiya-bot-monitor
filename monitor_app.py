@@ -315,6 +315,38 @@ def update_inventory_item():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+
+@app.route("/api/wipe", methods=["POST"])
+def api_wipe():
+    """Wipes all data sheets and clears processed hashes. Password protected."""
+    data = request.get_json() or {}
+    password = data.get("password", "").strip()
+    if password != ADMIN_PASSWORD:
+        return jsonify({"success": False, "error": "Invalid password!"}), 401
+    try:
+        sheets.wipe_all_data_sheets()
+        # Clear processed image hashes so re-scan picks up all images
+        import json as _json
+        with open("processed_images.json", "w") as f:
+            _json.dump([], f)
+        return jsonify({"success": True, "message": "All data wiped. Bot will rescan on next !rescan or restart."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/rescan", methods=["POST"])
+def api_rescan():
+    """Triggers a full channel rescan from the web (no password needed — read-only)."""
+    # Signal the bot to rescan by touching a flag file
+    try:
+        with open("rescan_trigger.flag", "w") as f:
+            import time as _t
+            f.write(str(_t.time()))
+        return jsonify({"success": True, "message": "Rescan triggered."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
 
