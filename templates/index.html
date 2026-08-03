@@ -539,12 +539,6 @@
     </div>
 
 <script>
-    // ===== STATE =====
-    let loggedInUser = null;
-    let currentAction = 'login';
-    let invMode = 'create';
-    let revenueChart = null;
-
     // ===== PAGE NAV =====
     function switchPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -562,26 +556,6 @@
     // ===== FORMAT =====
     function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
     function fmtNum(v) { let n = parseFloat(String(v).replace(/[₹$,]/g, '')); return isNaN(n) ? 0 : n; }
-
-    // ===== LOGIN STATE =====
-    function setLoggedIn(name) {
-        loggedInUser = name;
-        // Persist permanently (until browser storage is cleared)
-        localStorage.setItem('jiraiya_user', name);
-        // Sidebar: hide login pill, show user pill
-        document.getElementById('sidebar-login').style.display = 'none';
-        document.getElementById('sidebar-user').style.display = 'flex';
-        document.getElementById('user-display-name').textContent = name;
-        document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-        // Topbar: hide login button, show user pill
-        document.getElementById('topbar-login-btn').style.display = 'none';
-        const pill = document.getElementById('topbar-user-pill');
-        document.getElementById('topbar-user-name').textContent = name;
-        pill.style.display = 'inline-flex';
-        pill.style.alignItems = 'center';
-        // Always hide maintenance screen for logged-in users
-        document.getElementById('maint-screen').style.display = 'none';
-    }
 
     // ===== DASHBOARD =====
     async function fetchDashboard() {
@@ -835,7 +809,7 @@
         } catch(e) { console.error(e); }
     }
 
-    // ===== AUTH & ROLE MANAGEMENT =====
+    // ===== AUTH & ROLE MANAGEMENT (single declaration block) =====
     let selectedRole = 'Admin';
     let loggedInUser = null;
     let loggedInRole = null;
@@ -843,6 +817,111 @@
     let invMode = 'create';
     let revenueChart = null;
     let currentPermissions = null;
+
+    // ===== MODAL HELPERS =====
+    function openAuthModal(action) {
+        currentAction = action;
+        document.getElementById('auth-error').style.display = 'none';
+        document.getElementById('user-name-input').value = '';
+        document.getElementById('user-pass-input').value = '';
+        document.getElementById('auth-modal').style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    function selectRole(role) {
+        selectedRole = role;
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+        const card = document.getElementById('role-card-' + role);
+        if (card) card.classList.add('active');
+
+        const infoIcon = document.getElementById('role-info-icon');
+        const infoText = document.getElementById('role-info-text');
+        const passInp = document.getElementById('user-pass-input');
+
+        if (role === 'Admin') {
+            if (infoIcon) infoIcon.textContent = '🛡️';
+            if (infoText) infoText.textContent = 'Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Wipe Data.';
+            if (passInp) passInp.placeholder = 'Enter admin password';
+        } else if (role === 'Manager') {
+            if (infoIcon) infoIcon.textContent = '💼';
+            if (infoText) infoText.textContent = 'Manager access: Dashboard, Employee Performance, Stock & Edit, and Transactions.';
+            if (passInp) passInp.placeholder = 'Enter manager password';
+        } else {
+            if (infoIcon) infoIcon.textContent = '👤';
+            if (infoText) infoText.textContent = 'Employee access: Employee Performance, Stock & Edit, and Transactions.';
+            if (passInp) passInp.placeholder = 'Enter employee password';
+        }
+    }
+
+    async function submitAuthAction() {
+        const name = document.getElementById('user-name-input').value.trim();
+        const pass = document.getElementById('user-pass-input').value.trim();
+        const err = document.getElementById('auth-error');
+
+        if (!name) { err.textContent = 'Please enter your Name!'; err.style.display = 'block'; return; }
+        if (!pass) { err.textContent = 'Please enter Password!'; err.style.display = 'block'; return; }
+        err.style.display = 'none';
+
+        if (currentAction === 'maintenance') {
+            // Maintenance toggle requires admin password
+            try {
+                const res = await fetch('/api/maintenance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass, user_name: name })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeModal('auth-modal');
+                    alert(data.message || 'Maintenance mode toggled!');
+                    window.location.reload();
+                } else {
+                    err.textContent = data.error || 'Failed!';
+                    err.style.display = 'block';
+                }
+            } catch(e) {
+                err.textContent = 'Server error!';
+                err.style.display = 'block';
+            }
+            return;
+        }
+
+        // Login flow
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, password: pass, role: selectedRole })
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('auth-modal');
+                setLoggedIn(data.user_name || name, data.user_role || selectedRole);
+            } else {
+                err.textContent = data.error || 'Invalid credentials!';
+                err.style.display = 'block';
+            }
+        } catch(e) {
+            err.textContent = 'Server connection error!';
+            err.style.display = 'block';
+        }
+    }
+
+    function togglePasswordVisibility() {
+        const p = document.getElementById('user-pass-input');
+        p.type = p.type === 'password' ? 'text' : 'password';
+    }
+
+    function refreshAll() {
+        fetchDashboard();
+        const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+        if (activePage === 'employees') fetchEmployeeTracker();
+        if (activePage === 'inventory') fetchInventory();
+        if (activePage === 'audit') fetchAuditLogs();
+    }
 
     async function fetchPermissions() {
         try {
