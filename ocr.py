@@ -252,29 +252,45 @@ def extract_recipient_name(text: str) -> str:
     return None
 
 
-def ocr_space_fallback(image_url: str) -> str:
-    """Fallback OCR using OCR.space free public API if local Tesseract is unavailable or returns empty text."""
-    try:
-        api_url = "https://api.ocr.space/parse/image"
-        payload = {
-            "url": image_url,
-            "apikey": "helloworld",
-            "language": "eng",
-            "isOverlayRequired": False,
-            "scale": True,
-            "OCREngine": 2,
-        }
-        res = requests.post(api_url, data=payload, timeout=12)
-        if res.status_code == 200:
-            data = res.json()
-            results = data.get("ParsedResults", [])
-            if results:
-                txt = results[0].get("ParsedText", "")
-                if txt and len(txt.strip()) > 3:
-                    logger.info(f"[OCR.SPACE SUCCESS] URL={image_url[-50:]} Extracted {len(txt)} chars")
-                    return txt.strip()
-    except Exception as e:
-        logger.warning(f"OCR.space fallback failed: {e}")
+def ocr_space_fallback(image_url: str, img_bytes: bytes = None) -> str:
+    """Fallback OCR using OCR.space free public API with base64 payload if local Tesseract returns empty text."""
+    import base64
+    api_url = "https://api.ocr.space/parse/image"
+
+    b64_data = None
+    if img_bytes:
+        try:
+            b64_data = "data:image/png;base64," + base64.b64encode(img_bytes).decode("utf-8")
+        except Exception:
+            b64_data = None
+
+    keys = ["K87893976488957", "K88998188888957", "helloworld"]
+    for key in keys:
+        try:
+            payload = {
+                "apikey": key,
+                "language": "eng",
+                "isOverlayRequired": False,
+                "scale": True,
+                "OCREngine": 2,
+            }
+            if b64_data:
+                payload["base64Image"] = b64_data
+            else:
+                payload["url"] = image_url
+
+            res = requests.post(api_url, data=payload, timeout=12)
+            if res.status_code == 200:
+                data = res.json()
+                results = data.get("ParsedResults", [])
+                if results:
+                    txt = results[0].get("ParsedText", "")
+                    if txt and len(txt.strip()) > 3:
+                        logger.info(f"[OCR.SPACE SUCCESS] Key={key[:4]} Extracted {len(txt)} chars")
+                        return txt.strip()
+        except Exception as e:
+            logger.warning(f"OCR.space fallback attempt failed with key {key[:4]}: {e}")
+
     return ""
 
 
@@ -334,10 +350,10 @@ async def process_invoice_image(image_url: str, fields: list = None) -> tuple:
         except Exception as e:
             logger.error(f"Tesseract OCR failed: {e}")
 
-    # 2. If Tesseract returned empty text or is unavailable, use Cloud OCR API fallback
+    # 2. If Tesseract returned empty text or is unavailable, use Cloud OCR API fallback with base64 payload
     if not raw_text or len(raw_text.strip()) < 5:
-        logger.info(f"[OCR] Tesseract returned empty text for {image_url[-50:]}. Trying OCR.space cloud fallback...")
-        raw_text = ocr_space_fallback(image_url)
+        logger.info(f"[OCR] Tesseract returned empty text for {image_url[-50:]}. Trying base64 Cloud OCR fallback...")
+        raw_text = ocr_space_fallback(image_url, img_bytes=img_bytes)
 
     if raw_text:
         logger.info(f"[OCR RAW TOTAL] URL={image_url[-60:]}\n{raw_text[:300]}\n---")
