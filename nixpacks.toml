@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "tesseract"]
+nixPkgs = ["python3", "tesseract", "tesseract-data-eng"]
 
 [start]
 cmd = "python start_all.py"
