@@ -12,7 +12,46 @@ SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 # between "/d/" and "/edit"), e.g.:
 # https://docs.google.com/spreadsheets/d/THIS_PART_IS_THE_ID/edit
 # Leave as None to have the bot open-by-name (or create one) instead.
-EXISTING_SPREADSHEET_ID = os.getenv("Code69-Employee Tracker", None)
+EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69-Employee Tracker", "1Tz2YxzNO0ibySgftxNGltulxx0o7NLx3HCLbk-RpNRM"))
+
+
+def get_channel_config(channel_name: str):
+    """Dynamically resolves channel configuration based on exact or fuzzy channel name matching.
+    Supports current month channels (e.g. august-kits, august-service, august-upgrades) and custom names."""
+    if not channel_name:
+        return None, None
+
+    # Exact match check
+    if channel_name in CHANNEL_CONFIG:
+        return CHANNEL_CONFIG[channel_name], channel_name
+
+    c_low = str(channel_name).lower().strip()
+    if c_low in CHANNEL_CONFIG:
+        return CHANNEL_CONFIG[c_low], c_low
+
+    # Normalized name check
+    clean = c_low.replace("┆", " ").replace("-", " ").replace("_", " ").strip()
+
+    if any(k in clean for k in ("kit", "kits", "rk", "ck", "repair", "cleaning")):
+        return _KIT_CONFIG, "Kits"
+
+    if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
+        return _SERVICE_CONFIG, "Service"
+
+    if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods")):
+        return _UPGRADE_CONFIG, "Upgrades"
+
+    return None, None
+
+
+def resolve_employee_from_author(author) -> str:
+    """Extracts clean display name or nickname from Discord Author."""
+    if not author:
+        return "Unknown"
+    name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
+    import re
+    name_clean = re.sub(r"[^\w\s\.-]", "", name).strip()
+    return name_clean or name
 
 # ── Tesseract OCR ────────────────────────────────────────
 # On Windows, uncomment and point this at your tesseract.exe install path.

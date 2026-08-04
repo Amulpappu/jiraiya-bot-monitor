@@ -263,7 +263,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
         if is_backfill:
             existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-            if existing_reactions & {"✅", "🔁"}:
+            if "✅" in existing_reactions or "🔁" in existing_reactions:
                 continue
 
         try:
@@ -323,11 +323,15 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
 
 async def backfill_channel_history(channel, channel_name: str, limit: int = 1000):
-    """Scans past messages in a configured channel for invoice images the bot never got to react to."""
+    """Scans past messages in a configured channel for invoice images or text logs the bot never logged."""
     scanned = 0
     async for message in channel.history(limit=limit, oldest_first=True):
-        if message.author.bot or not message.attachments:
+        if message.author.bot:
             continue
+        existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
+        if "✅" in existing_reactions or "🔁" in existing_reactions:
+            continue
+
         await process_invoice_message(message, channel_name, is_backfill=True)
         scanned += 1
     return scanned
@@ -363,6 +367,42 @@ async def collect_target_channels(guild: discord.Guild):
     return targets
 
 
+@bot.command(name="scan", aliases=["rescan", "sync", "backfill"])
+async def scan_channel_command(ctx: commands.Context, limit: int = 500):
+    """Command to force rescan recent messages in the current channel."""
+    channel_name = getattr(ctx.channel, "name", "unknown")
+    await ctx.send(f"🔍 Starting scan of up to {limit} recent messages in #{channel_name}...")
+
+    try:
+        count = await backfill_channel_history(ctx.channel, channel_name, limit=limit)
+        sheets.update_dashboard()
+        await ctx.send(f"✅ Scan complete for #{channel_name}! Processed {count} un-logged message(s). Google Sheets updated.")
+    except Exception as e:
+        await ctx.send(f"❌ Error during scan: {e}")
+
+
+@bot.command(name="scanall", aliases=["rescanall", "syncall"])
+async def scan_all_channels_command(ctx: commands.Context, limit: int = 500):
+    """Command to force rescan past messages across ALL server channels."""
+    await ctx.send(f"🔍 Starting full server rescan (up to {limit} messages per channel)...")
+    total_scanned = 0
+    for guild in bot.guilds:
+        targets = await collect_target_channels(guild)
+        for channel in targets:
+            try:
+                cnt = await backfill_channel_history(channel, channel.name, limit=limit)
+                total_scanned += cnt
+            except Exception as e:
+                ocr.logger.error(f"Scanall error on #{channel.name}: {e}")
+
+    try:
+        sheets.update_dashboard()
+    except Exception:
+        pass
+
+    await ctx.send(f"✅ Full server rescan complete! Processed {total_scanned} total un-logged message(s) across all channels.")
+
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
@@ -379,7 +419,7 @@ async def on_ready():
             channel_name = channel.name
             try:
                 count = await backfill_channel_history(channel, channel_name)
-                print(f"  #{channel.name}: scanned {count} message(s) with attachments.")
+                print(f"  #{channel.name}: scanned {count} message(s).")
             except discord.Forbidden:
                 print(f"  #{channel.name}: missing permission to read history, skipped.")
             except Exception as e:
