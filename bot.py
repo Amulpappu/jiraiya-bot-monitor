@@ -19,19 +19,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 async def safe_add_reaction(message: discord.Message, emoji: str):
-    """Safely adds a reaction without crashing if permissions are missing."""
-    try:
-        await message.add_reaction(emoji)
-    except Exception as e:
-        ocr.logger.warning(f"Could not add reaction '{emoji}' to msg {message.id}: {e}")
+    """Silent no-op: disabled per requirement (no reactions added to Discord log messages)."""
+    return
 
 
 async def safe_reply(message: discord.Message, content: str):
-    """Safely sends a message reply without crashing if permissions are missing."""
-    try:
-        await message.reply(content)
-    except Exception as e:
-        ocr.logger.warning(f"Could not send reply to msg {message.id}: {e}")
+    """Silent no-op: disabled per requirement (no bot reply messages sent for logs)."""
+    return
 
 
 def is_image_attachment(attachment: discord.Attachment) -> bool:
