@@ -129,13 +129,12 @@ def setup_all_sheets():
     update_dashboard()
 
 
-def append_transaction_entry(amount, description: str, category: str):
+def append_transaction_entry(amount, description: str, category: str, employee: str = ""):
     """Logs one row to the consolidated Transactions ledger — Date, Amount,
-    Description (e.g. '10x', '2x', or blank), and Category (must be one of
-    config.TRANSACTION_CATEGORIES to match the in-game dropdown)."""
+    Description (e.g. '10x', '2x', or blank), Category, and Employee Name."""
     ws = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
-    date_str = now_ist().strftime("%d/%m/%Y")
-    _with_retry(lambda: ws.append_row([date_str, amount, description or "", category]))
+    date_str = now_ist().strftime(TIMESTAMP_FORMAT)
+    _with_retry(lambda: ws.append_row([date_str, amount, description or "", category, employee or ""]))
 
 
 def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None):

@@ -350,28 +350,48 @@ def get_dashboard_data():
 @app.route("/api/transactions")
 def get_all_transactions():
     try:
-        service_rows = sheets._all_rows("Service")
-        upgrade_rows = sheets._all_rows("Upgrades")
-        kit_rows = sheets._all_rows("Kits")
-        expense_rows = sheets._all_rows("Expenses")
         tx_rows = sheets._all_rows("Transactions")
+        expense_rows = sheets._all_rows("Expenses")
 
         all_tx = []
-        for r in service_rows:
-            if len(r) > 4:
-                all_tx.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
-        for r in upgrade_rows:
-            if len(r) > 3:
-                all_tx.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
-        for r in kit_rows:
-            if len(r) > 4:
-                all_tx.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
-        for r in expense_rows:
-            if len(r) > 2:
-                all_tx.append({"date": r[0], "type": "Expense", "customer": "Business Claim", "amount": f"-{r[1]}", "staff": r[2]})
-        for r in tx_rows:
-            if len(r) > 4:
-                all_tx.append({"date": r[0], "type": r[3] or "Transaction", "customer": r[2] or "N/A", "amount": r[1], "staff": r[4]})
+        if tx_rows:
+            for r in tx_rows:
+                if len(r) >= 4:
+                    staff_name = r[4] if len(r) > 4 else ""
+                    desc = r[2] if len(r) > 2 and r[2] else "N/A"
+                    all_tx.append({
+                        "date": r[0],
+                        "type": r[3] or "Transaction",
+                        "customer": desc,
+                        "amount": r[1],
+                        "staff": staff_name
+                    })
+            for r in expense_rows:
+                if len(r) > 2:
+                    all_tx.append({
+                        "date": r[0],
+                        "type": "Expense",
+                        "customer": "Business Claim",
+                        "amount": f"-{r[1]}",
+                        "staff": r[2]
+                    })
+        else:
+            # Fallback if Transactions sheet has not been populated
+            service_rows = sheets._all_rows("Service")
+            upgrade_rows = sheets._all_rows("Upgrades")
+            kit_rows = sheets._all_rows("Kits")
+            for r in service_rows:
+                if len(r) > 4:
+                    all_tx.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
+            for r in upgrade_rows:
+                if len(r) > 3:
+                    all_tx.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
+            for r in kit_rows:
+                if len(r) > 4:
+                    all_tx.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
+            for r in expense_rows:
+                if len(r) > 2:
+                    all_tx.append({"date": r[0], "type": "Expense", "customer": "Business Claim", "amount": f"-{r[1]}", "staff": r[2]})
 
         all_tx.sort(key=lambda x: str(x.get("date", "")), reverse=True)
         return jsonify({"success": True, "transactions": all_tx})
