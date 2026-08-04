@@ -3,7 +3,7 @@ import os
 import asyncio
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from aiohttp import web
 
 import config
@@ -478,6 +478,28 @@ async def scan_all_channels_command(ctx: commands.Context, limit: int = 500):
     await ctx.send(f"✅ Full server rescan complete! Processed {total_scanned} total un-logged message(s) across all channels.")
 
 
+@tasks.loop(seconds=30)
+async def real_time_auto_scan_loop():
+    """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time."""
+    try:
+        total_synced = 0
+        for guild in bot.guilds:
+            targets = await collect_target_channels(guild)
+            for channel in targets:
+                try:
+                    cnt = await backfill_channel_history(channel, channel.name, limit=50)
+                    total_synced += cnt
+                except Exception:
+                    pass
+        if total_synced > 0:
+            with sheets._CACHE_LOCK:
+                sheets._ROWS_CACHE.clear()
+            sheets.update_dashboard()
+            print(f"[Real-Time Auto-Scan] Synced {total_synced} new log message(s) directly to Google Sheets.")
+    except Exception as e:
+        ocr.logger.error(f"Real-time auto-scan loop error: {e}")
+
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
@@ -505,7 +527,15 @@ async def on_ready():
                 print(f"  #{channel.name}: missing permission to read history, skipped.")
             except Exception as e:
                 print(f"  #{channel.name}: error during backfill scan: {e}")
+
+    with sheets._CACHE_LOCK:
+        sheets._ROWS_CACHE.clear()
+    sheets.update_dashboard()
     print("Backfill scan complete.")
+
+    if not real_time_auto_scan_loop.is_running():
+        real_time_auto_scan_loop.start()
+        print("[Real-Time Auto-Scan] Active (30s interval auto-sync enabled).")
 
 
 @bot.event
@@ -523,15 +553,10 @@ async def on_message(message: discord.Message):
     if cfg is None:
         return
 
-    if not message.attachments:
-        # Check if text-only kit or service message
-        cat = str(cfg.get("category", "")).lower()
-        if cfg.get("kit_channel") or cat == "kit":
-            if kit_pricing.parse_kit_quantities(message.content):
-                await process_invoice_message(message, cfg_key, is_backfill=False)
-        return
-
     await process_invoice_message(message, cfg_key, is_backfill=False)
+
+    with sheets._CACHE_LOCK:
+        sheets._ROWS_CACHE.clear()
 
 
 async def start_web_server():
