@@ -414,7 +414,12 @@ async def on_message(message: discord.Message):
 
 
 async def start_web_server():
-    """Lightweight web server to satisfy Render's HTTP port check & keep bot alive."""
+    """Lightweight web server for standalone bot deployment.
+    If running inside start_all.py alongside monitor_app, Flask handles the web port."""
+    if os.getenv("RUNNING_IN_START_ALL") == "1":
+        print("[Bot] Web server port handled by monitor_app in start_all.py.")
+        return
+
     app = web.Application()
 
     async def health_check(request):
@@ -426,21 +431,28 @@ async def start_web_server():
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.getenv("PORT", 8080))
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    print(f"Keep-alive web server listening on port {port}")
+    try:
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        print(f"Keep-alive web server listening on port {port}")
+    except Exception as e:
+        print(f"[Bot Warning] Web server port {port} unavailable (handled by parent service): {e}")
 
 
 async def main():
     token = config.DISCORD_TOKEN
-    if not token or token == "YOUR_DISCORD_BOT_TOKEN":
-        print("ERROR: DISCORD_TOKEN is missing or not set!")
-        return
-
     try:
         await start_web_server()
     except Exception as e:
         print(f"Warning: Could not start web server: {e}")
+
+    if not token or token == "YOUR_DISCORD_BOT_TOKEN":
+        print("ERROR: DISCORD_TOKEN is missing or not set!")
+        if os.getenv("RUNNING_IN_START_ALL") == "1":
+            print("[Bot] Waiting for DISCORD_TOKEN to be configured in Render Environment Variables...")
+            while True:
+                await asyncio.sleep(3600)
+        return
 
     try:
         async with bot:
@@ -450,8 +462,14 @@ async def main():
         print("ERROR: DISCORD LOGIN FAILED! The DISCORD_TOKEN is invalid or revoked.")
         print("Please reset your bot token in Discord Developer Portal and update DISCORD_TOKEN in Render Environment Variables.")
         print("="*70 + "\n")
+        if os.getenv("RUNNING_IN_START_ALL") == "1":
+            while True:
+                await asyncio.sleep(3600)
     except Exception as e:
         print(f"ERROR starting bot: {e}")
+        if os.getenv("RUNNING_IN_START_ALL") == "1":
+            while True:
+                await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":

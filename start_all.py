@@ -7,15 +7,19 @@ import urllib.request
 
 RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://jiraiya-bot-monitor.onrender.com")
 
+
 def run_bot():
     print("[Launcher] Starting Jiraiya Discord Bot background process...")
     try:
-        subprocess.run([sys.executable, "bot.py"])
+        env = os.environ.copy()
+        env["RUNNING_IN_START_ALL"] = "1"
+        subprocess.run([sys.executable, "bot.py"], env=env)
     except Exception as e:
         print(f"[Launcher ERROR] Bot process exception: {e}")
 
+
 def run_keep_alive():
-    """Pings Render web app every 10 minutes to prevent Render free tier from going offline/sleeping."""
+    """Pings Render web app every 10 minutes to prevent Render free tier from sleeping."""
     time.sleep(30)
     while True:
         try:
@@ -28,7 +32,9 @@ def run_keep_alive():
             print(f"[KeepAlive] Ping exception: {e}")
         time.sleep(600)
 
+
 if __name__ == "__main__":
+    os.environ["RUNNING_IN_START_ALL"] = "1"
     port = int(os.environ.get("PORT", 5000))
     print(f"[Launcher] Starting Render Web Service listening on 0.0.0.0:{port}...")
 
