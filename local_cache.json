@@ -352,5 +352,14 @@
       "Admin",
       "Logged in to Admin dashboard"
     ]
+  ],
+  "User_Audit_Logs": [
+    [
+      "2026-08-04 08:50:09 PM",
+      "FUSER_LOGIN",
+      "Visitor",
+      "Visitor",
+      "Visitor Web Access (IP: 127.0.0.1)"
+    ]
   ]
 }

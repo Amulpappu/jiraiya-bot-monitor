@@ -52,7 +52,7 @@ KIT_HEADERS = [
     "Discount %", "Total Amount", "Employee", "Message ID",
 ]
 TRANSACTIONS_HEADERS = ["Date", "Amount", "Description", "Category"]
-AUDIT_HEADERS = ["Timestamp", "Action", "User", "Role", "Details"]
+USER_AUDIT_HEADERS = ["Timestamp (IST)", "Action", "User", "Role", "Details"]
 
 
 def get_client():
@@ -120,20 +120,20 @@ def _ensure_sheet(sheet_name: str, headers: list):
     return ws
 
 
-def append_user_audit_log(user_name: str, action: str, details: str = "", role: str = "Admin"):
-    """Logs user/admin action to the Audit Logs sheet."""
+def append_user_audit_log(user_name: str, action: str, details: str = "", role: str = "Visitor"):
+    """Logs user/visitor/admin action to the User_Audit_Logs sheet."""
     try:
-        ws = _ensure_sheet("Audit Logs", AUDIT_HEADERS)
+        ws = _ensure_sheet("User_Audit_Logs", USER_AUDIT_HEADERS)
         date_str = now_ist().strftime(TIMESTAMP_FORMAT)
-        row = [date_str, action, user_name or "Admin", role or "Admin", details or ""]
+        row = [date_str, action, user_name or "Visitor", role or "Visitor", details or ""]
         if ws:
             _with_retry(lambda: ws.append_row(row))
 
         with _CACHE_LOCK:
-            if "Audit Logs" not in _LAST_KNOWN_ROWS:
-                _LAST_KNOWN_ROWS["Audit Logs"] = []
-            _LAST_KNOWN_ROWS["Audit Logs"].append(row)
-            _LAST_KNOWN_ROWS["User_Audit_Logs"] = _LAST_KNOWN_ROWS["Audit Logs"]
+            if "User_Audit_Logs" not in _LAST_KNOWN_ROWS:
+                _LAST_KNOWN_ROWS["User_Audit_Logs"] = []
+            _LAST_KNOWN_ROWS["User_Audit_Logs"].append(row)
+            _LAST_KNOWN_ROWS["Audit Logs"] = _LAST_KNOWN_ROWS["User_Audit_Logs"]
             _save_disk_cache()
     except Exception as e:
         print(f"Warning: Failed to log audit event: {e}")
@@ -145,14 +145,14 @@ def setup_all_sheets():
     _ensure_sheet("Upgrades", REVENUE_HEADERS)
     _ensure_sheet("Kits", KIT_HEADERS)
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
-    audit_ws = _ensure_sheet("Audit Logs", AUDIT_HEADERS)
+    audit_ws = _ensure_sheet("User_Audit_Logs", USER_AUDIT_HEADERS)
 
     # Seed initial audit log if empty
     try:
-        rows = _all_rows("Audit Logs")
+        rows = _all_rows("User_Audit_Logs")
         if not rows:
             append_user_audit_log("System", "SYSTEM_INIT", "Jiraiya Financial System initialized", "System")
-            append_user_audit_log("Amul", "LOGIN_SUCCESS", "Logged in to Admin dashboard", "Admin")
+            append_user_audit_log("Amul", "FUSER_LOGIN", "Web Auth Success (Admin)", "Admin")
     except Exception:
         pass
 

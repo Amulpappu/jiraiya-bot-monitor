@@ -86,6 +86,17 @@ def save_role_permissions(perms):
 
 @app.route("/")
 def index():
+    user_name = session.get("user_name", "Visitor")
+    role = session.get("user_role", "Visitor")
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "Unknown")
+    if "," in ip:
+        ip = ip.split(",")[0].strip()
+
+    try:
+        sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})" if session.get("user_name") else f"Visitor Web Access (IP: {ip})", role=role)
+    except Exception:
+        pass
+
     return render_template("index.html", is_maintenance=IS_MAINTENANCE_MODE, maintenance_msg=MAINTENANCE_MESSAGE)
 
 
