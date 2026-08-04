@@ -257,11 +257,29 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         )
 
 
+def resolve_message_channel_config(message: discord.Message):
+    """Resolves channel config for text channels, threads, and archived threads."""
+    ch = message.channel
+    channel_name = getattr(ch, "name", "")
+    cfg, cfg_key = config.get_channel_config(channel_name)
+    if cfg:
+        return cfg, cfg_key, channel_name
+
+    parent = getattr(ch, "parent", None)
+    if parent:
+        parent_name = getattr(parent, "name", "")
+        cfg, cfg_key = config.get_channel_config(parent_name)
+        if cfg:
+            return cfg, cfg_key, parent_name
+
+    return None, None, channel_name
+
+
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False):
     """Runs OCR + sheet logging for one message. Shared by on_message and startup history scan."""
-    cfg, _ = config.get_channel_config(channel_name)
+    cfg, cfg_key = config.get_channel_config(channel_name)
     if not cfg:
-        cfg = config.CHANNEL_CONFIG.get(channel_name)
+        cfg, cfg_key, _ = resolve_message_channel_config(message)
     if not cfg:
         return
 
@@ -545,15 +563,11 @@ async def on_message(message: discord.Message):
 
     await bot.process_commands(message)
 
-    channel_name = getattr(message.channel, "name", None)
-    if channel_name is None:
-        return
-
-    cfg, cfg_key = config.get_channel_config(channel_name)
+    cfg, cfg_key, ch_name = resolve_message_channel_config(message)
     if cfg is None:
         return
 
-    await process_invoice_message(message, cfg_key, is_backfill=False)
+    await process_invoice_message(message, ch_name, is_backfill=False)
 
     with sheets._CACHE_LOCK:
         sheets._ROWS_CACHE.clear()
