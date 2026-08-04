@@ -1,6 +1,7 @@
 import json
 import os
 import asyncio
+import datetime
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -360,18 +361,39 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             await safe_reply(message, f"Logged {cfg.get('sheet_name', 'Invoice')}: ₹{value:,.0f}")
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 1000):
-    """Scans past messages in a configured channel for invoice images or text logs the bot never logged."""
+async def backfill_channel_history(channel, channel_name: str, limit: int = 100):
+    """Scans RECENT messages (last 48 hours only) in a configured channel for invoice images or text logs missed while offline."""
     scanned = 0
-    async for message in channel.history(limit=limit, oldest_first=True):
-        if message.author.bot:
-            continue
-        existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-        if "✅" in existing_reactions or "🔁" in existing_reactions:
-            continue
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
 
-        await process_invoice_message(message, channel_name, is_backfill=True)
-        scanned += 1
+    existing_sheet_ids = set()
+    try:
+        cfg, _ = config.get_channel_config(channel_name)
+        if cfg:
+            sheet_name = cfg.get("sheet_name", "Transactions")
+            rows = sheets.get_rows(sheet_name)
+            for row in rows:
+                if len(row) >= 7 and row[6]:
+                    existing_sheet_ids.add(str(row[6]).strip())
+                elif len(row) >= 5 and row[4]:
+                    existing_sheet_ids.add(str(row[4]).strip())
+    except Exception:
+        pass
+
+    try:
+        async for message in channel.history(limit=limit, after=cutoff, oldest_first=False):
+            if message.author.bot:
+                continue
+
+            msg_id = str(message.id)
+            if msg_id in existing_sheet_ids or msg_id in processed_ids:
+                continue
+
+            await process_invoice_message(message, channel_name, is_backfill=True)
+            scanned += 1
+    except Exception as e:
+        ocr.logger.error(f"Error scanning channel history for #{channel_name}: {e}")
+
     return scanned
 
 
