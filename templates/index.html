@@ -1117,8 +1117,13 @@
     // ===== INIT =====
     const _savedUser = localStorage.getItem('jiraiya_user');
     const _savedRole = localStorage.getItem('jiraiya_role') || 'Admin';
-    if (_savedUser) {
+    if (_savedUser && _savedUser.toLowerCase() !== 'guest') {
         setLoggedIn(_savedUser, _savedRole);
+        fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: _savedUser, role: _savedRole })
+        }).catch(() => {});
     } else {
         setLoggedIn('Guest', 'Admin');
     }

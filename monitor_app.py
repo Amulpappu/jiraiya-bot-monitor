@@ -86,18 +86,37 @@ def save_role_permissions(perms):
 
 @app.route("/")
 def index():
-    user_name = session.get("user_name", "Visitor")
+    user_name = session.get("user_name")
     role = session.get("user_role", "Visitor")
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "Unknown")
-    if "," in ip:
-        ip = ip.split(",")[0].strip()
-
-    try:
-        sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})" if session.get("user_name") else f"Visitor Web Access (IP: {ip})", role=role)
-    except Exception:
-        pass
-
+    if user_name and user_name.lower() not in ("guest", "visitor", "unknown"):
+        try:
+            sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})", role=role)
+        except Exception:
+            pass
     return render_template("index.html", is_maintenance=IS_MAINTENANCE_MODE, maintenance_msg=MAINTENANCE_MESSAGE)
+
+
+@app.route("/api/session", methods=["POST"])
+def sync_user_session():
+    data = request.get_json() or {}
+    user_name = data.get("name", "").strip()
+    role = data.get("role", "Employee").strip().title()
+
+    if user_name and user_name.lower() not in ("guest", "visitor", "unknown"):
+        session["user_name"] = user_name
+        session["user_role"] = role
+        session["is_admin"] = (role == "Admin")
+        session["is_manager"] = (role in ("Admin", "Manager"))
+        session["is_employee"] = True
+
+        try:
+            sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})", role=role)
+        except Exception:
+            pass
+
+        return jsonify({"success": True, "user_name": user_name, "user_role": role})
+
+    return jsonify({"success": False}), 400
 
 
 @app.route("/login")
