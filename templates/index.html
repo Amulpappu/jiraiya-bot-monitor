@@ -570,7 +570,8 @@
             }
             let html = '';
             d.transactions.forEach(t => {
-                const tc = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : t.type === 'Kit' ? 'tag-cyan' : 'tag-red';
+                const typeStr = t.type || '';
+                const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-red';
                 const isNeg = String(t.amount).startsWith('-');
                 html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--red)':'var(--green)'};font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
             });
@@ -604,18 +605,16 @@
 
             // Recent transactions
             const tbody = document.getElementById('recent-txns-body');
-            const allTbody = document.getElementById('all-txns-body');
             if (d.recent_transactions && d.recent_transactions.length > 0) {
                 let html = '';
                 d.recent_transactions.forEach(t => {
-                    const tc = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : 'tag-cyan';
+                    const typeStr = t.type || '';
+                    const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-red';
                     html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:var(--green);font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
                 });
                 tbody.innerHTML = html;
-                allTbody.innerHTML = html;
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No transactions yet</p></td></tr>';
-                allTbody.innerHTML = tbody.innerHTML;
             }
 
             // Top employees

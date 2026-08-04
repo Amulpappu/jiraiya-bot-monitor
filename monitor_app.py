@@ -257,6 +257,97 @@ def get_audit_logs():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, expense_rows, tx_rows):
+    """
+    Collapses and deduplicates transactions so that summary invoice rows and
+    line-item detail rows for the same transaction are NEVER mixed or double-listed.
+    """
+    tx_stamps = set()
+    items = []
+
+    if tx_rows:
+        for r in tx_rows:
+            if len(r) >= 4:
+                dt = str(r[0]).strip()
+                amt = r[1]
+                desc = r[2] if len(r) > 2 and r[2] else "N/A"
+                cat = r[3] or "Transaction"
+                staff = r[4] if len(r) > 4 else ""
+                tx_stamps.add((dt, staff))
+                items.append({
+                    "date": dt,
+                    "type": cat,
+                    "customer": desc,
+                    "amount": amt,
+                    "staff": staff
+                })
+
+    for r in service_rows:
+        if len(r) > 4:
+            dt = str(r[0]).strip()
+            staff = str(r[4]).strip()
+            if (dt, staff) not in tx_stamps:
+                items.append({
+                    "date": dt,
+                    "type": "Service",
+                    "customer": r[1],
+                    "amount": r[3],
+                    "staff": staff
+                })
+
+    for r in upgrade_rows:
+        if len(r) > 3:
+            dt = str(r[0]).strip()
+            staff = str(r[3]).strip()
+            if (dt, staff) not in tx_stamps:
+                items.append({
+                    "date": dt,
+                    "type": "Upgrade",
+                    "customer": r[1],
+                    "amount": r[2],
+                    "staff": staff
+                })
+
+    for r in kit_rows:
+        if len(r) > 4:
+            dt = str(r[0]).strip()
+            staff = str(r[4]).strip()
+            if (dt, staff) not in tx_stamps:
+                items.append({
+                    "date": dt,
+                    "type": "Kit",
+                    "customer": r[1],
+                    "amount": r[3],
+                    "staff": staff
+                })
+
+    for r in expense_rows:
+        if len(r) > 2:
+            items.append({
+                "date": r[0],
+                "type": "Expense",
+                "customer": "Business Claim",
+                "amount": f"-{r[1]}",
+                "staff": r[2]
+            })
+
+    def parse_dt(item):
+        d_str = str(item.get("date", ""))
+        try:
+            parts = d_str.split(" ")
+            d_parts = parts[0].split("/")
+            t_parts = parts[1].split(":") if len(parts) > 1 else [0, 0, 0]
+            if len(d_parts) == 3:
+                return datetime.datetime(int(d_parts[2]), int(d_parts[1]), int(d_parts[0]),
+                                         int(t_parts[0]), int(t_parts[1]), int(t_parts[2]) if len(t_parts) > 2 else 0)
+        except Exception:
+            pass
+        return datetime.datetime.min
+
+    items.sort(key=parse_dt, reverse=True)
+    return items
+
+
 @app.route("/api/dashboard")
 def get_dashboard_data():
     try:
@@ -264,6 +355,7 @@ def get_dashboard_data():
         upgrade_rows = sheets._all_rows("Upgrades")
         kit_rows = sheets._all_rows("Kits")
         expense_rows = sheets._all_rows("Expenses")
+        tx_rows = sheets._all_rows("Transactions")
 
         service_rev = sum(sheets._sum_numeric([r[3]]) for r in service_rows if len(r) > 3)
         upgrade_rev = sum(sheets._sum_numeric([r[2]]) for r in upgrade_rows if len(r) > 2)
@@ -288,18 +380,9 @@ def get_dashboard_data():
 
         top_employees = sorted(emp_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
-        # Recent transactions (last 10)
-        recent = []
-        for r in service_rows[-5:]:
-            if len(r) > 4:
-                recent.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
-        for r in upgrade_rows[-3:]:
-            if len(r) > 3:
-                recent.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
-        for r in kit_rows[-3:]:
-            if len(r) > 4:
-                recent.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
-        recent.sort(key=lambda x: x.get("date", ""), reverse=True)
+        # Deduplicated recent transactions
+        all_tx = collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, expense_rows, tx_rows)
+        recent = all_tx[:10]
 
         # Daily revenue breakdown for chart (group by day)
         daily_rev = {}
@@ -338,7 +421,7 @@ def get_dashboard_data():
             "kit_count": len(kit_rows),
             "expense_count": len(expense_rows),
             "top_employees": [{"name": e[0], "count": e[1]} for e in top_employees],
-            "recent_transactions": recent[:10],
+            "recent_transactions": recent,
             "chart_labels": [c[0] for c in chart_data],
             "chart_values": [c[1] for c in chart_data],
             "maintenance_mode": IS_MAINTENANCE_MODE
@@ -350,50 +433,13 @@ def get_dashboard_data():
 @app.route("/api/transactions")
 def get_all_transactions():
     try:
-        tx_rows = sheets._all_rows("Transactions")
+        service_rows = sheets._all_rows("Service")
+        upgrade_rows = sheets._all_rows("Upgrades")
+        kit_rows = sheets._all_rows("Kits")
         expense_rows = sheets._all_rows("Expenses")
+        tx_rows = sheets._all_rows("Transactions")
 
-        all_tx = []
-        if tx_rows:
-            for r in tx_rows:
-                if len(r) >= 4:
-                    staff_name = r[4] if len(r) > 4 else ""
-                    desc = r[2] if len(r) > 2 and r[2] else "N/A"
-                    all_tx.append({
-                        "date": r[0],
-                        "type": r[3] or "Transaction",
-                        "customer": desc,
-                        "amount": r[1],
-                        "staff": staff_name
-                    })
-            for r in expense_rows:
-                if len(r) > 2:
-                    all_tx.append({
-                        "date": r[0],
-                        "type": "Expense",
-                        "customer": "Business Claim",
-                        "amount": f"-{r[1]}",
-                        "staff": r[2]
-                    })
-        else:
-            # Fallback if Transactions sheet has not been populated
-            service_rows = sheets._all_rows("Service")
-            upgrade_rows = sheets._all_rows("Upgrades")
-            kit_rows = sheets._all_rows("Kits")
-            for r in service_rows:
-                if len(r) > 4:
-                    all_tx.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
-            for r in upgrade_rows:
-                if len(r) > 3:
-                    all_tx.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
-            for r in kit_rows:
-                if len(r) > 4:
-                    all_tx.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
-            for r in expense_rows:
-                if len(r) > 2:
-                    all_tx.append({"date": r[0], "type": "Expense", "customer": "Business Claim", "amount": f"-{r[1]}", "staff": r[2]})
-
-        all_tx.sort(key=lambda x: str(x.get("date", "")), reverse=True)
+        all_tx = collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, expense_rows, tx_rows)
         return jsonify({"success": True, "transactions": all_tx})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
