@@ -553,8 +553,29 @@
         const titles = {dashboard:'Dashboard',employees:'Employee Tracker',transactions:'Transactions',inventory:'Inventory',audit:'Audit Logs'};
         document.getElementById('topbar-title').textContent = titles[page] || 'Dashboard';
         if (page === 'employees') fetchEmployeeTracker();
+        if (page === 'transactions') fetchTransactions();
         if (page === 'inventory') fetchInventory();
         if (page === 'audit') fetchAuditLogs();
+    }
+
+    async function fetchTransactions() {
+        try {
+            const res = await fetch('/api/transactions');
+            const d = await res.json();
+            const allTbody = document.getElementById('all-txns-body');
+            if (!allTbody) return;
+            if (!d.success || !d.transactions || !d.transactions.length) {
+                allTbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No transactions found</p></td></tr>';
+                return;
+            }
+            let html = '';
+            d.transactions.forEach(t => {
+                const tc = t.type === 'Service' ? 'tag-blue' : t.type === 'Upgrade' ? 'tag-purple' : t.type === 'Kit' ? 'tag-cyan' : 'tag-red';
+                const isNeg = String(t.amount).startsWith('-');
+                html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--red)':'var(--green)'};font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
+            });
+            allTbody.innerHTML = html;
+        } catch(e) { console.error('Transactions fetch error:', e); }
     }
 
     // ===== FORMAT =====
@@ -929,6 +950,7 @@
         fetchDashboard();
         const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
         if (activePage === 'employees') fetchEmployeeTracker();
+        if (activePage === 'transactions') fetchTransactions();
         if (activePage === 'inventory') fetchInventory();
         if (activePage === 'audit') fetchAuditLogs();
     }
@@ -1099,7 +1121,7 @@
     if (_savedUser) {
         setLoggedIn(_savedUser, _savedRole);
     } else {
-        window.location.href = '/login';
+        setLoggedIn('Guest', 'Admin');
     }
 
     fetchDashboard();

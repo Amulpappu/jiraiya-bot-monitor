@@ -311,7 +311,16 @@ def get_dashboard_data():
                     amt = sheets._sum_numeric([r[col]])
                     daily_rev[day] = daily_rev.get(day, 0) + amt
 
-        chart_data = sorted(daily_rev.items(), key=lambda x: x[0])
+        def parse_date_key(d_str):
+            try:
+                parts = d_str.split("/")
+                if len(parts) == 3:
+                    return datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
+            except Exception:
+                pass
+            return datetime.date.min
+
+        chart_data = sorted(daily_rev.items(), key=lambda x: parse_date_key(x[0]))
 
         return jsonify({
             "success": True,
@@ -338,6 +347,38 @@ def get_dashboard_data():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/transactions")
+def get_all_transactions():
+    try:
+        service_rows = sheets._all_rows("Service")
+        upgrade_rows = sheets._all_rows("Upgrades")
+        kit_rows = sheets._all_rows("Kits")
+        expense_rows = sheets._all_rows("Expenses")
+        tx_rows = sheets._all_rows("Transactions")
+
+        all_tx = []
+        for r in service_rows:
+            if len(r) > 4:
+                all_tx.append({"date": r[0], "type": "Service", "customer": r[1], "amount": r[3], "staff": r[4]})
+        for r in upgrade_rows:
+            if len(r) > 3:
+                all_tx.append({"date": r[0], "type": "Upgrade", "customer": r[1], "amount": r[2], "staff": r[3]})
+        for r in kit_rows:
+            if len(r) > 4:
+                all_tx.append({"date": r[0], "type": "Kit", "customer": r[1], "amount": r[3], "staff": r[4]})
+        for r in expense_rows:
+            if len(r) > 2:
+                all_tx.append({"date": r[0], "type": "Expense", "customer": "Business Claim", "amount": f"-{r[1]}", "staff": r[2]})
+        for r in tx_rows:
+            if len(r) > 4:
+                all_tx.append({"date": r[0], "type": r[3] or "Transaction", "customer": r[2] or "N/A", "amount": r[1], "staff": r[4]})
+
+        all_tx.sort(key=lambda x: str(x.get("date", "")), reverse=True)
+        return jsonify({"success": True, "transactions": all_tx})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/employee-tracker")
 def get_employee_tracker():
     try:
@@ -357,6 +398,60 @@ def get_employee_tracker():
                         "total": r[6],
                         "last_date": r[7] if len(r) > 7 else ""
                     })
+
+        # Dynamic fallback if sheet is empty
+        if not employees:
+            service_rows = sheets._all_rows("Service")
+            upgrade_rows = sheets._all_rows("Upgrades")
+            kit_rows = sheets._all_rows("Kits")
+            emp_stats = {}
+            for r in service_rows:
+                if len(r) > 4:
+                    staff = str(r[4]).strip()
+                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                        if staff not in emp_stats:
+                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
+                        cat = str(r[2]).strip().lower()
+                        if "civ" in cat:
+                            emp_stats[staff]["civilian"] += 1
+                        else:
+                            emp_stats[staff]["govt"] += 1
+                        emp_stats[staff]["service"] += 1
+                        emp_stats[staff]["total"] += 1
+                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
+            for r in upgrade_rows:
+                if len(r) > 3:
+                    staff = str(r[3]).strip()
+                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                        if staff not in emp_stats:
+                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
+                        emp_stats[staff]["upgrades"] += 1
+                        emp_stats[staff]["total"] += 1
+                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
+            for r in kit_rows:
+                if len(r) > 4:
+                    staff = str(r[4]).strip()
+                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                        if staff not in emp_stats:
+                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
+                        emp_stats[staff]["kits"] += 1
+                        emp_stats[staff]["total"] += 1
+                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
+            for name, s in emp_stats.items():
+                employees.append({
+                    "name": name,
+                    "kits": str(s["kits"]),
+                    "civilian": str(s["civilian"]),
+                    "govt": str(s["govt"]),
+                    "service_logs": str(s["service"]),
+                    "upgrades": str(s["upgrades"]),
+                    "total": str(s["total"]),
+                    "last_date": s["last_date"]
+                })
+
         return jsonify({"success": True, "employees": employees})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

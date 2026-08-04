@@ -197,6 +197,37 @@ def append_entry(sheet_name: str, customer: str, value, employee: str, message_i
 
 # ── Dashboard ────────────────────────────────────────────
 
+import os
+import json
+import threading
+
+_ROWS_CACHE = {}
+_LAST_KNOWN_ROWS = {}
+_CACHE_LOCK = threading.Lock()
+CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_cache.json")
+
+
+def _load_disk_cache():
+    global _LAST_KNOWN_ROWS
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                _LAST_KNOWN_ROWS = json.load(f)
+        except Exception:
+            pass
+
+
+def _save_disk_cache():
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_LAST_KNOWN_ROWS, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+_load_disk_cache()
+
+
 def _ensure_dashboard():
     ss = get_spreadsheet()
     try:
@@ -206,10 +237,32 @@ def _ensure_dashboard():
     return ws
 
 
-def _all_rows(ws_name):
-    ss = get_spreadsheet()
-    ws = ss.worksheet(ws_name)
-    return _with_retry(lambda: ws.get_all_values())[1:]  # skip header row
+def _all_rows(ws_name, force_refresh=False):
+    global _ROWS_CACHE, _LAST_KNOWN_ROWS
+    now = time.time()
+
+    with _CACHE_LOCK:
+        if ws_name in _LAST_KNOWN_ROWS and not force_refresh:
+            cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS[ws_name]))
+            if now - cached_time < 300:
+                return cached_data
+
+    try:
+        ss = get_spreadsheet()
+        if ss:
+            ws = ss.worksheet(ws_name)
+            rows_raw = _with_retry(lambda: ws.get_all_values())
+            data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
+            with _CACHE_LOCK:
+                _ROWS_CACHE[ws_name] = (time.time(), data)
+                _LAST_KNOWN_ROWS[ws_name] = data
+                _save_disk_cache()
+            return data
+    except Exception as ex:
+        pass
+
+    with _CACHE_LOCK:
+        return _LAST_KNOWN_ROWS.get(ws_name, [])
 
 
 def _with_retry(fn, attempts=4, base_delay=2):
