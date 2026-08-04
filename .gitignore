@@ -1,9 +1,6 @@
 __pycache__/
-*.pyc
-venv/
-.env
-credentials.json
+*.py[cod]
+*$py.class
 ocr_errors.log
-processed_images.json
-auto_push.ps1
-*.flag
+.venv/
+venv/
