@@ -1,5 +1,8 @@
+import json
+import base64
 import datetime
 import time
+import os
 from collections import Counter
 
 import gspread
@@ -55,12 +58,74 @@ TRANSACTIONS_HEADERS = ["Date", "Amount", "Description", "Category"]
 USER_AUDIT_HEADERS = ["Timestamp (IST)", "Action", "User", "Role", "Details"]
 
 
+def ensure_credentials_file_exists():
+    """Generates credentials.json from GOOGLE_CREDENTIALS_JSON or GOOGLE_CREDENTIALS_BASE64 if missing on disk."""
+    if os.path.exists(config.GOOGLE_CREDENTIALS_FILE):
+        return True
+
+    env_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if env_json:
+        try:
+            info = json.loads(env_json)
+            with open(config.GOOGLE_CREDENTIALS_FILE, "w") as f:
+                json.dump(info, f, indent=2)
+            return True
+        except Exception:
+            pass
+
+    env_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+    if env_b64:
+        try:
+            raw = base64.b64decode(env_b64).decode("utf-8")
+            info = json.loads(raw)
+            with open(config.GOOGLE_CREDENTIALS_FILE, "w") as f:
+                json.dump(info, f, indent=2)
+            return True
+        except Exception:
+            pass
+
+    return False
+
+
 def get_client():
     global _client
     if _client is None:
-        creds = Credentials.from_service_account_file(
-            config.GOOGLE_CREDENTIALS_FILE, scopes=SCOPES
-        )
+        ensure_credentials_file_exists()
+
+        creds = None
+        # Option 1: GOOGLE_CREDENTIALS_JSON environment variable
+        env_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+        if env_json:
+            try:
+                info = json.loads(env_json)
+                creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+            except Exception as e:
+                print(f"[Sheets Warning] Could not parse GOOGLE_CREDENTIALS_JSON: {e}")
+
+        # Option 2: GOOGLE_CREDENTIALS_BASE64 environment variable
+        if creds is None:
+            env_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+            if env_b64:
+                try:
+                    raw = base64.b64decode(env_b64).decode("utf-8")
+                    info = json.loads(raw)
+                    creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+                except Exception as e:
+                    print(f"[Sheets Warning] Could not parse GOOGLE_CREDENTIALS_BASE64: {e}")
+
+        # Option 3: Local credentials.json file
+        if creds is None and os.path.exists(config.GOOGLE_CREDENTIALS_FILE):
+            try:
+                creds = Credentials.from_service_account_file(config.GOOGLE_CREDENTIALS_FILE, scopes=SCOPES)
+            except Exception as e:
+                print(f"[Sheets Warning] Could not load {config.GOOGLE_CREDENTIALS_FILE}: {e}")
+
+        if creds is None:
+            raise FileNotFoundError(
+                f"Google Service Account credentials missing! "
+                f"Please add GOOGLE_CREDENTIALS_JSON in Render Environment Variables."
+            )
+
         _client = gspread.authorize(creds)
     return _client
 
