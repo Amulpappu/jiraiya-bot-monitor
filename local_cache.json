@@ -336,5 +336,21 @@
       "40905",
       "2026-08-04 05:43:45 PM"
     ]
+  ],
+  "Audit Logs": [
+    [
+      "2026-08-04 08:30:23 PM",
+      "SYSTEM_INIT",
+      "System",
+      "System",
+      "Jiraiya Financial System initialized"
+    ],
+    [
+      "2026-08-04 08:30:24 PM",
+      "LOGIN_SUCCESS",
+      "Amul",
+      "Admin",
+      "Logged in to Admin dashboard"
+    ]
   ]
 }

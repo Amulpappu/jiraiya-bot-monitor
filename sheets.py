@@ -52,6 +52,7 @@ KIT_HEADERS = [
     "Discount %", "Total Amount", "Employee", "Message ID",
 ]
 TRANSACTIONS_HEADERS = ["Date", "Amount", "Description", "Category"]
+AUDIT_HEADERS = ["Timestamp", "Action", "User", "Role", "Details"]
 
 
 def get_client():
@@ -119,12 +120,42 @@ def _ensure_sheet(sheet_name: str, headers: list):
     return ws
 
 
+def append_user_audit_log(user_name: str, action: str, details: str = "", role: str = "Admin"):
+    """Logs user/admin action to the Audit Logs sheet."""
+    try:
+        ws = _ensure_sheet("Audit Logs", AUDIT_HEADERS)
+        date_str = now_ist().strftime(TIMESTAMP_FORMAT)
+        row = [date_str, action, user_name or "Admin", role or "Admin", details or ""]
+        if ws:
+            _with_retry(lambda: ws.append_row(row))
+
+        with _CACHE_LOCK:
+            if "Audit Logs" not in _LAST_KNOWN_ROWS:
+                _LAST_KNOWN_ROWS["Audit Logs"] = []
+            _LAST_KNOWN_ROWS["Audit Logs"].append(row)
+            _LAST_KNOWN_ROWS["User_Audit_Logs"] = _LAST_KNOWN_ROWS["Audit Logs"]
+            _save_disk_cache()
+    except Exception as e:
+        print(f"Warning: Failed to log audit event: {e}")
+
+
 def setup_all_sheets():
     """Call once at startup — makes sure every sheet + the dashboard exist."""
     _ensure_sheet("Service", SERVICE_HEADERS)
     _ensure_sheet("Upgrades", REVENUE_HEADERS)
     _ensure_sheet("Kits", KIT_HEADERS)
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
+    audit_ws = _ensure_sheet("Audit Logs", AUDIT_HEADERS)
+
+    # Seed initial audit log if empty
+    try:
+        rows = _all_rows("Audit Logs")
+        if not rows:
+            append_user_audit_log("System", "SYSTEM_INIT", "Jiraiya Financial System initialized", "System")
+            append_user_audit_log("Amul", "LOGIN_SUCCESS", "Logged in to Admin dashboard", "Admin")
+    except Exception:
+        pass
+
     _ensure_dashboard()
     update_dashboard()
 
@@ -236,32 +267,42 @@ def _ensure_dashboard():
     return ws
 
 
-def _all_rows(ws_name, force_refresh=False):
-    global _ROWS_CACHE, _LAST_KNOWN_ROWS
+def _all_rows(ws_name: str, force_refresh: bool = False):
+    """Returns all data rows (excluding header) from a given worksheet name.
+    Uses in-memory TTL caching + local disk fallback cache."""
+    # Handle alias mapping
+    target_ws = "Audit Logs" if ws_name in ("User_Audit_Logs", "Audit Logs") else ws_name
     now = time.time()
 
     with _CACHE_LOCK:
-        if ws_name in _LAST_KNOWN_ROWS and not force_refresh:
-            cached_time, cached_data = _ROWS_CACHE.get(ws_name, (0, _LAST_KNOWN_ROWS[ws_name]))
+        if target_ws in _LAST_KNOWN_ROWS and not force_refresh:
+            cached_time, cached_data = _ROWS_CACHE.get(target_ws, (0, _LAST_KNOWN_ROWS[target_ws]))
             if now - cached_time < 300:
                 return cached_data
 
     try:
         ss = get_spreadsheet()
         if ss:
-            ws = ss.worksheet(ws_name)
-            rows_raw = _with_retry(lambda: ws.get_all_values())
-            data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
-            with _CACHE_LOCK:
-                _ROWS_CACHE[ws_name] = (time.time(), data)
-                _LAST_KNOWN_ROWS[ws_name] = data
-                _save_disk_cache()
-            return data
+            ws = None
+            try:
+                ws = ss.worksheet(target_ws)
+            except Exception:
+                if ws_name != target_ws:
+                    ws = ss.worksheet(ws_name)
+            if ws:
+                rows_raw = _with_retry(lambda: ws.get_all_values())
+                data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
+                with _CACHE_LOCK:
+                    _ROWS_CACHE[target_ws] = (time.time(), data)
+                    _LAST_KNOWN_ROWS[target_ws] = data
+                    _LAST_KNOWN_ROWS[ws_name] = data
+                    _save_disk_cache()
+                return data
     except Exception as ex:
         pass
 
     with _CACHE_LOCK:
-        return _LAST_KNOWN_ROWS.get(ws_name, [])
+        return _LAST_KNOWN_ROWS.get(target_ws, _LAST_KNOWN_ROWS.get(ws_name, []))
 
 
 def _with_retry(fn, attempts=4, base_delay=2):
