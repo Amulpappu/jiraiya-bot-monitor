@@ -262,10 +262,7 @@ def toggle_maintenance():
 @app.route("/api/audit-logs", methods=["GET"])
 def get_audit_logs():
     try:
-        rows = sheets._all_rows("Audit Logs")
-        if not rows:
-            rows = sheets._all_rows("User_Audit_Logs")
-
+        rows = sheets._all_rows("User_Audit_Logs")
         logs = []
         for r in rows:
             if len(r) >= 4:
@@ -273,16 +270,9 @@ def get_audit_logs():
                     r[0],
                     r[1],
                     r[2],
-                    r[3] if len(r) > 3 else "Admin",
+                    r[3] if len(r) > 3 else "Visitor",
                     r[4] if len(r) > 4 else ""
                 ])
-
-        if not logs:
-            now_str = datetime.datetime.now(sheets.IST).strftime("%Y-%m-%d %I:%M:%S %p")
-            logs = [
-                [now_str, "SYSTEM_INIT", "System", "System", "Jiraiya Financial System & Audit Logs initialized"],
-                [now_str, "LOGIN_SUCCESS", "Amul", "Admin", "Logged in to Admin dashboard"]
-            ]
         return jsonify({"success": True, "logs": logs})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

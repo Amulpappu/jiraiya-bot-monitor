@@ -270,8 +270,8 @@ def _ensure_dashboard():
 def _all_rows(ws_name: str, force_refresh: bool = False):
     """Returns all data rows (excluding header) from a given worksheet name.
     Uses in-memory TTL caching + local disk fallback cache."""
-    # Handle alias mapping
-    target_ws = "Audit Logs" if ws_name in ("User_Audit_Logs", "Audit Logs") else ws_name
+    # Target User_Audit_Logs as primary worksheet name for audit logs
+    target_ws = "User_Audit_Logs" if ws_name in ("User_Audit_Logs", "Audit Logs") else ws_name
     now = time.time()
 
     with _CACHE_LOCK:
@@ -288,7 +288,10 @@ def _all_rows(ws_name: str, force_refresh: bool = False):
                 ws = ss.worksheet(target_ws)
             except Exception:
                 if ws_name != target_ws:
-                    ws = ss.worksheet(ws_name)
+                    try:
+                        ws = ss.worksheet(ws_name)
+                    except Exception:
+                        pass
             if ws:
                 rows_raw = _with_retry(lambda: ws.get_all_values())
                 data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []

@@ -832,7 +832,7 @@
             const tbody = document.getElementById('audit-logs-body');
             if (!d.success || !d.logs || !d.logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No audit logs</p></td></tr>'; return; }
             tbody.innerHTML = '';
-            d.logs.slice(-25).reverse().forEach(r => {
+            d.logs.slice().reverse().forEach(r => {
                 const ac = (r[1]||'').includes('LOGIN') ? 'tag-green' : (r[1]||'').includes('MAINTENANCE') ? 'tag-amber' : (r[1]||'').includes('INVENTORY') ? 'tag-cyan' : 'tag-blue';
                 tbody.innerHTML += `<tr><td style="font-size:12px;">${r[0]||''}</td><td><span class="tag ${ac}">${r[1]||''}</span></td><td class="emp-name">${r[2]||''}</td><td>${r[3]||''}</td><td style="font-size:12px;color:var(--text-muted);">${r[4]||''}</td></tr>`;
             });

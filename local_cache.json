@@ -355,11 +355,1075 @@
   ],
   "User_Audit_Logs": [
     [
+      "2026-07-25 03:44:23 PM",
+      "USER_LOGIN",
+      "ADMIN",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 03:46:24 PM",
+      "USER_LOGIN",
+      "ADMIN",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:34:06 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Performance Part, Qty: 686, Value: ₹2082010.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:34:52 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Cosmetic, Qty: 838, Value: ₹632690.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:35:46 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Extra Kit, Qty: 150, Value: ₹60000.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:36:10 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Respray Kit, Qty: 566, Value: ₹345260.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:37:37 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Light, Qty: 141, Value: ₹57105.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:37:58 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Wheel Kit, Qty: 105, Value: ₹42525.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-25 05:38:18 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Inventory",
+      "Item: Smoke Kit, Qty: 148, Value: ₹59940.0",
+      "",
+      ""
+    ],
+    [
+      "2026-07-26 01:02:43 AM",
+      "USER_LOGIN",
+      "AMUL",
+      "Amul",
+      "Amul@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 01:05:49 AM",
+      "USER_LOGIN",
+      "Raju",
+      "Raju",
+      "Raju@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 01:31:25 AM",
+      "USER_LOGIN",
+      "AMUL",
+      "Amul",
+      "Amul@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 02:06:06 AM",
+      "ACCESS_REVOKED",
+      "Meenu Kutty",
+      "Meenu Kutty",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-26 02:06:12 AM",
+      "ACCESS_REVOKED",
+      "Eli",
+      "Eli",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-26 03:37:39 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "edithgamer13@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 03:37:39 PM",
+      "ACCESS_REQUESTED",
+      "Lohith",
+      "IGN: Brian, Email: edithgamer13@gmail.com",
+      "N/A",
+      "Employee",
+      ""
+    ],
+    [
+      "2026-07-26 03:38:02 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "edithgamer13@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 03:38:02 PM",
+      "ACCESS_REQUESTED",
+      "Lohith",
+      "IGN: Brian, Email: edithgamer13@gmail.com",
+      "N/A",
+      "Employee",
+      ""
+    ],
+    [
+      "2026-07-26 03:50:23 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "lohithpappu4@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 03:50:23 PM",
+      "ACCESS_REQUESTED",
+      "Lohith",
+      "IGN: Brian, Email: lohithpappu4@gmail.com",
+      "N/A",
+      "Employee",
+      ""
+    ],
+    [
+      "2026-07-26 03:53:46 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "lohithpappu4@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 03:53:46 PM",
+      "ACCESS_REQUESTED",
+      "Lohith",
+      "IGN: Brian, Email: lohithpappu4@gmail.com",
+      "N/A",
+      "Employee",
+      ""
+    ],
+    [
+      "2026-07-26 04:22:39 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "lohithpappu4@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 04:22:40 PM",
+      "ACCESS_REQUEST",
+      "Lohith",
+      "Brian",
+      "lohithpappu4@gmail.com",
+      "Employee",
+      "Requested Access"
+    ],
+    [
+      "2026-07-26 04:22:43 PM",
+      "ACCESS_REQUESTED",
+      "Lohith",
+      "IGN: Brian, Email: lohithpappu4@gmail.com",
+      "N/A",
+      "Employee",
+      ""
+    ],
+    [
+      "2026-07-26 04:23:18 PM",
+      "USER_LOGIN",
+      "RAJU",
+      "Raju",
+      "Raju@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 05:41:53 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 05:47:02 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 05:53:11 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 05:53:32 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Manager",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 05:53:56 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-26 06:11:19 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Item: Performance Part, Qty: 686, Value: ₹2082010.0",
+      "N/A",
+      "Inventory",
+      ""
+    ],
+    [
+      "2026-07-26 06:18:00 PM",
+      "INVENTORY_UPDATED",
+      "System",
+      "Item: Performance Part, Qty: 548, Value: ₹1663180.0",
+      "N/A",
+      "Inventory",
+      ""
+    ],
+    [
+      "2026-07-26 06:29:59 PM",
+      "USER_LOGIN",
+      "amul",
+      "amul",
+      "lohithgamer12@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 12:55:35 AM",
+      "USER_LOGIN",
+      "Robb",
+      "Robb",
+      "robb@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 12:59:38 AM",
+      "USER_LOGIN",
+      "Eli",
+      "Eli",
+      "vishal80720@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 01:00:17 AM",
+      "USER_LOGIN",
+      "Maria",
+      "Maria",
+      "rajrockwith@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 01:07:38 AM",
+      "USER_LOGIN",
+      "Mr Arivu",
+      "Mr Arivu",
+      "tessamavarumanappa69@gmail.com",
+      "Employee",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 01:09:46 AM",
+      "USER_LOGIN",
+      "Pete Mitchell",
+      "Pete Mitchell",
+      "mohammedshuraim04@gmail.com",
+      "Admin",
+      "Web Login Success"
+    ],
+    [
+      "2026-07-27 01:45:42 AM",
+      "ROLE_CHANGED",
+      "AMUL",
+      "AMUL",
+      "amul@gmail.com",
+      "Employee",
+      "Role changed from Admin to Employee"
+    ],
+    [
+      "2026-07-27 01:45:43 AM",
+      "ROLE_ASSIGNED",
+      "AMUL",
+      "AMUL",
+      "N/A",
+      "Employee",
+      "Assigned Employee role in User Settings"
+    ],
+    [
+      "2026-07-27 01:45:52 AM",
+      "ROLE_CHANGED",
+      "AMUL",
+      "AMUL",
+      "amul@gmail.com",
+      "Manager",
+      "Role changed from Employee to Manager"
+    ],
+    [
+      "2026-07-27 01:45:53 AM",
+      "ROLE_ASSIGNED",
+      "AMUL",
+      "AMUL",
+      "N/A",
+      "Manager",
+      "Assigned Manager role in User Settings"
+    ],
+    [
+      "2026-07-27 01:46:12 AM",
+      "ROLE_CHANGED",
+      "AMUL",
+      "AMUL",
+      "amul@gmail.com",
+      "Admin",
+      "Role changed from Manager to Admin"
+    ],
+    [
+      "2026-07-27 01:46:13 AM",
+      "ROLE_ASSIGNED",
+      "AMUL",
+      "AMUL",
+      "N/A",
+      "Admin",
+      "Assigned Admin role in User Settings"
+    ],
+    [
+      "2026-07-27 02:04:42 AM",
+      "ROLE_CHANGED",
+      "Mr Arivu",
+      "Mr Arivu",
+      "mr arivu@gmail.com",
+      "Admin",
+      "Role updated to Admin by Admin AMUL"
+    ],
+    [
+      "2026-07-27 02:04:43 AM",
+      "ROLE_ASSIGNED",
+      "Mr Arivu",
+      "Mr Arivu",
+      "N/A",
+      "Admin",
+      "Assigned Admin role in User Settings"
+    ],
+    [
+      "2026-07-27 02:04:52 AM",
+      "ROLE_CHANGED",
+      "Robb",
+      "Robb",
+      "robb@gmail.com",
+      "Admin",
+      "Role updated to Admin by Admin AMUL"
+    ],
+    [
+      "2026-07-27 02:04:52 AM",
+      "ROLE_ASSIGNED",
+      "Robb",
+      "Robb",
+      "N/A",
+      "Admin",
+      "Assigned Admin role in User Settings"
+    ],
+    [
+      "2026-07-27 02:05:04 AM",
+      "ROLE_CHANGED",
+      "Maria",
+      "Maria",
+      "maria@gmail.com",
+      "Manager",
+      "Role updated to Manager by Admin AMUL"
+    ],
+    [
+      "2026-07-27 02:05:36 AM",
+      "ROLE_ASSIGNED",
+      "Maria",
+      "Maria",
+      "N/A",
+      "Manager",
+      "Assigned Manager role in User Settings"
+    ],
+    [
+      "2026-07-27 02:09:40 AM",
+      "ACCESS_REVOKED",
+      "System",
+      "System",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-27 02:09:41 AM",
+      "ACCESS_REVOKED",
+      "RAJU",
+      "RAJU",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-27 02:09:43 AM",
+      "ACCESS_REVOKED",
+      "Lohith",
+      "Lohith",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-27 02:09:45 AM",
+      "ACCESS_REVOKED",
+      "ADMIN",
+      "ADMIN",
+      "N/A",
+      "None",
+      "User access revoked and deleted from Google Sheets"
+    ],
+    [
+      "2026-07-27 10:37:03 AM",
+      "ROLE_CHANGED",
+      "Maria",
+      "Maria",
+      "maria@gmail.com",
+      "Employee",
+      "Role updated to Employee by Admin AMUL"
+    ],
+    [
+      "2026-07-27 10:37:06 AM",
+      "ROLE_ASSIGNED",
+      "Maria",
+      "Maria",
+      "N/A",
+      "Employee",
+      "Assigned Employee role in User Settings"
+    ],
+    [
+      "2026-07-27 10:37:15 AM",
+      "ROLE_CHANGED",
+      "Maria",
+      "Maria",
+      "maria@gmail.com",
+      "Manager",
+      "Role updated to Manager by Admin AMUL"
+    ],
+    [
+      "2026-07-27 10:37:16 AM",
+      "ROLE_ASSIGNED",
+      "Maria",
+      "Maria",
+      "N/A",
+      "Manager",
+      "Assigned Manager role in User Settings"
+    ],
+    [
+      "2026-07-27 10:46:15 AM",
+      "ROLE_ASSIGNED",
+      "Eli",
+      "Eli",
+      "N/A",
+      "Manager",
+      "Assigned Manager role in User Settings"
+    ],
+    [
+      "2026-07-27 01:19:41 PM",
+      "USER_LOGIN",
+      "ELI",
+      "ELI",
+      "vishal80720@gmail.com",
+      "Manager",
+      "Web Login Success (Manager)"
+    ],
+    [
+      "2026-07-27 03:05:04 PM",
+      "USER_LOGIN",
+      "SandyChocobar",
+      "SandyChocobar",
+      "sangaming770@gmail.com",
+      "Employee",
+      "Web Login Success (Employee)"
+    ],
+    [
+      "2026-07-27 03:37:27 PM",
+      "USER_LOGIN",
+      "Maria",
+      "Maria",
+      "rajrockwith@gmail.com",
+      "Manager",
+      "Web Login Success (Manager)"
+    ],
+    [
+      "2026-07-29 07:13:42 PM",
+      "ROLE_CHANGED",
+      "AMUL",
+      "AMUL",
+      "amul@gmail.com",
+      "Employee",
+      "Role changed from Admin to Employee by AMUL"
+    ],
+    [
+      "2026-07-29 07:13:43 PM",
+      "ROLE_ASSIGNED",
+      "AMUL",
+      "AMUL",
+      "N/A",
+      "Employee",
+      "Assigned Employee role in User Settings"
+    ],
+    [
+      "2026-07-29 07:14:10 PM",
+      "ROLE_CHANGED",
+      "AMUL",
+      "AMUL",
+      "amul@gmail.com",
+      "Admin",
+      "Role changed from Employee to Admin by AMUL"
+    ],
+    [
+      "2026-07-29 07:14:12 PM",
+      "ROLE_ASSIGNED",
+      "AMUL",
+      "AMUL",
+      "N/A",
+      "Admin",
+      "Assigned Admin role in User Settings"
+    ],
+    [
+      "2026-08-02 07:23:21 PM",
+      "MAINTENANCE_TOGGLE",
+      "SYSTEM_TEST",
+      "Admin",
+      "System Maintenance Mode initialized (Password: admin2026)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 07:59:28 PM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to ENABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 07:59:46 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 07:59:46 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 08:01:41 PM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to DISABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 08:02:09 PM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to ENABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 08:02:21 PM",
+      "LOGIN_FAILED",
+      "Brain",
+      "Visitor",
+      "Invalid Password Attempt",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 09:32:29 PM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to ENABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 09:32:39 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 09:53:46 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:25:38 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:25:48 PM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to ENABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:25:57 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:26:41 PM",
+      "USER_LOGIN",
+      "Brian",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:26:56 PM",
+      "USER_LOGIN",
+      "Brian",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-02 10:32:04 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 08:32:28 AM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 08:43:58 AM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Visitor",
+      "Invalid Password Attempt",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 08:44:05 AM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Visitor",
+      "Invalid Password Attempt",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 08:44:12 AM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Visitor",
+      "Invalid Password Attempt",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 08:44:30 AM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:01:49 AM",
+      "MAINTENANCE_TOGGLE",
+      "Amul",
+      "Admin",
+      "Maintenance Mode set to ENABLED",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:07:14 AM",
+      "USER_LOGIN",
+      "Brian",
+      "Admin",
+      "Web/App Auth Success",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:37:09 AM",
+      "USER_LOGIN",
+      "Amul Pappu",
+      "Admin",
+      "Web Auth Success (Admin)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:37:15 AM",
+      "USER_LOGIN",
+      "Jiyana Shree",
+      "Manager",
+      "Web Auth Success (Manager)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:37:23 AM",
+      "USER_LOGIN",
+      "Maria",
+      "Employee",
+      "Web Auth Success (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:37:29 AM",
+      "LOGIN_FAILED",
+      "Maria",
+      "Employee",
+      "Invalid Password Attempt for Employee",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:45:45 AM",
+      "USER_LOGIN",
+      "Jiyana Shree",
+      "Manager",
+      "Web Auth Success (Manager)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:45:50 AM",
+      "USER_LOGIN",
+      "Maria",
+      "Employee",
+      "Web Auth Success (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:57:25 AM",
+      "ROLE_PERMISSIONS_UPDATE",
+      "Admin",
+      "Admin",
+      "Updated dynamic access control settings",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 09:57:30 AM",
+      "ROLE_PERMISSIONS_UPDATE",
+      "Admin",
+      "Admin",
+      "Updated dynamic access control settings",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:02:36 PM",
+      "USER_LOGIN",
+      "TestUser",
+      "Employee",
+      "Web Auth Success (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:02:44 PM",
+      "USER_LOGIN",
+      "ManagerUser",
+      "Manager",
+      "Web Auth Success (Manager)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:07 PM",
+      "USER_LOGOUT",
+      "User",
+      "User",
+      "User logged out (User)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:17 PM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Employee",
+      "Invalid Password Attempt for Employee",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:29 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Employee",
+      "Web Auth Success (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:33 PM",
+      "USER_LOGOUT",
+      "Amul",
+      "Employee",
+      "User logged out (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:40 PM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Admin",
+      "Invalid Password Attempt for Admin",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:41 PM",
+      "LOGIN_FAILED",
+      "Amul",
+      "Admin",
+      "Invalid Password Attempt for Admin",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:46 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web Auth Success (Admin)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:27:52 PM",
+      "USER_LOGOUT",
+      "Amul",
+      "Admin",
+      "User logged out (Admin)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:28:05 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Employee",
+      "Web Auth Success (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:28:39 PM",
+      "USER_LOGOUT",
+      "Amul",
+      "Employee",
+      "User logged out (Employee)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-03 05:28:55 PM",
+      "USER_LOGIN",
+      "Amul",
+      "Admin",
+      "Web Auth Success (Admin)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:42:57 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Performance Part (Stock: 566, Price: 3035.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:10 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Cosmetic (Stock: 391, Price: 755.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:17 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Extra Kit (Stock: 99, Price: 400.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:25 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Respray Kit (Stock: 367, Price: 610.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:32 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Light (Stock: 42, Price: 405.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:39 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Wheel Kit (Stock: 57, Price: 405.0)",
+      "",
+      ""
+    ],
+    [
+      "2026-08-04 05:43:46 PM",
+      "INVENTORY_UPDATE",
+      "Amul",
+      "Admin",
+      "Updated item: Smoke Kit (Stock: 101, Price: 405.0)",
+      "",
+      ""
+    ],
+    [
       "2026-08-04 08:50:09 PM",
       "FUSER_LOGIN",
       "Visitor",
       "Visitor",
-      "Visitor Web Access (IP: 127.0.0.1)"
+      "Visitor Web Access (IP: 127.0.0.1)",
+      "",
+      ""
     ]
   ]
 }
