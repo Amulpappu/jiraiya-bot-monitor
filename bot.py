@@ -74,7 +74,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     """
     if is_backfill:
         existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-        if existing_reactions & {"✅", "🔁", "❓"}:
+        if "✅" in existing_reactions or "🔁" in existing_reactions:
             return
 
     image_attachment = next(
@@ -134,7 +134,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    if result.get("confident", True):
+    if result.get("confident", True) or amount:
         txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
         txn_description = f"{result['count']}x" if result["count"] and result["count"] > 1 else ""
         try:
@@ -159,34 +159,25 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
 
 async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
     """
-    Processes kit sales where player types quantities shorthand in text alongside invoice image.
+    Processes kit sales where player types quantities shorthand in text OR attaches an invoice image screenshot.
     """
     if is_backfill:
         existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-        if existing_reactions & {"✅", "🔁", "❓"}:
+        if "✅" in existing_reactions or "🔁" in existing_reactions:
             return
 
     qty = kit_pricing.parse_kit_quantities(message.content)
-    if qty is None:
-        await safe_add_reaction(message, "❓")
-        if not is_backfill:
-            await safe_reply(
-                message,
-                "Couldn't find a kit quantity in your message (e.g. `each 10`, "
-                "`100 each`, `rk 10`, or `10 rk`). Please resend with quantity included."
-            )
-        return
 
     image_attachment = next(
         (a for a in message.attachments if is_image_attachment(a)),
         None,
     )
 
-    image_hash, parsed = None, {"customer": None}
+    image_hash, parsed = None, {"customer": None, "amount": None}
     if image_attachment:
         try:
             image_hash, parsed, _raw_text = await ocr.process_invoice_image(
-                image_attachment.url, ["customer"]
+                image_attachment.url, ["customer", "amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for kit message {message.id}: {e}")
@@ -195,9 +186,42 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         await safe_add_reaction(message, "🔁")
         return
 
+    amount = parsed.get("amount") if parsed else None
+
+    # Fallback to extracting amount from message content text if OCR missed it
+    if amount is None and message.content:
+        import re
+        numbers = re.findall(r"\b\d{4,7}\b", message.content)
+        if numbers:
+            try:
+                amount = float(numbers[0])
+            except ValueError:
+                pass
+
+    if qty is None and amount is not None and amount > 0:
+        rk_unit = kit_pricing.KIT_PRICES.get("rk", 1000)
+        ck_unit = kit_pricing.KIT_PRICES.get("ck", 900)
+        rk_qty = int(amount // rk_unit)
+        if rk_qty > 0:
+            qty = {"rk": rk_qty, "ck": 0}
+        else:
+            qty = {"rk": 0, "ck": int(amount // ck_unit)}
+
+    if qty is None:
+        await safe_add_reaction(message, "❓")
+        if not is_backfill:
+            await safe_reply(
+                message,
+                "Couldn't find kit quantity or invoice amount in your message. "
+                "Please include quantity (e.g. `each 10`, `rk 10`) or attach an invoice screenshot."
+            )
+        return
+
     total, discount, combined_qty, rk_subtotal, ck_subtotal = kit_pricing.calculate_kit_total(
         qty["rk"], qty["ck"]
     )
+    if total <= 0 and amount and amount > 0:
+        total = amount
 
     author_emp = config.resolve_employee_from_author(message.author)
 
@@ -223,9 +247,11 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
 
     try:
         if qty["rk"] > 0:
-            sheets.append_transaction_entry(rk_subtotal, f"{qty['rk']}x", "Repair Kit")
+            sheets.append_transaction_entry(rk_subtotal or total, f"{qty['rk']}x", "Repair Kit")
         if qty["ck"] > 0:
-            sheets.append_transaction_entry(ck_subtotal, f"{qty['ck']}x", "Cleaning Kit")
+            sheets.append_transaction_entry(ck_subtotal or total, f"{qty['ck']}x", "Cleaning Kit")
+        if qty["rk"] == 0 and qty["ck"] == 0 and total > 0:
+            sheets.append_transaction_entry(total, "Kit Sale", "Repair Kit")
     except Exception as e:
         ocr.logger.error(f"Failed to write Transactions entries for message {message.id}: {e}")
 
@@ -233,8 +259,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     if not is_backfill:
         await safe_reply(
             message,
-            f"Logged: {qty['rk']}x Repair Kit + {qty['ck']}x Cleaning Kit "
-            f"(combined {combined_qty}, {int(discount * 100)}% discount) = ₹{total:,.0f}"
+            f"Logged: {qty['rk']}x Repair Kit + {qty['ck']}x Cleaning Kit = ₹{total:,.0f}"
         )
 
 
@@ -377,6 +402,8 @@ async def slash_scan(interaction: discord.Interaction, limit: int = 500):
     channel_name = getattr(interaction.channel, "name", "unknown")
     try:
         count = await backfill_channel_history(interaction.channel, channel_name, limit=limit)
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
         sheets.update_dashboard()
         await interaction.followup.send(
             f"✅ **Scan complete for #{channel_name}!** Processed **{count}** un-logged message(s). Google Sheets updated."
@@ -401,6 +428,8 @@ async def slash_scanall(interaction: discord.Interaction, limit: int = 500):
                 ocr.logger.error(f"Scanall error on #{channel.name}: {e}")
 
     try:
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
         sheets.update_dashboard()
     except Exception:
         pass
