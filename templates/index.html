@@ -361,8 +361,8 @@
                         <button class="btn btn-ghost btn-sm" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Employee</th><th>Kit Logs</th><th>Civilian</th><th>Government</th><th>Service Logs</th><th>Upgrades</th><th>Total</th><th>Last Active</th></tr></thead>
-                        <tbody id="emp-tracker-body"><tr><td colspan="9" class="empty"><p>Loading...</p></td></tr></tbody>
+                        <thead><tr><th>#</th><th>Employee</th><th>Civilian</th><th>Government</th><th>Service Logs</th><th>Upgrades</th><th>Total</th><th>Last Active</th></tr></thead>
+                        <tbody id="emp-tracker-body"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -726,12 +726,12 @@
             const res = await fetch('/api/employee-tracker');
             const d = await res.json();
             const tbody = document.getElementById('emp-tracker-body');
-            if (!d.success || !d.employees || !d.employees.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty"><p>No employee data</p></td></tr>'; return; }
+            if (!d.success || !d.employees || !d.employees.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No employee data</p></td></tr>'; return; }
             d.employees.sort((a, b) => fmtNum(b.total) - fmtNum(a.total));
             tbody.innerHTML = '';
             d.employees.forEach((e, i) => {
                 const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
-                tbody.innerHTML += `<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td class="emp-name">${e.name}</td><td><span class="tag tag-cyan">${e.kits||0}</span></td><td><span class="tag tag-blue">${e.civilian||0}</span></td><td><span class="tag tag-purple">${e.govt||0}</span></td><td>${e.service_logs||0}</td><td>${e.upgrades||0}</td><td style="font-weight:800;color:var(--green);">${fmtNum(e.total)}</td><td style="font-size:12px;color:var(--text-muted);">${e.last_date||'—'}</td></tr>`;
+                tbody.innerHTML += `<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td class="emp-name">${e.name}</td><td><span class="tag tag-blue">${e.civilian||0}</span></td><td><span class="tag tag-purple">${e.govt||0}</span></td><td>${e.service_logs||0}</td><td>${e.upgrades||0}</td><td style="font-weight:800;color:var(--green);">${fmtNum(e.total)}</td><td style="font-size:12px;color:var(--text-muted);">${e.last_date||'—'}</td></tr>`;
             });
         } catch(e) { console.error(e); }
     }
