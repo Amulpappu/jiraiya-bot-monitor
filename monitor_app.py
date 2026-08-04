@@ -454,6 +454,10 @@ def get_employee_tracker():
             if len(r) >= 7:
                 name = str(r[0]).strip()
                 if name and name.lower() not in ("unknown", "high command", "high comman"):
+                    civ = sheets._sum_numeric([r[2]])
+                    gov = sheets._sum_numeric([r[3]])
+                    upg = sheets._sum_numeric([r[5]])
+                    sal_tot = int(civ + gov + upg)
                     employees.append({
                         "name": name,
                         "kits": r[1],
@@ -461,7 +465,7 @@ def get_employee_tracker():
                         "govt": r[3],
                         "service_logs": r[4],
                         "upgrades": r[5],
-                        "total": r[6],
+                        "total": str(sal_tot) if (civ > 0 or gov > 0 or upg > 0) else r[6],
                         "last_date": r[7] if len(r) > 7 else ""
                     })
 
@@ -503,7 +507,7 @@ def get_employee_tracker():
                         if staff not in emp_stats:
                             emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
                         emp_stats[staff]["kits"] += 1
-                        emp_stats[staff]["total"] += 1
+                        # Kits do NOT count towards salary total
                         emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
 
             for name, s in emp_stats.items():
