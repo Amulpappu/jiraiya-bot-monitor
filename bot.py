@@ -67,6 +67,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     """
     Processes invoices and logs for combined/service channels.
     """
+    print(f"[process_service] msg_id={message.id} backfill={is_backfill} attachments={len(message.attachments)}")
     if is_backfill:
         existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
         if "✅" in existing_reactions or "🔁" in existing_reactions:
@@ -596,10 +597,15 @@ async def on_message(message: discord.Message):
 
     await bot.process_commands(message)
 
+    channel_name = getattr(message.channel, "name", "??")
+    print(f"[on_message] #{channel_name} | author={message.author} | attachments={len(message.attachments)} | content={message.content[:60]!r}")
+
     cfg, cfg_key, ch_name = resolve_message_channel_config(message)
     if cfg is None:
+        print(f"[on_message] #{channel_name} -> no channel config match, ignoring.")
         return
 
+    print(f"[on_message] #{channel_name} -> matched config key={ch_name!r}, processing...")
     await process_invoice_message(message, ch_name, is_backfill=False)
 
     with sheets._CACHE_LOCK:
