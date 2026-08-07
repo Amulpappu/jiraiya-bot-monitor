@@ -361,29 +361,30 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             await safe_reply(message, f"Logged {cfg.get('sheet_name', 'Invoice')}: ₹{value:,.0f}")
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 100):
-    """Scans RECENT messages (last 48 hours only) in a configured channel for invoice images or text logs missed while offline."""
+async def backfill_channel_history(channel, channel_name: str, limit: int = 200):
+    """Scans RECENT messages (last 7 days) in a configured channel for invoice images or text logs missed while offline."""
     scanned = 0
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
 
     existing_sheet_ids = set()
-    try:
-        cfg, _ = config.get_channel_config(channel_name)
-        if cfg:
-            sheet_name = cfg.get("sheet_name", "Transactions")
-            rows = sheets.get_rows(sheet_name)
+    for s_name in ["Service", "Kits", "Upgrades", "Transactions"]:
+        try:
+            rows = sheets.get_rows(s_name)
             for row in rows:
                 if len(row) >= 7 and row[6]:
                     existing_sheet_ids.add(str(row[6]).strip())
                 elif len(row) >= 5 and row[4]:
                     existing_sheet_ids.add(str(row[4]).strip())
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     try:
-        async for message in channel.history(limit=limit, after=cutoff, oldest_first=False):
+        async for message in channel.history(limit=limit, oldest_first=False):
             if message.author.bot:
                 continue
+
+            if message.created_at < cutoff:
+                break
 
             msg_id = str(message.id)
             if msg_id in existing_sheet_ids or msg_id in processed_ids:
