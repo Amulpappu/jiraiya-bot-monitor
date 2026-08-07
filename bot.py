@@ -260,21 +260,37 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
 
 
 def resolve_message_channel_config(message: discord.Message):
-    """Resolves channel config for text channels, threads, and archived threads."""
+    """Resolves channel config for text channels, threads, and archived threads.
+    Priority: thread name > parent channel name > direct channel name.
+    This ensures threads named 'Services' or 'Upgrades' inside aug-logs are routed correctly."""
     ch = message.channel
     channel_name = getattr(ch, "name", "")
+
+    # 1. If this is a thread, check the thread name first (e.g. 'Services', 'Upgrades')
+    parent = getattr(ch, "parent", None)
+    if parent:
+        # It's a thread — thread name takes priority for routing
+        cfg, cfg_key = config.get_channel_config(channel_name)
+        if cfg:
+            print(f"[resolve] thread={channel_name!r} -> matched thread name key={cfg_key!r}")
+            return cfg, cfg_key, channel_name
+
+        # Thread name didn't match — fall back to parent channel name
+        parent_name = getattr(parent, "name", "")
+        cfg, cfg_key = config.get_channel_config(parent_name)
+        if cfg:
+            print(f"[resolve] thread={channel_name!r} -> fallback to parent={parent_name!r} key={cfg_key!r}")
+            return cfg, cfg_key, parent_name
+
+        return None, None, channel_name
+
+    # 2. Direct text channel (not a thread)
     cfg, cfg_key = config.get_channel_config(channel_name)
     if cfg:
         return cfg, cfg_key, channel_name
 
-    parent = getattr(ch, "parent", None)
-    if parent:
-        parent_name = getattr(parent, "name", "")
-        cfg, cfg_key = config.get_channel_config(parent_name)
-        if cfg:
-            return cfg, cfg_key, parent_name
-
     return None, None, channel_name
+
 
 
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False):
@@ -410,30 +426,39 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 200)
 
 
 async def collect_target_channels(guild: discord.Guild):
-    """Gathers every text channel AND thread in the guild matching configured invoice channels."""
+    """Gathers every text channel AND thread in the guild matching configured invoice channels.
+    Also collects threads inside matched parent channels (e.g. Services/Upgrades threads inside aug-logs)."""
     targets = []
 
     for channel in guild.text_channels:
-        cfg, _ = config.get_channel_config(channel.name)
-        if cfg:
+        parent_cfg, _ = config.get_channel_config(channel.name)
+        if parent_cfg:
             targets.append(channel)
 
         for thread in channel.threads:
             cfg_t, _ = config.get_channel_config(thread.name)
             if cfg_t:
-                targets.append(thread)
+                if thread not in targets:
+                    targets.append(thread)
+            elif parent_cfg:
+                # Thread is inside a matched parent (aug-logs) — include it for backfill
+                if thread not in targets:
+                    targets.append(thread)
 
         try:
             async for thread in channel.archived_threads(limit=100):
                 cfg_t, _ = config.get_channel_config(thread.name)
-                if cfg_t:
-                    targets.append(thread)
+                if cfg_t or parent_cfg:
+                    if thread not in targets:
+                        targets.append(thread)
         except discord.Forbidden:
             pass
 
     for thread in guild.threads:
         cfg_t, _ = config.get_channel_config(thread.name)
-        if cfg_t and thread not in targets:
+        parent = getattr(thread, "parent", None)
+        parent_cfg2, _ = config.get_channel_config(getattr(parent, "name", "")) if parent else (None, None)
+        if (cfg_t or parent_cfg2) and thread not in targets:
             targets.append(thread)
 
     return targets
