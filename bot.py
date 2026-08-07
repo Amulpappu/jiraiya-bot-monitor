@@ -361,22 +361,32 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             await safe_reply(message, f"Logged {cfg.get('sheet_name', 'Invoice')}: ₹{value:,.0f}")
 
 
+def get_logged_message_ids() -> set:
+    """Fetches all Discord Message IDs already logged in Google Sheets (to avoid duplicate entries)."""
+    logged = set()
+    try:
+        ss = sheets.get_spreadsheet()
+        for sheet_name in ["Service", "Kits", "Upgrades"]:
+            try:
+                ws = ss.worksheet(sheet_name)
+                all_vals = ws.get_all_values()
+                for row in all_vals[1:]:  # skip header
+                    if len(row) >= 7 and row[6].strip():
+                        logged.add(row[6].strip())
+                    elif len(row) >= 5 and row[4].strip():
+                        logged.add(row[4].strip())
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return logged
+
+
 async def backfill_channel_history(channel, channel_name: str, limit: int = 200):
     """Scans RECENT messages (last 7 days) in a configured channel for invoice images or text logs missed while offline."""
     scanned = 0
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
-
-    existing_sheet_ids = set()
-    for s_name in ["Service", "Kits", "Upgrades", "Transactions"]:
-        try:
-            rows = sheets.get_rows(s_name)
-            for row in rows:
-                if len(row) >= 7 and row[6]:
-                    existing_sheet_ids.add(str(row[6]).strip())
-                elif len(row) >= 5 and row[4]:
-                    existing_sheet_ids.add(str(row[4]).strip())
-        except Exception:
-            pass
+    existing_sheet_ids = get_logged_message_ids()
 
     try:
         async for message in channel.history(limit=limit, oldest_first=False):
@@ -387,7 +397,7 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 200)
                 break
 
             msg_id = str(message.id)
-            if msg_id in existing_sheet_ids or msg_id in processed_ids:
+            if msg_id in existing_sheet_ids:
                 continue
 
             await process_invoice_message(message, channel_name, is_backfill=True)
