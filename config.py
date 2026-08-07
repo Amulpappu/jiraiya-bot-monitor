@@ -17,7 +17,7 @@ EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69
 
 def get_channel_config(channel_name: str):
     """Dynamically resolves channel configuration based on exact or fuzzy channel name matching.
-    Supports current month channels (e.g. august-kits, august-service, august-upgrades) and custom names."""
+    Supports channels with Unicode, emojis, month names (august/aug), and special Discord formatting."""
     if not channel_name:
         return None, None
 
@@ -29,17 +29,39 @@ def get_channel_config(channel_name: str):
     if c_low in CHANNEL_CONFIG:
         return CHANNEL_CONFIG[c_low], c_low
 
-    # Normalized name check
-    clean = c_low.replace("┆", " ").replace("-", " ").replace("_", " ").strip()
+    # Strip unicode decorators, emojis, special chars -> plain ASCII words only
+    import unicodedata
+    try:
+        # Normalize unicode small caps / decorative letters to ASCII equivalent
+        normalized = unicodedata.normalize("NFKD", c_low)
+        normalized = "".join(c for c in normalized if ord(c) < 128)
+    except Exception:
+        normalized = c_low
 
+    clean = normalized.replace("┆", " ").replace("-", " ").replace("_", " ").replace(".", " ").strip()
+    # Remove emoji characters
+    import re
+    clean = re.sub(r"[^\x00-\x7F]+", " ", clean).strip()
+    clean = re.sub(r"\s+", " ", clean)
+
+    # Kit channel detection (also check raw unicode small-cap letters: ᴋɪᴛꜱ)
     if any(k in clean for k in ("kit", "kits", "rk", "ck", "repair", "cleaning")):
         return _KIT_CONFIG, "Kits"
+    # Raw unicode check for small-cap "ᴋɪᴛ" (Discord decorative font)
+    if "\u1d0b\u026a\u1d1b" in c_low or "kit" in c_low:
+        return _KIT_CONFIG, "Kits"
 
+    # Service channel detection
     if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
         return _SERVICE_CONFIG, "Service"
 
-    if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods")):
+    # Upgrade channel detection
+    if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
         return _UPGRADE_CONFIG, "Upgrades"
+
+    # Aug-logs / monthly combined logs channel -> treat as service
+    if any(k in clean for k in ("log", "logs", "aug", "august", "sept", "oct", "nov", "dec", "jan", "feb", "mar", "apr", "may", "jun", "jul")):
+        return _SERVICE_CONFIG, "Service"
 
     return None, None
 
@@ -88,17 +110,32 @@ _KIT_CONFIG = {
 }
 
 CHANNEL_CONFIG = {
+    # ── Service channels ───────────────────────────────────
     "services": _SERVICE_CONFIG,
     "service": _SERVICE_CONFIG,
     "service-logs": _SERVICE_CONFIG,
     "service logs": _SERVICE_CONFIG,
 
+    # August combined logs (threads inside here are service/upgrade)
+    "\U0001f300\u2546aug-\u029f\u1d0f\u0262\ua731": _SERVICE_CONFIG,  # 🌀┆aug-ʟᴏɢꜱ
+    "aug-logs": _SERVICE_CONFIG,
+    "aug logs": _SERVICE_CONFIG,
+    "august-logs": _SERVICE_CONFIG,
+    "august logs": _SERVICE_CONFIG,
+
+    # ── Upgrade channels ───────────────────────────────────
     "car upgrade": _UPGRADE_CONFIG,
     "car-upgrade": _UPGRADE_CONFIG,
     "upgrade-logs": _UPGRADE_CONFIG,
     "upgrades": _UPGRADE_CONFIG,
 
-    "🧰┆july-ᴋɪᴛꜱ": _KIT_CONFIG,
+    # ── Kit channels ───────────────────────────────────────
+    "\U0001f9f0\u2546aug-\u1d0b\u026a\u1d1b\ua731": _KIT_CONFIG,  # 🧰┆aug-ᴋɪᴛꜱ
+    "\U0001f9f0\u2546july-\u1d0b\u026a\u1d1b\ua731": _KIT_CONFIG,  # 🧰┆july-ᴋɪᴛꜱ
+    "aug-kits": _KIT_CONFIG,
+    "aug kits": _KIT_CONFIG,
+    "august-kits": _KIT_CONFIG,
+    "august kits": _KIT_CONFIG,
     "july-kits": _KIT_CONFIG,
     "july kits": _KIT_CONFIG,
     "kits": _KIT_CONFIG,
