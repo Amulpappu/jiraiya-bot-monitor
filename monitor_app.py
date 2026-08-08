@@ -409,10 +409,10 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             pass
         return datetime.datetime.min
 
-    # User directive: Only include August 2026 (Month 8) onwards
+    # User directive: Only include August 2026 (Month 8) onwards, listed in chronological order starting from Aug 1 12 AM
     aug_start = datetime.datetime(2026, 8, 1, 0, 0, 0)
     aug_items = [it for it in items if parse_dt(it) >= aug_start]
-    aug_items.sort(key=parse_dt, reverse=True)
+    aug_items.sort(key=parse_dt, reverse=False)
     return aug_items
 
 
