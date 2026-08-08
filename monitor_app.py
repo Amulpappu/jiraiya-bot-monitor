@@ -377,20 +377,43 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             })
 
     def parse_dt(item):
-        d_str = str(item.get("date", ""))
+        d_str = str(item.get("date", "") if isinstance(item, dict) else item).strip()
+        if not d_str:
+            return datetime.datetime.min
         try:
-            parts = d_str.split(" ")
-            d_parts = parts[0].split("/")
-            t_parts = parts[1].split(":") if len(parts) > 1 else [0, 0, 0]
-            if len(d_parts) == 3:
-                return datetime.datetime(int(d_parts[2]), int(d_parts[1]), int(d_parts[0]),
-                                         int(t_parts[0]), int(t_parts[1]), int(t_parts[2]) if len(t_parts) > 2 else 0)
+            if "-" in d_str:
+                parts = d_str.split(" ")
+                ymd = parts[0].split("-")
+                if len(ymd) == 3:
+                    year, month, day = int(ymd[0]), int(ymd[1]), int(ymd[2])
+                    hour, minute, sec = 0, 0, 0
+                    if len(parts) > 1:
+                        t_parts = parts[1].split(":")
+                        if len(t_parts) >= 2:
+                            hour = int(t_parts[0])
+                            minute = int(t_parts[1])
+                            if len(t_parts) >= 3:
+                                sec = int(t_parts[2])
+                            if len(parts) > 2 and parts[2].upper() == "PM" and hour < 12:
+                                hour += 12
+                            elif len(parts) > 2 and parts[2].upper() == "AM" and hour == 12:
+                                hour = 0
+                    return datetime.datetime(year, month, day, hour, minute, sec)
+            elif "/" in d_str:
+                parts = d_str.split(" ")
+                dmy = parts[0].split("/")
+                if len(dmy) == 3:
+                    day, month, year = int(dmy[0]), int(dmy[1]), int(dmy[2])
+                    return datetime.datetime(year, month, day)
         except Exception:
             pass
         return datetime.datetime.min
 
-    items.sort(key=parse_dt, reverse=True)
-    return items
+    # User directive: Only include August 2026 (Month 8) onwards
+    aug_start = datetime.datetime(2026, 8, 1, 0, 0, 0)
+    aug_items = [it for it in items if parse_dt(it) >= aug_start]
+    aug_items.sort(key=parse_dt, reverse=True)
+    return aug_items
 
 
 @app.route("/api/dashboard")
