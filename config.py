@@ -66,32 +66,71 @@ def get_channel_config(channel_name: str):
     return None, None
 
 
+EMPLOYEE_DISCORD_MAP = {
+    "candy__07": "Sandy",
+    "jackzmf": "Sylas",
+    "niveein_bex": "Benny",
+    "saron_jenish1923": "Lara",
+    "jarad0007": "Maria",
+    "demonwnl_1024": "Abrar",
+    "tamilazhagan": "Arivu",
+    "astroeligaming": "Eli",
+    "sandy.432": "Alexia",
+    "amul_pappu": "Amul",
+    "shuraim_ms": "Mitchell",
+    "jeeva_rj_": "Lissa",
+    "suriya2810": "Nesuko",
+    "evoff9595": "Mikasa",
+    "tomcatgaming": "TomCat",
+    "balajisubramanian": "Mathew",
+    "jiyana_shree": "Jiyana Shree",
+    "tbkevil_44": "EVE",
+    "blari": "Meenu Kutty",
+}
+
+EMPLOYEE_NAME_FALLBACKS = {
+    "sandy": "Sandy",
+    "sylas": "Sylas",
+    "benny": "Benny",
+    "lara": "Lara",
+    "maria": "Maria",
+    "abrar": "Abrar",
+    "arivu": "Arivu",
+    "eli": "Eli",
+    "alexia": "Alexia",
+    "amul": "Amul",
+    "mitchell": "Mitchell",
+    "lissa": "Lissa",
+    "nesuko": "Nesuko",
+    "mikasa": "Mikasa",
+    "tomcat": "TomCat",
+    "mathew": "Mathew",
+    "jiyana": "Jiyana Shree",
+    "jiraya": "Jiyana Shree",
+    "fisher": "Jiyana Shree",
+    "eve": "EVE",
+    "meenu": "Meenu Kutty",
+    "questless": "QuestlessSoul",
+}
+
+
 def normalize_employee_name(raw: str) -> str:
     """Normalizes Discord tags, handles Unicode decorative fonts, and maps to assigned employee names."""
     if not raw or not str(raw).strip():
         return "Unknown"
     import unicodedata
-    raw_str = str(raw)
+    raw_str = str(raw).strip()
+    clean_tag = raw_str.lower().lstrip("@")
+    if clean_tag in EMPLOYEE_DISCORD_MAP:
+        return EMPLOYEE_DISCORD_MAP[clean_tag]
+
     norm = unicodedata.normalize("NFKD", raw_str)
     ascii_str = norm.encode("ascii", "ignore").decode("ascii").strip()
     low = (ascii_str + " " + raw_str).lower()
 
-    if any(k in low for k in ("jiraya", "fisher", "fish")) or "\u142f" in raw_str or "\u1515" in raw_str:
-        return "Jiraya"
-    if "questless" in low or "soul" in low:
-        return "QuestlessSoul"
-    if "amul" in low:
-        return "Amul"
-    if any(k in low for k in ("maria", "iara", "sreee", "\u0e20")) or "\ud835\udd40" in raw_str:
-        return "Maria Sreee"
-    if "sandy" in low:
-        return "Sandy"
-    if "gd" in low:
-        return "GD x"
-    if "poochi" in low:
-        return "Poochi"
-    if "prathyuraj" in low or "prathy" in low:
-        return "Prathyuraj"
+    for key, mapped_name in EMPLOYEE_NAME_FALLBACKS.items():
+        if key in low:
+            return mapped_name
 
     return ascii_str.title() if ascii_str else raw_str
 
@@ -100,8 +139,15 @@ def resolve_employee_from_author(author) -> str:
     """Extracts clean display name or nickname from Discord Author, mapped to assigned employee name."""
     if not author:
         return "Unknown"
-    name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
-    return normalize_employee_name(name)
+    # Check Discord tag / username handle first (e.g. @amul_pappu, @jiyana_shree)
+    username = getattr(author, "name", None)
+    if username:
+        mapped = normalize_employee_name(username)
+        if mapped != username and mapped != "Unknown":
+            return mapped
+
+    display_name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
+    return normalize_employee_name(display_name)
 
 # ── Tesseract OCR ────────────────────────────────────────
 # On Windows, uncomment and point this at your tesseract.exe install path.
