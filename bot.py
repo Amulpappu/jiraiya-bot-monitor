@@ -477,45 +477,6 @@ async def collect_target_channels(guild: discord.Guild):
     return targets
 
 
-# ── Discord Prefix Commands (!) ──────────────────────────
-
-
-@bot.command(name="scan", aliases=["rescan", "sync", "backfill"])
-async def scan_channel_command(ctx: commands.Context, limit: int = 500):
-    """Command to force rescan recent messages in the current channel."""
-    channel_name = getattr(ctx.channel, "name", "unknown")
-    await ctx.send(f"🔍 Starting scan of up to {limit} recent messages in #{channel_name}...")
-
-    try:
-        count = await backfill_channel_history(ctx.channel, channel_name, limit=limit)
-        sheets.update_dashboard()
-        await ctx.send(f"✅ Scan complete for #{channel_name}! Processed {count} un-logged message(s). Google Sheets updated.")
-    except Exception as e:
-        await ctx.send(f"❌ Error during scan: {e}")
-
-
-@bot.command(name="scanall", aliases=["rescanall", "syncall"])
-async def scan_all_channels_command(ctx: commands.Context, limit: int = 500):
-    """Command to force rescan past messages across ALL server channels."""
-    await ctx.send(f"🔍 Starting full server rescan (up to {limit} messages per channel)...")
-    total_scanned = 0
-    for guild in bot.guilds:
-        targets = await collect_target_channels(guild)
-        for channel in targets:
-            try:
-                cnt = await backfill_channel_history(channel, channel.name, limit=limit)
-                total_scanned += cnt
-            except Exception as e:
-                ocr.logger.error(f"Scanall error on #{channel.name}: {e}")
-
-    try:
-        sheets.update_dashboard()
-    except Exception:
-        pass
-
-    await ctx.send(f"✅ Full server rescan complete! Processed {total_scanned} total un-logged message(s) across all channels.")
-
-
 @tasks.loop(seconds=30)
 async def real_time_auto_scan_loop():
     """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time.
