@@ -73,12 +73,12 @@ GENERIC_SHEET_TO_TRANSACTION_CATEGORY = {
 }
 
 
-async def process_service_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
+async def process_service_message(message: discord.Message, cfg: dict, is_backfill: bool = False, is_full_rescan: bool = False):
     """
     Processes invoices and logs for combined/service channels.
     """
-    print(f"[process_service] msg_id={message.id} backfill={is_backfill} attachments={len(message.attachments)}")
-    if is_backfill:
+    print(f"[process_service] msg_id={message.id} backfill={is_backfill} rescan={is_full_rescan} attachments={len(message.attachments)}")
+    if is_backfill and not is_full_rescan:
         existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
         if "✅" in existing_reactions or "🔁" in existing_reactions:
             return
@@ -187,11 +187,11 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         await safe_reply(message, "Logged as 'Unspecified' for now — please verify invoice amount or category.")
 
 
-async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False):
+async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False, is_full_rescan: bool = False):
     """
     Processes kit sales where player types quantities shorthand in text OR attaches an invoice image screenshot.
     """
-    if is_backfill:
+    if is_backfill and not is_full_rescan:
         existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
         if "✅" in existing_reactions or "🔁" in existing_reactions:
             return
@@ -329,7 +329,7 @@ def resolve_message_channel_config(message: discord.Message):
 
 
 
-async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False):
+async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False, is_full_rescan: bool = False):
     """Runs OCR + sheet logging for one message. Shared by on_message and startup history scan."""
     cfg, cfg_key, _ = resolve_message_channel_config(message)
     if not cfg:
@@ -340,11 +340,11 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
     cat = str(cfg.get("category", "")).lower()
 
     if cfg.get("kit_channel") or cat == "kit":
-        await process_kit_message(message, cfg, is_backfill)
+        await process_kit_message(message, cfg, is_backfill, is_full_rescan)
         return
 
     if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service"):
-        await process_service_message(message, cfg, is_backfill)
+        await process_service_message(message, cfg, is_backfill, is_full_rescan)
         return
 
     fields = cfg.get("fields", ["customer", "amount"])
@@ -353,7 +353,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         if not is_image_attachment(attachment):
             continue
 
-        if is_backfill:
+        if is_backfill and not is_full_rescan:
             existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
             if "✅" in existing_reactions or "🔁" in existing_reactions:
                 continue
@@ -443,13 +443,13 @@ def get_logged_message_ids() -> set:
     return logged
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 500):
+async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
     """Scans RECENT messages in a configured channel for invoice images or text logs missed while offline.
     Includes a 1.5s delay between messages to avoid Google Sheets API rate limits (60 writes/min)."""
     scanned = 0
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
     cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-    existing_sheet_ids = get_logged_message_ids()
+    existing_sheet_ids = set() if is_full_rescan else get_logged_message_ids()
 
     try:
         async for message in channel.history(limit=limit, oldest_first=False):
@@ -460,10 +460,10 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500)
                 break
 
             msg_id = str(message.id)
-            if msg_id in existing_sheet_ids:
+            if not is_full_rescan and msg_id in existing_sheet_ids:
                 continue
 
-            await process_invoice_message(message, channel_name, is_backfill=True)
+            await process_invoice_message(message, channel_name, is_backfill=True, is_full_rescan=is_full_rescan)
             scanned += 1
 
             # Throttle writes to stay within Google Sheets API rate limits
@@ -558,7 +558,7 @@ async def real_time_auto_scan_loop():
             targets = await collect_target_channels(guild)
             for channel in targets:
                 try:
-                    cnt = await backfill_channel_history(channel, channel.name, limit=scan_limit)
+                    cnt = await backfill_channel_history(channel, channel.name, limit=scan_limit, is_full_rescan=is_full_rescan)
                     total_synced += cnt
                 except Exception:
                     pass
