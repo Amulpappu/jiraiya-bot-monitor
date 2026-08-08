@@ -6,3 +6,5 @@ ocr_errors.log
 venv/
 credentials.json
 *.flag
+local_cache.json
+processed_images.json
