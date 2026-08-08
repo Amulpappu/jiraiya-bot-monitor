@@ -421,9 +421,10 @@ def get_logged_message_ids() -> set:
     return logged
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 200):
-    """Scans RECENT messages (last 7 days) in a configured channel for invoice images or text logs missed while offline.
+async def backfill_channel_history(channel, channel_name: str, limit: int = 500):
+    """Scans RECENT messages in a configured channel for invoice images or text logs missed while offline.
     Includes a 1.5s delay between messages to avoid Google Sheets API rate limits (60 writes/min)."""
+    scanned = 0
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
     cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     existing_sheet_ids = get_logged_message_ids()
