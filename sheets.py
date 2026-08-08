@@ -271,7 +271,8 @@ def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
     msg_id_str = str(message_id).strip()
     if not msg_id_str:
         return False
-    rows = _all_rows(sheet_name, force_refresh=False)
+    with _CACHE_LOCK:
+        rows = _LAST_KNOWN_ROWS.get(sheet_name, [])
     msg_col_map = {"Service": 6, "Kits": 7, "Upgrades": 4}
     col = msg_col_map.get(sheet_name, -1)
     if col >= 0:
@@ -296,6 +297,11 @@ def append_service_entry(customer: str, category: str, total, employee: str, mes
         message_id,
     ]
     _with_retry(lambda: ws.append_row(row))
+    with _CACHE_LOCK:
+        if "Service" not in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Service"] = []
+        _LAST_KNOWN_ROWS["Service"].append(row)
+        _save_disk_cache()
 
 
 def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: float,
@@ -317,6 +323,11 @@ def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: floa
         message_id,
     ]
     _with_retry(lambda: ws.append_row(row))
+    with _CACHE_LOCK:
+        if "Kits" not in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Kits"] = []
+        _LAST_KNOWN_ROWS["Kits"].append(row)
+        _save_disk_cache()
 
 
 def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str, timestamp: str = None):
@@ -326,9 +337,12 @@ def append_entry(sheet_name: str, customer: str, value, employee: str, message_i
     ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     row = [ts, customer or "Unknown", value, employee, message_id]
 
-    # The invoice row itself is the important part — save it first, and let
-    # any failure here surface to the caller (bot.py) as a real save failure.
     _with_retry(lambda: ws.append_row(row))
+    with _CACHE_LOCK:
+        if sheet_name not in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS[sheet_name] = []
+        _LAST_KNOWN_ROWS[sheet_name].append(row)
+        _save_disk_cache()
 
     # The dashboard is a "nice to have" recalculation. If it hits a rate
     # limit or any other hiccup, we don't want that to look like the
