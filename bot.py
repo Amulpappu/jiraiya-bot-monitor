@@ -478,32 +478,33 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500)
 
 
 async def collect_target_channels(guild: discord.Guild):
-    """Gathers every text channel AND thread in the guild matching configured invoice channels.
+    """Gathers every text channel, forum channel, AND thread in the guild matching configured invoice channels.
     Also collects threads inside matched parent channels (e.g. Services/Upgrades threads inside aug-logs)."""
     targets = []
 
-    for channel in guild.text_channels:
+    channels_to_check = list(guild.text_channels)
+    if hasattr(guild, "forums"):
+        channels_to_check.extend(guild.forums)
+
+    for channel in channels_to_check:
         parent_cfg, _ = config.get_channel_config(channel.name)
-        if parent_cfg:
+        if parent_cfg and isinstance(channel, discord.TextChannel):
             targets.append(channel)
 
-        for thread in channel.threads:
+        for thread in getattr(channel, "threads", []):
             cfg_t, _ = config.get_channel_config(thread.name)
-            if cfg_t:
-                if thread not in targets:
-                    targets.append(thread)
-            elif parent_cfg:
-                # Thread is inside a matched parent (aug-logs) — include it for backfill
+            if cfg_t or parent_cfg:
                 if thread not in targets:
                     targets.append(thread)
 
         try:
-            async for thread in channel.archived_threads(limit=100):
-                cfg_t, _ = config.get_channel_config(thread.name)
-                if cfg_t or parent_cfg:
-                    if thread not in targets:
-                        targets.append(thread)
-        except discord.Forbidden:
+            if hasattr(channel, "archived_threads"):
+                async for thread in channel.archived_threads(limit=100):
+                    cfg_t, _ = config.get_channel_config(thread.name)
+                    if cfg_t or parent_cfg:
+                        if thread not in targets:
+                            targets.append(thread)
+        except Exception:
             pass
 
     for thread in guild.threads:
