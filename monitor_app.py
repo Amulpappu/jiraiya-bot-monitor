@@ -582,11 +582,16 @@ def api_wipe():
     try:
         ss = sheets.get_spreadsheet()
         wiped_sheets = []
+        HEADER_MAP = {
+            "Service": sheets.SERVICE_HEADERS,
+            "Kits": sheets.KIT_HEADERS,
+            "Upgrades": sheets.REVENUE_HEADERS,
+            "Transactions": sheets.TRANSACTIONS_HEADERS,
+        }
         for sheet_name in ["Service", "Kits", "Upgrades", "Transactions", "Employee Tracker", "August Employee Tracker"]:
             try:
                 ws = ss.worksheet(sheet_name)
-                # Get header row, clear everything, re-write header
-                header = ws.row_values(1)
+                header = HEADER_MAP.get(sheet_name) or ws.row_values(1)
                 sheets._with_retry(lambda w=ws: w.clear())
                 if header:
                     sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
