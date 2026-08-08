@@ -3,7 +3,7 @@ import os
 import asyncio
 import datetime
 import discord
-from discord import app_commands
+
 from discord.ext import commands, tasks
 from aiohttp import web
 
@@ -477,59 +477,7 @@ async def collect_target_channels(guild: discord.Guild):
     return targets
 
 
-# ── Discord Slash Commands (/) & Prefix Commands (!) ─────
-
-@bot.tree.command(name="scan", description="Rescan recent messages in this channel and sync un-logged invoices to Google Sheets")
-@app_commands.describe(limit="Number of recent messages to scan (default 500)")
-async def slash_scan(interaction: discord.Interaction, limit: int = 500):
-    await interaction.response.defer(ephemeral=False)
-    channel_name = getattr(interaction.channel, "name", "unknown")
-    try:
-        count = await backfill_channel_history(interaction.channel, channel_name, limit=limit)
-        with sheets._CACHE_LOCK:
-            sheets._ROWS_CACHE.clear()
-        sheets.update_dashboard()
-        await interaction.followup.send(
-            f"✅ **Scan complete for #{channel_name}!** Processed **{count}** un-logged message(s). Google Sheets updated."
-        )
-    except Exception as e:
-        await interaction.followup.send(f"❌ Error during scan: {e}")
-
-
-@bot.tree.command(name="scanall", description="Rescan past messages across ALL server channels and update Google Sheets")
-@app_commands.describe(limit="Number of recent messages per channel to scan (default 500)")
-async def slash_scanall(interaction: discord.Interaction, limit: int = 500):
-    await interaction.response.defer(ephemeral=False)
-    await interaction.followup.send(f"🔍 Starting full server rescan (up to {limit} messages per channel)...")
-    total_scanned = 0
-    for guild in bot.guilds:
-        targets = await collect_target_channels(guild)
-        for channel in targets:
-            try:
-                cnt = await backfill_channel_history(channel, channel.name, limit=limit)
-                total_scanned += cnt
-            except Exception as e:
-                ocr.logger.error(f"Scanall error on #{channel.name}: {e}")
-
-    try:
-        with sheets._CACHE_LOCK:
-            sheets._ROWS_CACHE.clear()
-        sheets.update_dashboard()
-    except Exception:
-        pass
-
-    await interaction.followup.send(
-        f"✅ **Full server rescan complete!** Processed **{total_scanned}** total un-logged message(s) across all channels."
-    )
-
-
-@bot.tree.command(name="status", description="Check Jiraiya Bot status and Google Sheets live sync connection")
-async def slash_status(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🟢 **Jiraiya Bot is online and operational!**\n"
-        "📊 **Google Sheets:** Live Synced\n"
-        "⚡ **Slash Commands (/):** `/scan`, `/scanall`, `/status` active."
-    )
+# ── Discord Prefix Commands (!) ──────────────────────────
 
 
 @bot.command(name="scan", aliases=["rescan", "sync", "backfill"])
@@ -638,11 +586,13 @@ async def on_ready():
     except Exception as e:
         print(f"Warning: Google Sheets setup warning: {e}")
 
+    # Clear any previously registered slash commands from Discord
     try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} Discord Slash Command(s) (/scan, /scanall, /status).")
+        bot.tree.clear_commands(guild=None)
+        await bot.tree.sync()
+        print("Cleared all Discord Slash Commands.")
     except Exception as e:
-        print(f"Warning: Could not sync Slash Commands: {e}")
+        print(f"Warning: Could not clear Slash Commands: {e}")
 
     print("Scanning configured channels/threads for invoices missed while offline...")
     for guild in bot.guilds:
