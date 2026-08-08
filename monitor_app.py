@@ -708,17 +708,49 @@ def update_inventory_item():
 
 @app.route("/api/wipe", methods=["POST"])
 def api_wipe():
-    """Wipes all data sheets and triggers bot rescan. Password protected."""
+    """Wipes all data sheets (preserving headers) and signals bot to rescan."""
     data = request.get_json() or {}
     password = data.get("password", "").strip()
+    user_name = data.get("user_name", session.get("user_name", "Admin"))
     if password != ADMIN_PASSWORD:
         return jsonify({"success": False, "error": "Invalid password!"}), 401
     try:
-        # Touch wipe_trigger.flag to signal bot to wipe memory & rescan
+        ss = sheets.get_spreadsheet()
+        wiped_sheets = []
+        for sheet_name in ["Service", "Kits", "Upgrades", "Transactions"]:
+            try:
+                ws = ss.worksheet(sheet_name)
+                # Get header row, clear everything, re-write header
+                header = ws.row_values(1)
+                sheets._with_retry(lambda w=ws: w.clear())
+                if header:
+                    sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
+                wiped_sheets.append(sheet_name)
+            except Exception as e:
+                print(f"[Wipe] Could not wipe {sheet_name}: {e}")
+
+        # Clear all local caches (web app process)
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
+            sheets._LAST_KNOWN_ROWS.clear()
+            sheets._save_disk_cache()
+
+        # Clear processed image hashes
+        try:
+            if os.path.exists("processed_images.json"):
+                with open("processed_images.json", "w") as f:
+                    json.dump([], f)
+        except Exception:
+            pass
+
+        # Signal bot process to rescan
         with open("wipe_trigger.flag", "w") as f:
             import time as _t
             f.write(str(_t.time()))
-        return jsonify({"success": True, "message": "All data wiped! Bot will now rescan all Discord channels."})
+
+        sheets.append_user_audit_log(user_name, "DATA_WIPE", f"Wiped sheets: {', '.join(wiped_sheets)}", "Admin")
+
+        return jsonify({"success": True, "message": f"Wiped {', '.join(wiped_sheets)}! Bot will rescan Discord channels."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

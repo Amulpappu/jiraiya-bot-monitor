@@ -572,14 +572,44 @@ async def scan_all_channels_command(ctx: commands.Context, limit: int = 500):
 async def real_time_auto_scan_loop():
     """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time.
     Dashboard is refreshed every cycle regardless of whether new messages were found, so daily/weekly/monthly
-    totals stay current even during quiet periods."""
+    totals stay current even during quiet periods.
+    Also checks for wipe_trigger.flag and rescan_trigger.flag created by the web dashboard."""
     try:
+        # Check for wipe/rescan signals from the web dashboard
+        is_full_rescan = False
+        if os.path.exists("wipe_trigger.flag"):
+            print("[Auto-Scan] Wipe trigger detected — clearing bot caches and processed hashes...")
+            # Clear in-memory caches in the bot process
+            with sheets._CACHE_LOCK:
+                sheets._ROWS_CACHE.clear()
+                sheets._LAST_KNOWN_ROWS.clear()
+                sheets._save_disk_cache()
+            # Clear processed image hashes so messages aren't skipped as duplicates
+            global processed_hashes
+            processed_hashes.clear()
+            save_processed_hashes(processed_hashes)
+            try:
+                os.remove("wipe_trigger.flag")
+            except Exception:
+                pass
+            is_full_rescan = True
+
+        if os.path.exists("rescan_trigger.flag"):
+            print("[Auto-Scan] Rescan trigger detected — starting full server rescan...")
+            try:
+                os.remove("rescan_trigger.flag")
+            except Exception:
+                pass
+            is_full_rescan = True
+
+        scan_limit = 500 if is_full_rescan else 50
+
         total_synced = 0
         for guild in bot.guilds:
             targets = await collect_target_channels(guild)
             for channel in targets:
                 try:
-                    cnt = await backfill_channel_history(channel, channel.name, limit=50)
+                    cnt = await backfill_channel_history(channel, channel.name, limit=scan_limit)
                     total_synced += cnt
                 except Exception:
                     pass
@@ -593,8 +623,8 @@ async def real_time_auto_scan_loop():
         except Exception as e:
             ocr.logger.error(f"Real-time auto-scan dashboard update error: {e}")
 
-        if total_synced > 0:
-            print(f"[Real-Time Auto-Scan] Synced {total_synced} new log message(s) directly to Google Sheets.")
+        if total_synced > 0 or is_full_rescan:
+            print(f"[Real-Time Auto-Scan] {'Full rescan' if is_full_rescan else 'Auto-scan'}: synced {total_synced} message(s) to Google Sheets.")
     except Exception as e:
         ocr.logger.error(f"Real-time auto-scan loop error: {e}")
 
