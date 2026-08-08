@@ -241,6 +241,9 @@
                 <a class="nav-item" id="nav-item-maintenance" onclick="openAuthModal('maintenance')">
                     <span class="icon">🛠️</span> <span>Maintenance</span>
                 </a>
+                <a class="nav-item" id="nav-item-wipe" onclick="openAuthModal('wipe')" style="color:var(--red);">
+                    <span class="icon">🗑️</span> <span>Wipe & Rescan</span>
+                </a>
                 <a class="nav-item" id="nav-item-permissions" onclick="openPermissionsModal()">
                     <span class="icon">⚙️</span> <span>Access Control</span>
                 </a>
@@ -275,7 +278,9 @@
                     <span class="status-dot {{ 'maint' if is_maintenance else '' }}"></span>
                     {{ '⚠️ Maintenance' if is_maintenance else 'Live Synced' }}
                 </span>
+                <button class="btn btn-ghost" onclick="triggerRescan()" title="Rescan Discord channel history">🔍 Rescan</button>
                 <button class="btn btn-ghost" onclick="refreshAll()">🔄 Refresh</button>
+                <button class="btn" id="topbar-wipe-btn" onclick="openAuthModal('wipe')" style="background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);padding:7px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🗑️ Wipe Data</button>
                 <button class="btn btn-primary" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
                 <span id="topbar-user-pill" style="display:none;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);padding:7px 16px;border-radius:10px;font-size:13px;font-weight:600;color:var(--accent-light);">👤 <span id="topbar-user-name"></span></span>
             </div>
@@ -852,8 +857,26 @@
     function openAuthModal(action) {
         currentAction = action;
         document.getElementById('auth-error').style.display = 'none';
-        document.getElementById('user-name-input').value = '';
+        document.getElementById('user-name-input').value = loggedInUser || '';
         document.getElementById('user-pass-input').value = '';
+        
+        const heading = document.getElementById('modal-heading');
+        const subtext = document.getElementById('modal-subtext');
+
+        if (action === 'wipe') {
+            if (heading) heading.textContent = '🗑️ Wipe & Rescan Data';
+            if (subtext) subtext.textContent = 'Enter Admin Password to wipe all Google Sheet data (Service, Kits, Upgrades, Transactions) and trigger a full Discord rescan.';
+            selectRole('Admin');
+        } else if (action === 'maintenance') {
+            if (heading) heading.textContent = '🛠️ Maintenance System Toggle';
+            if (subtext) subtext.textContent = 'Enter Admin Password to toggle system maintenance mode on/off.';
+            selectRole('Admin');
+        } else {
+            if (heading) heading.textContent = 'System Portal Authentication';
+            if (subtext) subtext.textContent = 'Select your role tab (Admin, Manager, or Employee) and sign in.';
+            selectRole('Admin');
+        }
+
         document.getElementById('auth-modal').style.display = 'flex';
     }
 
@@ -894,6 +917,32 @@
         if (!name) { err.textContent = 'Please enter your Name!'; err.style.display = 'block'; return; }
         if (!pass) { err.textContent = 'Please enter Password!'; err.style.display = 'block'; return; }
         err.style.display = 'none';
+
+        if (currentAction === 'wipe') {
+            if (!confirm('⚠️ CRITICAL WARNING!\n\nAre you sure you want to WIPE all Google Sheets data (Service, Kits, Upgrades, Transactions) and trigger a full Discord channel rescan?\n\nThis action cannot be undone!')) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/wipe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass, user_name: name })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeModal('auth-modal');
+                    alert(data.message || 'All data wiped! Bot is now rescanning all Discord channels.');
+                    window.location.reload();
+                } else {
+                    err.textContent = data.error || 'Failed to wipe data!';
+                    err.style.display = 'block';
+                }
+            } catch(e) {
+                err.textContent = 'Server error!';
+                err.style.display = 'block';
+            }
+            return;
+        }
 
         if (currentAction === 'maintenance') {
             // Maintenance toggle requires admin password
@@ -937,6 +986,18 @@
         } catch(e) {
             err.textContent = 'Server connection error!';
             err.style.display = 'block';
+        }
+    }
+
+    async function triggerRescan() {
+        if (!confirm('Start a full rescan of recent Discord channel history?')) return;
+        try {
+            const res = await fetch('/api/rescan', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message || 'Rescan triggered!');
+            setTimeout(refreshAll, 3000);
+        } catch(e) {
+            alert('Failed to trigger rescan!');
         }
     }
 
@@ -985,7 +1046,8 @@
             { key: 'transactions', label: '💸 All Transactions' },
             { key: 'inventory', label: '📦 Stock & Edit' },
             { key: 'audit', label: '📋 User Audit Logs' },
-            { key: 'maintenance', label: '🛠️ Maintenance System' }
+            { key: 'maintenance', label: '🛠️ Maintenance System' },
+            { key: 'wipe', label: '🗑️ Wipe & Rescan Data' }
         ];
 
         let html = '';
@@ -1007,7 +1069,7 @@
 
     async function savePermissions() {
         const err = document.getElementById('permissions-error');
-        const optionsKeys = ['dashboard', 'employees', 'transactions', 'inventory', 'audit', 'maintenance'];
+        const optionsKeys = ['dashboard', 'employees', 'transactions', 'inventory', 'audit', 'maintenance', 'wipe'];
 
         const newPerms = { Admin: {}, Manager: {}, Employee: {} };
 
@@ -1050,7 +1112,9 @@
         const navInventory = document.querySelector('.nav-item[data-page="inventory"]');
         const navAudit = document.querySelector('.nav-item[data-page="audit"]');
         const navMaintenance = document.getElementById('nav-item-maintenance');
+        const navWipe = document.getElementById('nav-item-wipe');
         const navPermissions = document.getElementById('nav-item-permissions');
+        const topbarWipe = document.getElementById('topbar-wipe-btn');
         const secSystem = document.getElementById('nav-sec-system');
 
         if (navDashboard) navDashboard.style.display = p.dashboard ? 'flex' : 'none';
@@ -1059,8 +1123,10 @@
         if (navInventory) navInventory.style.display = p.inventory ? 'flex' : 'none';
         if (navAudit) navAudit.style.display = p.audit ? 'flex' : 'none';
         if (navMaintenance) navMaintenance.style.display = p.maintenance ? 'flex' : 'none';
+        if (navWipe) navWipe.style.display = p.wipe ? 'flex' : 'none';
+        if (topbarWipe) topbarWipe.style.display = p.wipe ? 'inline-block' : 'none';
         if (navPermissions) navPermissions.style.display = (role === 'Admin') ? 'flex' : 'none';
-        if (secSystem) secSystem.style.display = (p.maintenance || role === 'Admin') ? 'block' : 'none';
+        if (secSystem) secSystem.style.display = (p.maintenance || p.wipe || role === 'Admin') ? 'block' : 'none';
 
         // Auto switch page if current active page is restricted
         const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
