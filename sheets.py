@@ -450,28 +450,85 @@ def _sum_numeric(values):
     total = 0.0
     for v in values:
         try:
-            total += float(v)
+            total += float(str(v).replace(",", "").replace("₹", "").strip())
         except (ValueError, TypeError):
             continue
     return total
 
 
-def _revenue_window(rows, value_col=2, days=None, today_only=False, this_month=False):
-    """Sums the given column's values from an already-fetched rows list
-    within a date window. value_col defaults to 2 (Total Amount for
-    Service/Upgrades) but the Kits sheet uses column 5 instead."""
+def get_row_amount(sheet_name: str, row: list) -> float:
+    """Extracts numerical total amount from a sheet row, dynamically handling legacy and current column layouts."""
+    if not row or not isinstance(row, (list, tuple)):
+        return 0.0
+
+    val = 0.0
+    if sheet_name == "Service":
+        # 7-col: [Timestamp, Customer, Category, Count, Total Amount, Employee, Message ID] -> index 4
+        # 6-col: [Timestamp, Customer, Category, Total Amount, Employee, Message ID] -> index 3
+        if len(row) >= 7:
+            val = row[4]
+        elif len(row) >= 5:
+            val = row[3]
+        elif len(row) >= 3:
+            val = row[2]
+    elif sheet_name == "Kits":
+        # 8-col: [Timestamp, Customer, RK Qty, CK Qty, Discount %, Total Amount, Employee, Message ID] -> index 5
+        # 6/7-col legacy: [Timestamp, Customer, Details, Total Amount, Employee, Message ID] -> index 3
+        if len(row) >= 8:
+            val = row[5]
+        elif len(row) in (6, 7):
+            val = row[3]
+        elif len(row) >= 3:
+            val = row[2]
+    elif sheet_name == "Upgrades":
+        # 5-col: [Timestamp, Customer, Total Amount, Employee, Message ID] -> index 2
+        if len(row) >= 3:
+            val = row[2]
+    else:
+        if len(row) >= 3:
+            val = row[2]
+
+    try:
+        return float(str(val).replace(",", "").replace("₹", "").strip())
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def get_row_employee(sheet_name: str, row: list) -> str:
+    """Extracts employee name from a sheet row, dynamically handling legacy and current column layouts."""
+    if not row or not isinstance(row, (list, tuple)):
+        return ""
+
+    if sheet_name == "Service":
+        if len(row) >= 7:
+            return str(row[5]).strip()
+        elif len(row) >= 5:
+            return str(row[4]).strip()
+    elif sheet_name == "Kits":
+        if len(row) >= 8:
+            return str(row[6]).strip()
+        elif len(row) in (6, 7):
+            return str(row[4]).strip()
+        elif len(row) >= 4:
+            return str(row[3]).strip()
+    elif sheet_name == "Upgrades":
+        if len(row) >= 4:
+            return str(row[3]).strip()
+
+    return ""
+
+
+def _revenue_window(rows, sheet_name=None, days=None, today_only=False, this_month=False):
+    """Sums amounts from a rows list within a date window."""
     now = now_ist()
     total = 0.0
     for row in rows:
-        if len(row) <= value_col:
+        if not row:
             continue
         ts = parse_ist_timestamp(row[0])
-        try:
-            val = float(row[value_col])
-        except (ValueError, TypeError):
-            continue
         if ts is None:
             continue
+        val = get_row_amount(sheet_name, row)
 
         include = False
         if today_only and ts.date() == now.date():
@@ -486,51 +543,40 @@ def _revenue_window(rows, value_col=2, days=None, today_only=False, this_month=F
     return total
 
 
-# Column index (0-based) of "Employee" and "Total Amount" per sheet — Service
-# now has Category + Count columns and Kits has RK/CK/Discount columns, so
-# neither matches the generic REVENUE_HEADERS layout Upgrades still uses.
-_EMPLOYEE_COL = {"Service": 5, "Upgrades": 3, "Kits": 6}
-_AMOUNT_COL = {"Service": 4, "Upgrades": 2, "Kits": 5}
-
-
 def _leaderboard(rows_by_sheet):
     """Ranks employees by total number of invoices they've processed across all categories."""
     counter = Counter()
     for ws_name in ("Service", "Upgrades", "Kits"):
-        col = _EMPLOYEE_COL[ws_name]
         for row in rows_by_sheet[ws_name]:
-            if len(row) > col and row[col]:
-                counter[row[col]] += 1
+            emp = get_row_employee(ws_name, row)
+            if emp and emp.lower() not in ("unknown", "high command", "high comman"):
+                counter[emp] += 1
     return counter.most_common(config.LEADERBOARD_TOP_N)
 
 
 def update_dashboard():
     ws = _ensure_dashboard()
 
-    # Fetch each sheet exactly ONCE and reuse the data for every calculation
-    # below. This keeps Google Sheets API usage low enough to stay within
-    # the free tier's read-request quota, even with several invoices logged
-    # back-to-back.
     rows_by_sheet = {
         "Service": _all_rows("Service"),
         "Upgrades": _all_rows("Upgrades"),
         "Kits": _all_rows("Kits"),
     }
 
-    service_total = _sum_numeric([r[_AMOUNT_COL["Service"]] for r in rows_by_sheet["Service"] if len(r) > _AMOUNT_COL["Service"]])
-    upgrade_total = _sum_numeric([r[_AMOUNT_COL["Upgrades"]] for r in rows_by_sheet["Upgrades"] if len(r) > _AMOUNT_COL["Upgrades"]])
-    kits_total = _sum_numeric([r[_AMOUNT_COL["Kits"]] for r in rows_by_sheet["Kits"] if len(r) > _AMOUNT_COL["Kits"]])
+    service_total = sum(get_row_amount("Service", r) for r in rows_by_sheet["Service"])
+    upgrade_total = sum(get_row_amount("Upgrades", r) for r in rows_by_sheet["Upgrades"])
+    kits_total = sum(get_row_amount("Kits", r) for r in rows_by_sheet["Kits"])
 
     daily = {
-        name: _revenue_window(rows_by_sheet[name], value_col=_AMOUNT_COL[name], today_only=True)
+        name: _revenue_window(rows_by_sheet[name], sheet_name=name, today_only=True)
         for name in rows_by_sheet
     }
     weekly = {
-        name: _revenue_window(rows_by_sheet[name], value_col=_AMOUNT_COL[name], days=7)
+        name: _revenue_window(rows_by_sheet[name], sheet_name=name, days=7)
         for name in rows_by_sheet
     }
     monthly = {
-        name: _revenue_window(rows_by_sheet[name], value_col=_AMOUNT_COL[name], this_month=True)
+        name: _revenue_window(rows_by_sheet[name], sheet_name=name, this_month=True)
         for name in rows_by_sheet
     }
 
@@ -568,3 +614,4 @@ def update_dashboard():
 
     _with_retry(lambda: ws.clear())
     _with_retry(lambda: ws.update("A1", rows))
+

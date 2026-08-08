@@ -323,59 +323,44 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
                 })
 
     for r in service_rows:
-        # Service sheet layout:
-        #   7-col (current): [Timestamp, Customer, Category, Count, Total Amount, Employee, MsgID]
-        #   6-col (legacy) : [Timestamp, Customer, Category, Total Amount, Employee, MsgID]
-        if len(r) >= 7:
-            # Current 7-column format
+        if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = str(r[5]).strip()
+            staff = sheets.get_row_employee("Service", r)
+            amt = sheets.get_row_amount("Service", r)
             if (dt, staff) not in tx_stamps:
                 items.append({
                     "date": dt,
                     "type": "Service",
-                    "customer": r[1],
-                    "amount": r[4],
-                    "staff": staff
-                })
-        elif len(r) >= 5:
-            # Legacy 6-column format (no Count column)
-            dt = str(r[0]).strip()
-            staff = str(r[4]).strip()
-            if (dt, staff) not in tx_stamps:
-                items.append({
-                    "date": dt,
-                    "type": "Service",
-                    "customer": r[1],
-                    "amount": r[3],
+                    "customer": r[1] if len(r) > 1 else "Unknown",
+                    "amount": amt,
                     "staff": staff
                 })
 
     for r in upgrade_rows:
-        if len(r) > 3:
+        if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = str(r[3]).strip()
+            staff = sheets.get_row_employee("Upgrades", r)
+            amt = sheets.get_row_amount("Upgrades", r)
             if (dt, staff) not in tx_stamps:
                 items.append({
                     "date": dt,
                     "type": "Upgrade",
-                    "customer": r[1],
-                    "amount": r[2],
+                    "customer": r[1] if len(r) > 1 else "Recipient",
+                    "amount": amt,
                     "staff": staff
                 })
 
     for r in kit_rows:
-        # Kit sheet layout (8-col):
-        #   [Timestamp, Customer, RK Qty, CK Qty, Discount%, Total Amount, Employee, MsgID]
-        if len(r) >= 7:
+        if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = str(r[6]).strip()
+            staff = sheets.get_row_employee("Kits", r)
+            amt = sheets.get_row_amount("Kits", r)
             if (dt, staff) not in tx_stamps:
                 items.append({
                     "date": dt,
                     "type": "Kit",
-                    "customer": r[1],
-                    "amount": r[5],
+                    "customer": r[1] if len(r) > 1 else "Unknown",
+                    "amount": amt,
                     "staff": staff
                 })
 
@@ -415,25 +400,9 @@ def get_dashboard_data():
         expense_rows = sheets._all_rows("Expenses")
         tx_rows = sheets._all_rows("Transactions")
 
-        # Column helpers — Service rows can be 6-col (legacy) or 7-col (current)
-        def _svc_amount(r):
-            """Return amount from a Service row regardless of column layout."""
-            if len(r) >= 7:
-                return r[4]   # 7-col: [ts, cust, cat, count, AMOUNT, emp, msgid]
-            elif len(r) >= 5:
-                return r[3]   # 6-col: [ts, cust, cat, AMOUNT, emp, msgid]
-            return 0
-
-        def _svc_employee(r):
-            if len(r) >= 7:
-                return r[5]
-            elif len(r) >= 5:
-                return r[4]
-            return ""
-
-        service_rev = sum(sheets._sum_numeric([_svc_amount(r)]) for r in service_rows)
-        upgrade_rev = sum(sheets._sum_numeric([r[2]]) for r in upgrade_rows if len(r) > 2)
-        kit_rev = sum(sheets._sum_numeric([r[5]]) for r in kit_rows if len(r) > 5)
+        service_rev = sum(sheets.get_row_amount("Service", r) for r in service_rows)
+        upgrade_rev = sum(sheets.get_row_amount("Upgrades", r) for r in upgrade_rows)
+        kit_rev = sum(sheets.get_row_amount("Kits", r) for r in kit_rows)
         expenses_tot = sum(sheets._sum_numeric([r[1]]) for r in expense_rows if len(r) > 1)
 
         total_sales = service_rev + upgrade_rev + kit_rev
@@ -444,19 +413,12 @@ def get_dashboard_data():
         # Count unique employees
         emp_set = set()
         emp_counts = {}
-        # Service: employee col depends on row width; Upgrades: col3; Kits: col6
-        for r in service_rows:
-            emp = str(_svc_employee(r)).strip()
-            if emp and emp.lower() not in ("unknown", "high command", "high comman"):
-                emp_set.add(emp)
-                emp_counts[emp] = emp_counts.get(emp, 0) + 1
-        for rows, col in [(upgrade_rows, 3), (kit_rows, 6)]:
+        for s_name, rows in [("Service", service_rows), ("Upgrades", upgrade_rows), ("Kits", kit_rows)]:
             for r in rows:
-                if len(r) > col:
-                    emp = str(r[col]).strip()
-                    if emp and emp.lower() not in ("unknown", "high command", "high comman"):
-                        emp_set.add(emp)
-                        emp_counts[emp] = emp_counts.get(emp, 0) + 1
+                emp = sheets.get_row_employee(s_name, r)
+                if emp and emp.lower() not in ("unknown", "high command", "high comman"):
+                    emp_set.add(emp)
+                    emp_counts[emp] = emp_counts.get(emp, 0) + 1
 
         top_employees = sorted(emp_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
@@ -466,17 +428,12 @@ def get_dashboard_data():
 
         # Daily revenue breakdown for chart (group by day)
         daily_rev = {}
-        for r in service_rows:
-            date_str = str(r[0]).strip()
-            day = date_str.split(" ")[0] if " " in date_str else date_str
-            amt = sheets._sum_numeric([_svc_amount(r)])
-            daily_rev[day] = daily_rev.get(day, 0) + amt
-        for rows, col in [(upgrade_rows, 2), (kit_rows, 5)]:
+        for s_name, rows in [("Service", service_rows), ("Upgrades", upgrade_rows), ("Kits", kit_rows)]:
             for r in rows:
-                if len(r) > col:
+                if len(r) > 0:
                     date_str = str(r[0]).strip()
                     day = date_str.split(" ")[0] if " " in date_str else date_str
-                    amt = sheets._sum_numeric([r[col]])
+                    amt = sheets.get_row_amount(s_name, r)
                     daily_rev[day] = daily_rev.get(day, 0) + amt
 
         def parse_date_key(d_str):
