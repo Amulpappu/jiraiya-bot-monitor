@@ -379,7 +379,14 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
 
 def get_logged_message_ids() -> set:
-    """Fetches all Discord Message IDs already logged in Google Sheets (to avoid duplicate entries)."""
+    """Fetches all Discord Message IDs already logged in Google Sheets (to avoid duplicate entries).
+
+    Column layout (0-indexed):
+      Service  : [Timestamp, Customer, Category, Count, Total Amount, Employee, Message ID]  → col 6
+      Kits     : [Timestamp, Customer, RK Qty, CK Qty, Discount%, Total Amount, Employee, Message ID] → col 7
+      Upgrades : [Timestamp, Customer, Total Amount, Employee, Message ID] → col 4
+    """
+    MSG_ID_COL = {"Service": 6, "Kits": 7, "Upgrades": 4}
     logged = set()
     try:
         ss = sheets.get_spreadsheet()
@@ -387,11 +394,10 @@ def get_logged_message_ids() -> set:
             try:
                 ws = ss.worksheet(sheet_name)
                 all_vals = ws.get_all_values()
+                col = MSG_ID_COL[sheet_name]
                 for row in all_vals[1:]:  # skip header
-                    if len(row) >= 7 and row[6].strip():
-                        logged.add(row[6].strip())
-                    elif len(row) >= 5 and row[4].strip():
-                        logged.add(row[4].strip())
+                    if len(row) > col and row[col].strip():
+                        logged.add(row[col].strip())
             except Exception:
                 pass
     except Exception:
@@ -557,7 +563,9 @@ async def scan_all_channels_command(ctx: commands.Context, limit: int = 500):
 
 @tasks.loop(seconds=30)
 async def real_time_auto_scan_loop():
-    """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time."""
+    """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time.
+    Dashboard is refreshed every cycle regardless of whether new messages were found, so daily/weekly/monthly
+    totals stay current even during quiet periods."""
     try:
         total_synced = 0
         for guild in bot.guilds:
@@ -568,10 +576,17 @@ async def real_time_auto_scan_loop():
                     total_synced += cnt
                 except Exception:
                     pass
-        if total_synced > 0:
-            with sheets._CACHE_LOCK:
-                sheets._ROWS_CACHE.clear()
+
+        # Always clear the in-memory row cache and refresh the dashboard so
+        # date-windowed totals (today/weekly/monthly) are always up to date.
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
+        try:
             sheets.update_dashboard()
+        except Exception as e:
+            ocr.logger.error(f"Real-time auto-scan dashboard update error: {e}")
+
+        if total_synced > 0:
             print(f"[Real-Time Auto-Scan] Synced {total_synced} new log message(s) directly to Google Sheets.")
     except Exception as e:
         ocr.logger.error(f"Real-time auto-scan loop error: {e}")

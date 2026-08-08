@@ -31,8 +31,14 @@ LEGACY_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 def parse_ist_timestamp(raw: str):
     """Parses a timestamp string written by this bot, trying the current
     12-hour format first and falling back to the old 24-hour format for
-    rows logged before this change."""
-    for fmt in (TIMESTAMP_FORMAT, LEGACY_TIMESTAMP_FORMAT):
+    rows logged before this change.
+    Also handles the dd/mm/YYYY HH:MM:SS format used by older cache entries."""
+    for fmt in (
+        TIMESTAMP_FORMAT,          # "%Y-%m-%d %I:%M:%S %p"
+        LEGACY_TIMESTAMP_FORMAT,   # "%Y-%m-%d %H:%M:%S"
+        "%d/%m/%Y %H:%M:%S",       # older cache: "04/08/2026 17:40:56"
+        "%d/%m/%Y %I:%M:%S %p",    # older cache (12-hr): "04/08/2026 05:40:56 PM"
+    ):
         try:
             return datetime.datetime.strptime(raw, fmt).replace(tzinfo=IST)
         except ValueError:
@@ -381,6 +387,11 @@ def _ensure_dashboard():
     return ws
 
 
+# Cache TTL: 60 seconds — short enough that the 30s auto-scan loop always
+# sees fresh data from Google Sheets within two scan cycles.
+_CACHE_TTL_SECONDS = 60
+
+
 def _all_rows(ws_name: str, force_refresh: bool = False):
     """Returns all data rows (excluding header) from a given worksheet name.
     Uses in-memory TTL caching + local disk fallback cache."""
@@ -389,9 +400,9 @@ def _all_rows(ws_name: str, force_refresh: bool = False):
     now = time.time()
 
     with _CACHE_LOCK:
-        if target_ws in _LAST_KNOWN_ROWS and not force_refresh:
-            cached_time, cached_data = _ROWS_CACHE.get(target_ws, (0, _LAST_KNOWN_ROWS[target_ws]))
-            if now - cached_time < 300:
+        if not force_refresh and target_ws in _ROWS_CACHE:
+            cached_time, cached_data = _ROWS_CACHE[target_ws]
+            if now - cached_time < _CACHE_TTL_SECONDS:
                 return cached_data
 
     try:
@@ -415,7 +426,7 @@ def _all_rows(ws_name: str, force_refresh: bool = False):
                     _LAST_KNOWN_ROWS[ws_name] = data
                     _save_disk_cache()
                 return data
-    except Exception as ex:
+    except Exception:
         pass
 
     with _CACHE_LOCK:
