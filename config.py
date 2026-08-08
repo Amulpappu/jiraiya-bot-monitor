@@ -51,13 +51,13 @@ def get_channel_config(channel_name: str):
     if "\u1d0b\u026a\u1d1b" in c_low or "kit" in c_low:
         return _KIT_CONFIG, "Kits"
 
+    # Upgrade channel detection (check upgrades before generic service/logs)
+    if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
+        return _UPGRADE_CONFIG, "Upgrades"
+
     # Service channel detection
     if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
         return _SERVICE_CONFIG, "Service"
-
-    # Upgrade channel detection
-    if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
-        return _UPGRADE_CONFIG, "Upgrades"
 
     # Aug-logs / monthly combined logs channel -> treat as service
     if any(k in clean for k in ("log", "logs", "aug", "august", "sept", "oct", "nov", "dec", "jan", "feb", "mar", "apr", "may", "jun", "jul")):
@@ -131,6 +131,9 @@ def normalize_employee_name(raw: str) -> str:
     for key, mapped_name in EMPLOYEE_NAME_FALLBACKS.items():
         if key in low:
             return mapped_name
+
+    if "mohammed" in low or "fart" in low:
+        return "Unknown"
 
     return ascii_str.title() if ascii_str else raw_str
 

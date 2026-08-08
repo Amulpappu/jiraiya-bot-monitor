@@ -445,12 +445,13 @@ def get_logged_message_ids() -> set:
 
 async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
     """Scans RECENT messages in a configured channel for invoice images or text logs missed while offline.
-    Includes a 1.5s delay between messages to avoid Google Sheets API rate limits (60 writes/min)."""
+    Sorts messages in chronological order (Aug 01 -> Aug 08) before writing to Google Sheets."""
     scanned = 0
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
     cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     existing_sheet_ids = set() if is_full_rescan else get_logged_message_ids()
 
+    history_messages = []
     try:
         async for message in channel.history(limit=limit, oldest_first=False):
             if message.author.bot:
@@ -463,16 +464,20 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500,
             if not is_full_rescan and msg_id in existing_sheet_ids:
                 continue
 
+            history_messages.append(message)
+    except Exception as e:
+        ocr.logger.error(f"Error reading channel history for #{channel_name}: {e}")
+
+    # Sort messages chronologically (oldest first: Aug 01 -> Aug 08)
+    history_messages.sort(key=lambda m: m.created_at)
+
+    for message in history_messages:
+        try:
             await process_invoice_message(message, channel_name, is_backfill=True, is_full_rescan=is_full_rescan)
             scanned += 1
-
-            # Throttle writes to stay within Google Sheets API rate limits
-            # (60 write requests per user per minute). Each message may trigger
-            # 2-3 API calls (entry + transaction + dashboard), so a 1.5s delay
-            # keeps us comfortably under the limit.
             await asyncio.sleep(1.5)
-    except Exception as e:
-        ocr.logger.error(f"Error scanning channel history for #{channel_name}: {e}")
+        except Exception as e:
+            ocr.logger.error(f"Error processing message {message.id} in #{channel_name}: {e}")
 
     return scanned
 

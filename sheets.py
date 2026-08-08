@@ -265,7 +265,25 @@ def append_transaction_entry(amount, description: str, category: str, employee: 
     _with_retry(lambda: ws.append_row([date_str, amount, description or "", category, employee or ""]))
 
 
+def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
+    if not message_id:
+        return False
+    msg_id_str = str(message_id).strip()
+    if not msg_id_str:
+        return False
+    rows = _all_rows(sheet_name, force_refresh=False)
+    msg_col_map = {"Service": 6, "Kits": 7, "Upgrades": 4}
+    col = msg_col_map.get(sheet_name, -1)
+    if col >= 0:
+        for r in rows:
+            if len(r) > col and str(r[col]).strip() == msg_id_str:
+                return True
+    return False
+
+
 def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None, timestamp: str = None):
+    if is_message_already_logged("Service", message_id):
+        return
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
     ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     row = [
@@ -283,6 +301,8 @@ def append_service_entry(customer: str, category: str, total, employee: str, mes
 def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: float,
                       total: float, employee: str, message_id: str, timestamp: str = None):
     """Logs a Repair Kit / Cleaning Kit sale with its quantity breakdown."""
+    if is_message_already_logged("Kits", message_id):
+        return
     ws = _ensure_sheet("Kits", KIT_HEADERS)
     ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     disc_str = f"{discount_pct * 100:.0f}%" if discount_pct else "0%"
@@ -300,6 +320,8 @@ def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: floa
 
 
 def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str, timestamp: str = None):
+    if is_message_already_logged(sheet_name, message_id):
+        return
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
     ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     row = [ts, customer or "Unknown", value, employee, message_id]
