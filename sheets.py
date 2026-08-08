@@ -118,7 +118,7 @@ def ensure_credentials_file_exists():
     if os.path.exists(config.GOOGLE_CREDENTIALS_FILE):
         return True
 
-    env_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    env_json = (os.getenv("GOOGLE_CREDENTIALS_JSON") or "").strip()
     if env_json:
         try:
             info = json.loads(env_json)
@@ -128,10 +128,10 @@ def ensure_credentials_file_exists():
         except Exception:
             pass
 
-    env_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64", DEFAULT_CREDENTIALS_B64)
+    env_b64 = (os.getenv("GOOGLE_CREDENTIALS_BASE64") or "").strip() or DEFAULT_CREDENTIALS_B64
     if env_b64:
         try:
-            raw = base64.b64decode(env_b64.strip()).decode("utf-8", errors="ignore")
+            raw = base64.b64decode(env_b64).decode("utf-8", errors="ignore")
             info = json.loads(raw)
             with open(config.GOOGLE_CREDENTIALS_FILE, "w") as f:
                 json.dump(info, f, indent=2)
@@ -149,7 +149,7 @@ def get_client():
 
         creds = None
         # Option 1: GOOGLE_CREDENTIALS_JSON environment variable
-        env_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+        env_json = (os.getenv("GOOGLE_CREDENTIALS_JSON") or "").strip()
         if env_json:
             try:
                 info = json.loads(env_json)
@@ -157,16 +157,16 @@ def get_client():
             except Exception as e:
                 print(f"[Sheets Warning] Could not parse GOOGLE_CREDENTIALS_JSON: {e}")
 
-        # Option 2: GOOGLE_CREDENTIALS_BASE64 environment variable (or built-in fallback)
+        # Option 2: GOOGLE_CREDENTIALS_BASE64 environment variable
         if creds is None:
-            env_b64 = os.getenv("GOOGLE_CREDENTIALS_BASE64", DEFAULT_CREDENTIALS_B64)
+            env_b64 = (os.getenv("GOOGLE_CREDENTIALS_BASE64") or "").strip()
             if env_b64:
                 try:
-                    raw = base64.b64decode(env_b64.strip()).decode("utf-8", errors="ignore")
+                    raw = base64.b64decode(env_b64).decode("utf-8", errors="ignore")
                     info = json.loads(raw)
                     creds = Credentials.from_service_account_info(info, scopes=SCOPES)
                 except Exception as e:
-                    print(f"[Sheets Warning] Could not parse base64 credentials: {e}")
+                    print(f"[Sheets Warning] Could not parse GOOGLE_CREDENTIALS_BASE64: {e}")
 
         # Option 3: Local credentials.json file
         if creds is None and os.path.exists(config.GOOGLE_CREDENTIALS_FILE):
@@ -174,6 +174,15 @@ def get_client():
                 creds = Credentials.from_service_account_file(config.GOOGLE_CREDENTIALS_FILE, scopes=SCOPES)
             except Exception as e:
                 print(f"[Sheets Warning] Could not load {config.GOOGLE_CREDENTIALS_FILE}: {e}")
+
+        # Option 4: Built-in DEFAULT_CREDENTIALS_B64 fallback
+        if creds is None:
+            try:
+                raw = base64.b64decode(DEFAULT_CREDENTIALS_B64).decode("utf-8", errors="ignore")
+                info = json.loads(raw)
+                creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+            except Exception as e:
+                print(f"[Sheets Warning] Could not load built-in default credentials: {e}")
 
         if creds is None:
             raise FileNotFoundError(
