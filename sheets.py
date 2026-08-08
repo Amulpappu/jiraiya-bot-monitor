@@ -265,15 +265,11 @@ def append_transaction_entry(amount, description: str, category: str, employee: 
     _with_retry(lambda: ws.append_row([date_str, amount, description or "", category, employee or ""]))
 
 
-def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None):
-    """Logs a service invoice with its civ/pd/ems/gov/taxi category and how
-    many services were billed together in this one invoice. category is
-    'Unspecified' and count is blank when it couldn't be confidently
-    determined — those rows should be spot-checked manually."""
+def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None, timestamp: str = None):
     ws = _ensure_sheet("Service", SERVICE_HEADERS)
-    timestamp = now_ist().strftime(TIMESTAMP_FORMAT)
+    ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     row = [
-        timestamp,
+        ts,
         customer or "Unknown",
         category or "Unspecified",
         count if count is not None else "",
@@ -285,16 +281,17 @@ def append_service_entry(customer: str, category: str, total, employee: str, mes
 
 
 def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: float,
-                      total: float, employee: str, message_id: str):
-    """Logs a Repair Kit / Cleaning Kit sale with its quantity + discount breakdown."""
+                      total: float, employee: str, message_id: str, timestamp: str = None):
+    """Logs a Repair Kit / Cleaning Kit sale with its quantity breakdown."""
     ws = _ensure_sheet("Kits", KIT_HEADERS)
-    timestamp = now_ist().strftime(TIMESTAMP_FORMAT)
+    ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
+    disc_str = f"{discount_pct * 100:.0f}%" if discount_pct else "0%"
     row = [
-        timestamp,
+        ts,
         customer or "Unknown",
         rk_qty,
         ck_qty,
-        f"{discount_pct * 100:.0f}%",
+        disc_str,
         total,
         employee,
         message_id,
@@ -302,10 +299,10 @@ def append_kit_entry(customer: str, rk_qty: int, ck_qty: int, discount_pct: floa
     _with_retry(lambda: ws.append_row(row))
 
 
-def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str):
+def append_entry(sheet_name: str, customer: str, value, employee: str, message_id: str, timestamp: str = None):
     ws = _ensure_sheet(sheet_name, REVENUE_HEADERS)
-    timestamp = now_ist().strftime(TIMESTAMP_FORMAT)
-    row = [timestamp, customer or "Unknown", value, employee, message_id]
+    ts = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
+    row = [ts, customer or "Unknown", value, employee, message_id]
 
     # The invoice row itself is the important part — save it first, and let
     # any failure here surface to the caller (bot.py) as a real save failure.

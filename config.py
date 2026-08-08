@@ -183,11 +183,12 @@ TRANSACTION_CATEGORIES = [
 
 # ── Service pricing (flat rate by customer category) ─────
 SERVICE_PRICES = {
-    "civilian": 3000,
-    "ems": 5000,
-    "pd": 5000,
-    "gov": 5000,
-    "taxi": 5000,
+    "civilian": 7000,
+    "govt": 10000,
+    "ems": 10000,
+    "pd": 10000,
+    "gov": 10000,
+    "taxi": 10000,
 }
 
 # ── Kit pricing & discount ───────────────────────────────

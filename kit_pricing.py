@@ -90,13 +90,7 @@ def parse_kit_quantities(text: str):
 
 
 def _discount_for(combined_qty: int) -> float:
-    for lo, hi, pct in config.KIT_DISCOUNT_BRACKETS:
-        if lo <= combined_qty <= hi:
-            return pct
-    # Above the top bracket's max, keep applying the highest discount.
-    top_lo, top_hi, top_pct = max(config.KIT_DISCOUNT_BRACKETS, key=lambda b: b[1])
-    if combined_qty > top_hi:
-        return top_pct
+    """User directive: No discount price so no percent."""
     return 0.0
 
 

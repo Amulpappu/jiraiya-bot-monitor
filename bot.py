@@ -58,6 +58,16 @@ def save_processed_hashes(hashes):
 
 processed_hashes = load_processed_hashes()
 
+def message_to_ist_str(msg: discord.Message) -> str:
+    """Converts a Discord message's UTC created_at timestamp to IST formatted date-time string."""
+    utc_dt = msg.created_at
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=datetime.timezone.utc)
+    ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    ist_dt = utc_dt.astimezone(ist_tz)
+    return ist_dt.strftime("%Y-%m-%d %I:%M:%S %p")
+
+
 GENERIC_SHEET_TO_TRANSACTION_CATEGORY = {
     "Upgrades": "Car UpGrade",
 }
@@ -93,8 +103,8 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         await safe_add_reaction(message, "🔁")
         return
 
-    amount = parsed.get("amount") if parsed else None
     customer = parsed.get("customer") if parsed else None
+    amount = parsed.get("amount") if parsed else None
 
     # Fallback to extracting amount from message content if OCR couldn't extract it
     if amount is None and message.content:
@@ -110,6 +120,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     result = service_pricing.resolve_category_and_count(amount, keyword_category)
 
     author_emp = config.resolve_employee_from_author(message.author)
+    msg_ts = message_to_ist_str(message)
 
     try:
         sheets.append_service_entry(
@@ -119,6 +130,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
             employee=author_emp,
             message_id=str(message.id),
             count=result["count"],
+            timestamp=msg_ts,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write service entry for message {message.id}: {e}")
@@ -220,6 +232,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         total = amount
 
     author_emp = config.resolve_employee_from_author(message.author)
+    msg_ts = message_to_ist_str(message)
 
     try:
         sheets.append_kit_entry(
@@ -230,6 +243,7 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             total=total,
             employee=author_emp,
             message_id=str(message.id),
+            timestamp=msg_ts,
         )
     except Exception as e:
         ocr.logger.error(f"Failed to write kit entry for message {message.id}: {e}")
@@ -348,6 +362,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         value = value if value is not None else 0
 
         author_emp = config.resolve_employee_from_author(message.author)
+        msg_ts = message_to_ist_str(message)
 
         try:
             sheets.append_entry(
@@ -356,6 +371,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 value=value,
                 employee=author_emp,
                 message_id=str(message.id),
+                timestamp=msg_ts,
             )
         except Exception as e:
             ocr.logger.error(f"Failed to write to Google Sheets for message {message.id}: {e}")
