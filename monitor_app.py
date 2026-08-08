@@ -297,81 +297,83 @@ def get_audit_logs():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, expense_rows, tx_rows):
+def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, expense_rows, tx_rows=None):
     """
-    Collapses and deduplicates transactions so that summary invoice rows and
-    line-item detail rows for the same transaction are NEVER mixed or double-listed.
+    Combines Service, Upgrade, Kit, and Expense sheet entries into a clean,
+    deduplicated transaction list matching Google Sheets 1:1.
     """
-    tx_stamps = set()
     items = []
-
-    if tx_rows:
-        for r in tx_rows:
-            if len(r) >= 4:
-                dt = str(r[0]).strip()
-                amt = r[1]
-                desc = r[2] if len(r) > 2 and r[2] else "N/A"
-                cat = r[3] or "Transaction"
-                staff = r[4] if len(r) > 4 else ""
-                tx_stamps.add((dt, staff))
-                items.append({
-                    "date": dt,
-                    "type": cat,
-                    "customer": desc,
-                    "amount": amt,
-                    "staff": staff
-                })
 
     for r in service_rows:
         if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = sheets.get_row_employee("Service", r)
+            cust = str(r[1]).strip() if len(r) > 1 and r[1] else "Unknown"
+            cat = str(r[2]).strip() if len(r) > 2 and r[2] else "Civilian"
+            count = str(r[3]).strip() if len(r) > 3 and r[3] else ""
             amt = sheets.get_row_amount("Service", r)
-            if (dt, staff) not in tx_stamps:
-                items.append({
-                    "date": dt,
-                    "type": "Service",
-                    "customer": r[1] if len(r) > 1 else "Unknown",
-                    "amount": amt,
-                    "staff": staff
-                })
+            staff = sheets.get_row_employee("Service", r)
+
+            type_tag = "Service-Government" if cat.upper() in ("GOVT", "GOVERNMENT", "PD", "EMS") else "Service-Civilian"
+            cat_display = f"{count}x {cat}" if count and count != "1" else f"Service ({cat})"
+            items.append({
+                "date": dt,
+                "type": type_tag,
+                "customer": cust if cust not in ("Unknown", "") else cat_display,
+                "amount": amt,
+                "staff": staff
+            })
 
     for r in upgrade_rows:
         if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = sheets.get_row_employee("Upgrades", r)
+            cust = str(r[1]).strip() if len(r) > 1 and r[1] else "Car Upgrade Invoice"
             amt = sheets.get_row_amount("Upgrades", r)
-            if (dt, staff) not in tx_stamps:
-                items.append({
-                    "date": dt,
-                    "type": "Upgrade",
-                    "customer": r[1] if len(r) > 1 else "Recipient",
-                    "amount": amt,
-                    "staff": staff
-                })
+            staff = sheets.get_row_employee("Upgrades", r)
+            items.append({
+                "date": dt,
+                "type": "Car Upgrade",
+                "customer": cust if cust else "Car Upgrade Invoice",
+                "amount": amt,
+                "staff": staff
+            })
 
     for r in kit_rows:
         if len(r) >= 3:
             dt = str(r[0]).strip()
-            staff = sheets.get_row_employee("Kits", r)
+            cust = str(r[1]).strip() if len(r) > 1 and r[1] else "Unknown"
+            details = ""
+            if len(r) >= 8:
+                rk = str(r[2]).strip()
+                ck = str(r[3]).strip()
+                parts = []
+                if rk and rk != "0": parts.append(f"{rk}x Repair Kit")
+                if ck and ck != "0": parts.append(f"{ck}x Cleaning Kit")
+                details = ", ".join(parts) if parts else "Kit Sale"
+            elif len(r) >= 3:
+                details = str(r[2]).strip() or "Kit Sale"
+
             amt = sheets.get_row_amount("Kits", r)
-            if (dt, staff) not in tx_stamps:
-                items.append({
-                    "date": dt,
-                    "type": "Kit",
-                    "customer": r[1] if len(r) > 1 else "Unknown",
-                    "amount": amt,
-                    "staff": staff
-                })
+            staff = sheets.get_row_employee("Kits", r)
+            items.append({
+                "date": dt,
+                "type": "Kit",
+                "customer": details if details else cust,
+                "amount": amt,
+                "staff": staff
+            })
 
     for r in expense_rows:
-        if len(r) > 2:
+        if len(r) > 1:
+            dt = str(r[0]).strip()
+            amt = f"-{r[1]}"
+            staff = str(r[2]).strip() if len(r) > 2 else ""
+            desc = str(r[3]).strip() if len(r) > 3 and r[3] else "Business Claim"
             items.append({
-                "date": r[0],
+                "date": dt,
                 "type": "Expense",
-                "customer": "Business Claim",
-                "amount": f"-{r[1]}",
-                "staff": r[2]
+                "customer": desc,
+                "amount": amt,
+                "staff": staff
             })
 
     def parse_dt(item):
