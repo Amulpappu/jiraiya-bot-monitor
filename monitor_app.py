@@ -515,77 +515,107 @@ def get_all_transactions():
 @app.route("/api/employee-tracker")
 def get_employee_tracker():
     try:
-        rows = sheets._all_rows("Employee Tracker")
+        service_rows = sheets._all_rows("Service")
+        upgrade_rows = sheets._all_rows("Upgrades")
+        kit_rows = sheets._all_rows("Kits")
+        emp_stats = {}
+
+        for r in service_rows:
+            staff = sheets.get_row_employee("Service", r)
+            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                if staff not in emp_stats:
+                    emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                cat = str(r[2]).strip().lower() if len(r) > 2 else ""
+                if "civ" in cat:
+                    emp_stats[staff]["civilian"] += 1
+                else:
+                    emp_stats[staff]["govt"] += 1
+                emp_stats[staff]["service"] += 1
+                emp_stats[staff]["total"] += 1
+                if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
+        for r in upgrade_rows:
+            staff = sheets.get_row_employee("Upgrades", r)
+            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                if staff not in emp_stats:
+                    emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                emp_stats[staff]["upgrades"] += 1
+                emp_stats[staff]["total"] += 1
+                if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
+        for r in kit_rows:
+            staff = sheets.get_row_employee("Kits", r)
+            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                if staff not in emp_stats:
+                    emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                emp_stats[staff]["kits"] += 1
+                if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+
         employees = []
-        for r in rows:
-            if len(r) >= 7:
-                name = str(r[0]).strip()
-                if name and name.lower() not in ("unknown", "high command", "high comman"):
-                    civ = sheets._sum_numeric([r[2]])
-                    gov = sheets._sum_numeric([r[3]])
-                    upg = sheets._sum_numeric([r[5]])
-                    sal_tot = int(civ + gov + upg)
-                    employees.append({
-                        "name": name,
-                        "kits": r[1],
-                        "civilian": r[2],
-                        "govt": r[3],
-                        "service_logs": r[4],
-                        "upgrades": r[5],
-                        "total": str(sal_tot) if (civ > 0 or gov > 0 or upg > 0) else r[6],
-                        "last_date": r[7] if len(r) > 7 else ""
-                    })
+        for name, s in emp_stats.items():
+            employees.append({
+                "name": name,
+                "kits": str(s["kits"]),
+                "civilian": str(s["civilian"]),
+                "govt": str(s["govt"]),
+                "service_logs": str(s["service"]),
+                "upgrades": str(s["upgrades"]),
+                "total": str(s["total"]),
+                "last_date": s["last_date"]
+            })
 
-        # Dynamic fallback if sheet is empty
-        if not employees:
-            service_rows = sheets._all_rows("Service")
-            upgrade_rows = sheets._all_rows("Upgrades")
-            kit_rows = sheets._all_rows("Kits")
-            emp_stats = {}
-            for r in service_rows:
-                staff = sheets.get_row_employee("Service", r)
-                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                    if staff not in emp_stats:
-                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
-                    cat = str(r[2]).strip().lower() if len(r) > 2 else ""
-                    if "civ" in cat:
-                        emp_stats[staff]["civilian"] += 1
-                    else:
-                        emp_stats[staff]["govt"] += 1
-                    emp_stats[staff]["service"] += 1
-                    emp_stats[staff]["total"] += 1
-                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
-
-            for r in upgrade_rows:
-                staff = sheets.get_row_employee("Upgrades", r)
-                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                    if staff not in emp_stats:
-                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
-                    emp_stats[staff]["upgrades"] += 1
-                    emp_stats[staff]["total"] += 1
-                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
-
-            for r in kit_rows:
-                staff = sheets.get_row_employee("Kits", r)
-                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                    if staff not in emp_stats:
-                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
-                    emp_stats[staff]["kits"] += 1
-                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
-
-            for name, s in emp_stats.items():
-                employees.append({
-                    "name": name,
-                    "kits": str(s["kits"]),
-                    "civilian": str(s["civilian"]),
-                    "govt": str(s["govt"]),
-                    "service_logs": str(s["service"]),
-                    "upgrades": str(s["upgrades"]),
-                    "total": str(s["total"]),
-                    "last_date": s["last_date"]
-                })
-
+        # Sort employees by total logged services/upgrades descending
+        employees.sort(key=lambda x: int(x["total"]), reverse=True)
         return jsonify({"success": True, "employees": employees})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/wipe", methods=["POST"])
+def api_wipe():
+    """Wipes all data sheets (preserving headers) and signals bot to rescan."""
+    data = request.get_json() or {}
+    password = data.get("password", "").strip()
+    user_name = data.get("user_name", session.get("user_name", "Admin"))
+    if password != ADMIN_PASSWORD:
+        return jsonify({"success": False, "error": "Invalid password!"}), 401
+    try:
+        ss = sheets.get_spreadsheet()
+        wiped_sheets = []
+        for sheet_name in ["Service", "Kits", "Upgrades", "Transactions", "Employee Tracker", "August Employee Tracker"]:
+            try:
+                ws = ss.worksheet(sheet_name)
+                # Get header row, clear everything, re-write header
+                header = ws.row_values(1)
+                sheets._with_retry(lambda w=ws: w.clear())
+                if header:
+                    sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
+                wiped_sheets.append(sheet_name)
+            except Exception as e:
+                print(f"[Wipe] Could not wipe {sheet_name}: {e}")
+
+        # Clear all local caches (web app process)
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
+            sheets._LAST_KNOWN_ROWS.clear()
+            sheets._save_disk_cache()
+
+        # Clear processed image hashes
+        try:
+            if os.path.exists("processed_images.json"):
+                with open("processed_images.json", "w") as f:
+                    json.dump([], f)
+        except Exception:
+            pass
+
+        # Signal bot process to rescan
+        with open("wipe_trigger.flag", "w") as f:
+            import time as _t
+            f.write(str(_t.time()))
+
+        sheets.append_user_audit_log(user_name, "DATA_WIPE", f"Wiped sheets: {', '.join(wiped_sheets)}", "Admin")
+
+        return jsonify({"success": True, "message": f"Wiped {', '.join(wiped_sheets)}! Bot will rescan Discord channels."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -682,55 +712,6 @@ def update_inventory_item():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-
-@app.route("/api/wipe", methods=["POST"])
-def api_wipe():
-    """Wipes all data sheets (preserving headers) and signals bot to rescan."""
-    data = request.get_json() or {}
-    password = data.get("password", "").strip()
-    user_name = data.get("user_name", session.get("user_name", "Admin"))
-    if password != ADMIN_PASSWORD:
-        return jsonify({"success": False, "error": "Invalid password!"}), 401
-    try:
-        ss = sheets.get_spreadsheet()
-        wiped_sheets = []
-        for sheet_name in ["Service", "Kits", "Upgrades", "Transactions"]:
-            try:
-                ws = ss.worksheet(sheet_name)
-                # Get header row, clear everything, re-write header
-                header = ws.row_values(1)
-                sheets._with_retry(lambda w=ws: w.clear())
-                if header:
-                    sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
-                wiped_sheets.append(sheet_name)
-            except Exception as e:
-                print(f"[Wipe] Could not wipe {sheet_name}: {e}")
-
-        # Clear all local caches (web app process)
-        with sheets._CACHE_LOCK:
-            sheets._ROWS_CACHE.clear()
-            sheets._LAST_KNOWN_ROWS.clear()
-            sheets._save_disk_cache()
-
-        # Clear processed image hashes
-        try:
-            if os.path.exists("processed_images.json"):
-                with open("processed_images.json", "w") as f:
-                    json.dump([], f)
-        except Exception:
-            pass
-
-        # Signal bot process to rescan
-        with open("wipe_trigger.flag", "w") as f:
-            import time as _t
-            f.write(str(_t.time()))
-
-        sheets.append_user_audit_log(user_name, "DATA_WIPE", f"Wiped sheets: {', '.join(wiped_sheets)}", "Admin")
-
-        return jsonify({"success": True, "message": f"Wiped {', '.join(wiped_sheets)}! Bot will rescan Discord channels."})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/rescan", methods=["POST"])
