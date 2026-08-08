@@ -35,10 +35,12 @@ def is_upgrade_message(text: str, amount: float = None) -> bool:
     return False
 
 
-def resolve_category_and_count(amount: float, keyword_cat: str = "") -> dict:
-    """Resolves exact service category, count, and unit price given an amount and keyword.
-    Civilian = ₹7,000 per unit, Govt / PD / EMS / Taxi = ₹10,000 per unit."""
-    cat = keyword_cat.lower() if keyword_cat else ""
+def resolve_category_and_count(amount: float, keyword_cat: str = "", text: str = "") -> dict:
+    """Resolves exact service category, count, unit price, and total given amount, keyword, and message text.
+    Civilian = ₹7,000 per unit, Govt / PD / EMS / Taxi = ₹10,000 per unit.
+    When count is specified in text (e.g. '3x govt'), total is calculated as count * unit_price."""
+    text_low = (text or "").lower()
+    cat = keyword_cat.lower() if keyword_cat else parse_service_category(text)
 
     # If no explicit keyword found in text, infer category from amount:
     # ₹10,000 or multiples ➔ Govt Employee
@@ -51,12 +53,19 @@ def resolve_category_and_count(amount: float, keyword_cat: str = "") -> dict:
 
     unit_price = float(config.SERVICE_PRICES.get(cat, 10000.0 if cat in ("govt", "pd", "ems", "taxi", "gov") else 7000.0))
 
-    if amount is None or amount <= 0:
-        return {"category": cat, "count": 1, "unit_price": unit_price, "total": unit_price}
+    # Extract explicit count from text (e.g. '3x govt', '2 govt', '5x civ')
+    cnt = 1
+    match = re.search(r"(\d+)\s*x?\s*(govt|gov|pd|ems|taxi|civ|civilian|service)", text_low)
+    if match:
+        cnt = int(match.group(1))
+    elif amount and amount > 0:
+        cnt = max(1, int(round(amount / unit_price)))
 
-    # Count calculation based on unit price
-    cnt = max(1, int(round(amount / unit_price)))
-    total = float(amount)
+    # If count was explicitly written in text (e.g. 3x govt), total is count * unit_price
+    if match or (amount is None or amount <= 0):
+        total = float(cnt * unit_price)
+    else:
+        total = float(amount)
 
     return {
         "category": cat,

@@ -117,16 +117,38 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
                 pass
 
     keyword_category = service_pricing.parse_service_category(message.content)
-    result = service_pricing.resolve_category_and_count(amount, keyword_category)
-
     author_emp = config.resolve_employee_from_author(message.author)
     msg_ts = message_to_ist_str(message)
+
+    # Route vehicle upgrade messages to Upgrades sheet
+    if service_pricing.is_upgrade_message(message.content, amount) or keyword_category == "upgrade":
+        upgrade_val = amount if (amount and amount > 0) else 0
+        try:
+            sheets.append_entry(
+                sheet_name="Upgrades",
+                customer=customer or "Unknown",
+                value=upgrade_val,
+                employee=author_emp,
+                message_id=str(message.id),
+                timestamp=msg_ts,
+            )
+            sheets.append_transaction_entry(upgrade_val, customer or "Car UpGrade", "Car UpGrade")
+        except Exception as e:
+            ocr.logger.error(f"Failed to log Upgrade entry for message {message.id}: {e}")
+        if image_hash:
+            processed_hashes.add(image_hash)
+            save_processed_hashes(processed_hashes)
+        await safe_add_reaction(message, "✅")
+        return
+
+    result = service_pricing.resolve_category_and_count(amount, keyword_category, message.content)
+    service_total = result["total"]
 
     try:
         sheets.append_service_entry(
             customer=customer or "Unknown",
             category=result["category"],
-            total=amount if amount is not None else 0,
+            total=service_total,
             employee=author_emp,
             message_id=str(message.id),
             count=result["count"],
@@ -142,18 +164,18 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
-    if result.get("confident", True) or amount:
+    if result.get("confident", True) or service_total > 0:
         txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
-        txn_description = f"{result['count']}x" if result["count"] and result["count"] > 1 else ""
+        txn_description = f"{result['count']}x {result['category']}"
         try:
-            sheets.append_transaction_entry(amount or 0, txn_description, txn_category)
+            sheets.append_transaction_entry(service_total, txn_description, txn_category)
         except Exception as e:
             ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
         await safe_add_reaction(message, "✅")
         if not is_backfill:
             times = f" x{result['count']}" if result["count"] and result["count"] > 1 else ""
-            amt_str = f"₹{amount:,.0f}" if amount else "Logged"
+            amt_str = f"₹{service_total:,.0f}"
             await safe_reply(
                 message,
                 f"Logged: {result['category']}{times} service = {amt_str}"
