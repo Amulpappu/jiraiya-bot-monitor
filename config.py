@@ -66,14 +66,42 @@ def get_channel_config(channel_name: str):
     return None, None
 
 
+def normalize_employee_name(raw: str) -> str:
+    """Normalizes Discord tags, handles Unicode decorative fonts, and maps to assigned employee names."""
+    if not raw or not str(raw).strip():
+        return "Unknown"
+    import unicodedata
+    raw_str = str(raw)
+    norm = unicodedata.normalize("NFKD", raw_str)
+    ascii_str = norm.encode("ascii", "ignore").decode("ascii").strip()
+    low = (ascii_str + " " + raw_str).lower()
+
+    if any(k in low for k in ("jiraya", "fisher", "fish")) or "\u142f" in raw_str or "\u1515" in raw_str:
+        return "Jiraya"
+    if "questless" in low or "soul" in low:
+        return "QuestlessSoul"
+    if "amul" in low:
+        return "Amul"
+    if any(k in low for k in ("maria", "iara", "sreee", "\u0e20")) or "\ud835\udd40" in raw_str:
+        return "Maria Sreee"
+    if "sandy" in low:
+        return "Sandy"
+    if "gd" in low:
+        return "GD x"
+    if "poochi" in low:
+        return "Poochi"
+    if "prathyuraj" in low or "prathy" in low:
+        return "Prathyuraj"
+
+    return ascii_str.title() if ascii_str else raw_str
+
+
 def resolve_employee_from_author(author) -> str:
-    """Extracts clean display name or nickname from Discord Author."""
+    """Extracts clean display name or nickname from Discord Author, mapped to assigned employee name."""
     if not author:
         return "Unknown"
     name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
-    import re
-    name_clean = re.sub(r"[^\w\s\.-]", "", name).strip()
-    return name_clean or name
+    return normalize_employee_name(name)
 
 # ── Tesseract OCR ────────────────────────────────────────
 # On Windows, uncomment and point this at your tesseract.exe install path.

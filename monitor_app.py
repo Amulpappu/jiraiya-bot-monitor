@@ -520,39 +520,35 @@ def get_employee_tracker():
             kit_rows = sheets._all_rows("Kits")
             emp_stats = {}
             for r in service_rows:
-                if len(r) > 4:
-                    staff = str(r[4]).strip()
-                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                        if staff not in emp_stats:
-                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
-                        cat = str(r[2]).strip().lower()
-                        if "civ" in cat:
-                            emp_stats[staff]["civilian"] += 1
-                        else:
-                            emp_stats[staff]["govt"] += 1
-                        emp_stats[staff]["service"] += 1
-                        emp_stats[staff]["total"] += 1
-                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+                staff = sheets.get_row_employee("Service", r)
+                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                    if staff not in emp_stats:
+                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                    cat = str(r[2]).strip().lower() if len(r) > 2 else ""
+                    if "civ" in cat:
+                        emp_stats[staff]["civilian"] += 1
+                    else:
+                        emp_stats[staff]["govt"] += 1
+                    emp_stats[staff]["service"] += 1
+                    emp_stats[staff]["total"] += 1
+                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
 
             for r in upgrade_rows:
-                if len(r) > 3:
-                    staff = str(r[3]).strip()
-                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                        if staff not in emp_stats:
-                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
-                        emp_stats[staff]["upgrades"] += 1
-                        emp_stats[staff]["total"] += 1
-                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+                staff = sheets.get_row_employee("Upgrades", r)
+                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                    if staff not in emp_stats:
+                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                    emp_stats[staff]["upgrades"] += 1
+                    emp_stats[staff]["total"] += 1
+                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
 
             for r in kit_rows:
-                if len(r) > 4:
-                    staff = str(r[4]).strip()
-                    if staff and staff.lower() not in ("unknown", "high command", "high comman"):
-                        if staff not in emp_stats:
-                            emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0]}
-                        emp_stats[staff]["kits"] += 1
-                        # Kits do NOT count towards salary total
-                        emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
+                staff = sheets.get_row_employee("Kits", r)
+                if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+                    if staff not in emp_stats:
+                        emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
+                    emp_stats[staff]["kits"] += 1
+                    if r and r[0]: emp_stats[staff]["last_date"] = max(emp_stats[staff]["last_date"], r[0])
 
             for name, s in emp_stats.items():
                 employees.append({

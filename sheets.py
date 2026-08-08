@@ -472,27 +472,29 @@ def get_row_amount(sheet_name: str, row: list) -> float:
 
 
 def get_row_employee(sheet_name: str, row: list) -> str:
-    """Extracts employee name from a sheet row, dynamically handling legacy and current column layouts."""
+    """Extracts employee name from a sheet row, dynamically handling legacy and current column layouts,
+    and normalizing Discord tags / decorative fonts to assigned employee names."""
     if not row or not isinstance(row, (list, tuple)):
         return ""
 
+    raw_emp = ""
     if sheet_name == "Service":
         if len(row) >= 7:
-            return str(row[5]).strip()
+            raw_emp = str(row[5]).strip()
         elif len(row) >= 5:
-            return str(row[4]).strip()
+            raw_emp = str(row[4]).strip()
     elif sheet_name == "Kits":
         if len(row) >= 8:
-            return str(row[6]).strip()
+            raw_emp = str(row[6]).strip()
         elif len(row) in (6, 7):
-            return str(row[4]).strip()
+            raw_emp = str(row[4]).strip()
         elif len(row) >= 4:
-            return str(row[3]).strip()
+            raw_emp = str(row[3]).strip()
     elif sheet_name == "Upgrades":
         if len(row) >= 4:
-            return str(row[3]).strip()
+            raw_emp = str(row[3]).strip()
 
-    return ""
+    return config.normalize_employee_name(raw_emp)
 
 
 def _revenue_window(rows, sheet_name=None, days=None, today_only=False, this_month=False):
