@@ -4,3 +4,5 @@ __pycache__/
 ocr_errors.log
 .venv/
 venv/
+credentials.json
+*.flag
