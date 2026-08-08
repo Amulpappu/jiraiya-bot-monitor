@@ -406,7 +406,8 @@ def get_logged_message_ids() -> set:
 
 
 async def backfill_channel_history(channel, channel_name: str, limit: int = 200):
-    """Scans RECENT messages (last 7 days) in a configured channel for invoice images or text logs missed while offline."""
+    """Scans RECENT messages (last 7 days) in a configured channel for invoice images or text logs missed while offline.
+    Includes a 1.5s delay between messages to avoid Google Sheets API rate limits (60 writes/min)."""
     scanned = 0
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     existing_sheet_ids = get_logged_message_ids()
@@ -425,6 +426,12 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 200)
 
             await process_invoice_message(message, channel_name, is_backfill=True)
             scanned += 1
+
+            # Throttle writes to stay within Google Sheets API rate limits
+            # (60 write requests per user per minute). Each message may trigger
+            # 2-3 API calls (entry + transaction + dashboard), so a 1.5s delay
+            # keeps us comfortably under the limit.
+            await asyncio.sleep(1.5)
     except Exception as e:
         ocr.logger.error(f"Error scanning channel history for #{channel_name}: {e}")
 
