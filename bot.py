@@ -348,6 +348,29 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         return
 
     fields = cfg.get("fields", ["customer", "amount"])
+    author_emp = config.resolve_employee_from_author(message.author)
+    msg_ts = message_to_ist_str(message)
+
+    # Handle text-only upgrade entries (messages without image attachments)
+    if not message.attachments and message.content:
+        import re
+        numbers = re.findall(r"\b\d{4,7}\b", message.content)
+        if numbers:
+            try:
+                upg_val = float(numbers[0])
+                sheets.append_entry(
+                    sheet_name=cfg.get("sheet_name", "Upgrades"),
+                    customer="Unknown",
+                    value=upg_val,
+                    employee=author_emp,
+                    message_id=str(message.id),
+                    timestamp=msg_ts,
+                )
+                sheets.append_transaction_entry(upg_val, "Car UpGrade", "Car UpGrade", employee=author_emp)
+                await safe_add_reaction(message, "✅")
+                return
+            except Exception:
+                pass
 
     for attachment in message.attachments:
         if not is_image_attachment(attachment):
@@ -383,8 +406,15 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         value = (parsed.get("amount") if "amount" in fields else parsed.get("quantity")) if parsed else 0
         value = value if value is not None else 0
 
-        author_emp = config.resolve_employee_from_author(message.author)
-        msg_ts = message_to_ist_str(message)
+        # Fallback to text number if OCR missed amount
+        if value <= 0 and message.content:
+            import re
+            numbers = re.findall(r"\b\d{4,7}\b", message.content)
+            if numbers:
+                try:
+                    value = float(numbers[0])
+                except ValueError:
+                    pass
 
         try:
             sheets.append_entry(
@@ -407,7 +437,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(cfg.get("sheet_name"))
         if txn_category:
             try:
-                sheets.append_transaction_entry(value, "", txn_category)
+                sheets.append_transaction_entry(value, customer or "Car UpGrade", txn_category, employee=author_emp)
             except Exception as e:
                 ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
