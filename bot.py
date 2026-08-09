@@ -78,10 +78,6 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     Processes invoices and logs for combined/service channels.
     """
     print(f"[process_service] msg_id={message.id} backfill={is_backfill} rescan={is_full_rescan} attachments={len(message.attachments)}")
-    if is_backfill and not is_full_rescan:
-        existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-        if "✅" in existing_reactions or "🔁" in existing_reactions:
-            return
 
     image_attachment = next(
         (a for a in message.attachments if is_image_attachment(a)),
@@ -191,10 +187,6 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
     """
     Processes kit sales where player types quantities shorthand in text OR attaches an invoice image screenshot.
     """
-    if is_backfill and not is_full_rescan:
-        existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-        if "✅" in existing_reactions or "🔁" in existing_reactions:
-            return
 
     qty = kit_pricing.parse_kit_quantities(message.content)
 
@@ -378,11 +370,6 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
     for attachment in message.attachments:
         if not is_image_attachment(attachment):
             continue
-
-        if is_backfill and not is_full_rescan:
-            existing_reactions = {str(r.emoji) for r in message.reactions if r.me}
-            if "✅" in existing_reactions or "🔁" in existing_reactions:
-                continue
 
         try:
             image_hash, parsed, raw_text = await ocr.process_invoice_image(
@@ -607,7 +594,7 @@ async def real_time_auto_scan_loop():
                 pass
             is_full_rescan = True
 
-        scan_limit = 500 if is_full_rescan else 50
+        scan_limit = 500
 
         total_synced = 0
         for guild in bot.guilds:

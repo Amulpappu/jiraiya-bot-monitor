@@ -725,8 +725,11 @@ def update_inventory_item():
 @app.route("/api/rescan", methods=["POST"])
 def api_rescan():
     """Triggers a full channel rescan from the web (no password needed — read-only)."""
-    # Signal the bot to rescan by touching a flag file
     try:
+        with sheets._CACHE_LOCK:
+            sheets._ROWS_CACHE.clear()
+            sheets._LAST_KNOWN_ROWS.clear()
+            sheets._save_disk_cache()
         with open("rescan_trigger.flag", "w") as f:
             import time as _t
             f.write(str(_t.time()))
