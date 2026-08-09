@@ -152,6 +152,23 @@ def resolve_employee_from_author(author) -> str:
     display_name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
     return normalize_employee_name(display_name)
 
+
+OFFICIAL_EMPLOYEE_NAMES = {
+    "Sandy", "Sylas", "Benny", "Lara", "Maria", "Abrar", "Arivu", "Eli",
+    "Alexia", "Amul", "Mitchell", "Lissa", "Nesuko", "Mikasa", "TomCat",
+    "Mathew", "Jiyana Shree", "EVE", "Meenu Kutty", "QuestlessSoul", "GD x",
+    "Poochi", "Prathyuraj", "Jiraya"
+}
+
+
+def is_official_employee(author) -> bool:
+    """Returns True if the Discord author maps to an official staff member in the Employee Directory."""
+    if not author:
+        return False
+    emp = resolve_employee_from_author(author)
+    return emp in OFFICIAL_EMPLOYEE_NAMES
+
+
 # ── Tesseract OCR ────────────────────────────────────────
 # On Windows, uncomment and point this at your tesseract.exe install path.
 # On Linux/Mac (after `apt install tesseract-ocr` or `brew install tesseract`),

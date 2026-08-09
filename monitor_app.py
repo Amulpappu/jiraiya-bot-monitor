@@ -409,10 +409,13 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             pass
         return datetime.datetime.min
 
-    # User directive: Only include August 2026 (Month 8) onwards, listed in chronological order starting from Aug 1 12 AM
+    # User directive: Only include August 2026 (Month 8) onwards for official employees, sorted newest first
     aug_start = datetime.datetime(2026, 8, 1, 0, 0, 0)
-    aug_items = [it for it in items if parse_dt(it) >= aug_start]
-    aug_items.sort(key=parse_dt, reverse=False)
+    aug_items = [
+        it for it in items
+        if parse_dt(it) >= aug_start and it.get("staff") in config.OFFICIAL_EMPLOYEE_NAMES
+    ]
+    aug_items.sort(key=parse_dt, reverse=True)
     return aug_items
 
 
@@ -435,13 +438,13 @@ def get_dashboard_data():
         profit = round(total_sales - expenses_tot - tax, 2)
         total_txns = len(service_rows) + len(upgrade_rows) + len(kit_rows) + len(expense_rows)
 
-        # Count unique employees
+        # Count unique official employees only
         emp_set = set()
         emp_counts = {}
         for s_name, rows in [("Service", service_rows), ("Upgrades", upgrade_rows), ("Kits", kit_rows)]:
             for r in rows:
                 emp = sheets.get_row_employee(s_name, r)
-                if emp and emp.lower() not in ("unknown", "high command", "high comman"):
+                if emp and emp in config.OFFICIAL_EMPLOYEE_NAMES:
                     emp_set.add(emp)
                     emp_counts[emp] = emp_counts.get(emp, 0) + 1
 
@@ -522,7 +525,7 @@ def get_employee_tracker():
 
         for r in service_rows:
             staff = sheets.get_row_employee("Service", r)
-            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 cat = str(r[2]).strip().lower() if len(r) > 2 else ""
@@ -536,7 +539,7 @@ def get_employee_tracker():
 
         for r in upgrade_rows:
             staff = sheets.get_row_employee("Upgrades", r)
-            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 emp_stats[staff]["upgrades"] += 1
@@ -545,7 +548,7 @@ def get_employee_tracker():
 
         for r in kit_rows:
             staff = sheets.get_row_employee("Kits", r)
-            if staff and staff.lower() not in ("unknown", "high command", "high comman"):
+            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 emp_stats[staff]["kits"] += 1

@@ -331,6 +331,9 @@ def resolve_message_channel_config(message: discord.Message):
 
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False, is_full_rescan: bool = False):
     """Runs OCR + sheet logging for one message. Shared by on_message and startup history scan."""
+    if not config.is_official_employee(message.author):
+        return
+
     cfg, cfg_key, _ = resolve_message_channel_config(message)
     if not cfg:
         cfg, cfg_key = config.get_channel_config(channel_name)
