@@ -177,11 +177,13 @@ OFFICIAL_EMPLOYEE_NAMES = {
 
 
 def is_official_employee(author) -> bool:
-    """Returns True if the Discord author maps to an official staff member in the Employee Directory."""
-    if not author:
+    """Returns True if the Discord author is a human member posting in shop channels (excluding bots & blacklisted handles)."""
+    if not author or getattr(author, "bot", False):
         return False
     emp = resolve_employee_from_author(author)
-    return emp in OFFICIAL_EMPLOYEE_NAMES
+    if not emp or emp == "Unknown":
+        return False
+    return True
 
 
 # ── Tesseract OCR ────────────────────────────────────────
