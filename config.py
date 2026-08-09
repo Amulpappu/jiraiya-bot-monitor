@@ -15,10 +15,25 @@ SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69-Employee Tracker", "1Tz2YxzNO0ibySgftxNGltulxx0o7NLx3HCLbk-RpNRM"))
 
 
+def is_august_channel(channel_name: str) -> bool:
+    """User Rule: Only process August 2026 channels. Exclude previous month channels (july, june, etc.)."""
+    if not channel_name:
+        return False
+    c_low = str(channel_name).lower().strip()
+    other_months = (
+        "july", "jul", "june", "jun", "may", "april", "apr", "march", "mar",
+        "february", "feb", "january", "jan", "december", "dec", "november", "nov",
+        "october", "oct", "september", "sept"
+    )
+    if any(m in c_low for m in other_months) and not ("aug" in c_low or "august" in c_low):
+        return False
+    return True
+
+
 def get_channel_config(channel_name: str):
     """Dynamically resolves channel configuration based on exact or fuzzy channel name matching.
     Supports channels with Unicode, emojis, month names (august/aug), and special Discord formatting."""
-    if not channel_name:
+    if not channel_name or not is_august_channel(channel_name):
         return None, None
 
     # Exact match check
@@ -59,8 +74,8 @@ def get_channel_config(channel_name: str):
     if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
         return _SERVICE_CONFIG, "Service"
 
-    # Aug-logs / monthly combined logs channel -> treat as service
-    if any(k in clean for k in ("log", "logs", "aug", "august", "sept", "oct", "nov", "dec", "jan", "feb", "mar", "apr", "may", "jun", "jul")):
+    # Aug-logs / August combined logs channel -> treat as service
+    if any(k in clean for k in ("log", "logs", "aug", "august")):
         return _SERVICE_CONFIG, "Service"
 
     return None, None

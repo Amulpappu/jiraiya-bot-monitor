@@ -478,10 +478,14 @@ def get_logged_message_ids() -> set:
 
 async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
     """Scans RECENT messages in a configured channel for invoice images or text logs missed while offline.
-    Sorts messages in chronological order (Aug 01 -> Aug 08) before writing to Google Sheets."""
+    Sorts messages in chronological order (Aug 01 -> Aug 31) before writing to Google Sheets."""
+    if not config.is_august_channel(channel_name):
+        return 0
+
     scanned = 0
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
-    cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    start_cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    end_cutoff = datetime.datetime(2026, 8, 31, 23, 59, 59, tzinfo=datetime.timezone.utc)
     existing_sheet_ids = set() if is_full_rescan else get_logged_message_ids()
 
     history_messages = []
@@ -490,8 +494,14 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500,
             if message.author.bot:
                 continue
 
-            if message.created_at < cutoff:
+            if message.created_at < start_cutoff:
                 break
+
+            if message.created_at > end_cutoff:
+                continue
+
+            if not config.is_official_employee(message.author):
+                continue
 
             msg_id = str(message.id)
             if not is_full_rescan and msg_id in existing_sheet_ids:
@@ -501,7 +511,7 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500,
     except Exception as e:
         ocr.logger.error(f"Error reading channel history for #{channel_name}: {e}")
 
-    # Sort messages chronologically (oldest first: Aug 01 -> Aug 08)
+    # Sort messages chronologically (oldest first: Aug 01 -> Aug 31)
     history_messages.sort(key=lambda m: m.created_at)
 
     for message in history_messages:
@@ -516,8 +526,7 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500,
 
 
 async def collect_target_channels(guild: discord.Guild):
-    """Gathers every text channel, forum channel, AND thread in the guild matching configured invoice channels.
-    Also collects threads inside matched parent channels (e.g. Services/Upgrades threads inside aug-logs)."""
+    """Gathers every text channel, forum channel, AND thread in the guild matching configured August 2026 invoice channels."""
     targets = []
 
     channels_to_check = list(guild.text_channels)
@@ -525,11 +534,16 @@ async def collect_target_channels(guild: discord.Guild):
         channels_to_check.extend(guild.forums)
 
     for channel in channels_to_check:
+        if not config.is_august_channel(channel.name):
+            continue
+
         parent_cfg, _ = config.get_channel_config(channel.name)
         if parent_cfg and isinstance(channel, discord.TextChannel):
             targets.append(channel)
 
         for thread in getattr(channel, "threads", []):
+            if not config.is_august_channel(thread.name):
+                continue
             cfg_t, _ = config.get_channel_config(thread.name)
             if cfg_t or parent_cfg:
                 if thread not in targets:
@@ -538,6 +552,8 @@ async def collect_target_channels(guild: discord.Guild):
         try:
             if hasattr(channel, "archived_threads"):
                 async for thread in channel.archived_threads(limit=100):
+                    if not config.is_august_channel(thread.name):
+                        continue
                     cfg_t, _ = config.get_channel_config(thread.name)
                     if cfg_t or parent_cfg:
                         if thread not in targets:
@@ -546,6 +562,8 @@ async def collect_target_channels(guild: discord.Guild):
             pass
 
     for thread in guild.threads:
+        if not config.is_august_channel(thread.name):
+            continue
         cfg_t, _ = config.get_channel_config(thread.name)
         parent = getattr(thread, "parent", None)
         parent_cfg2, _ = config.get_channel_config(getattr(parent, "name", "")) if parent else (None, None)
