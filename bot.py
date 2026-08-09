@@ -732,14 +732,10 @@ async def main():
         print("ERROR: DISCORD LOGIN FAILED! The DISCORD_TOKEN is invalid or revoked.")
         print("Please reset your bot token in Discord Developer Portal and update DISCORD_TOKEN in Render Environment Variables.")
         print("="*70 + "\n")
-        if os.getenv("RUNNING_IN_START_ALL") == "1":
-            while True:
-                await asyncio.sleep(3600)
+        sys.exit(1)
     except Exception as e:
-        print(f"ERROR starting bot: {e}")
-        if os.getenv("RUNNING_IN_START_ALL") == "1":
-            while True:
-                await asyncio.sleep(3600)
+        print(f"ERROR starting bot: {e}. Exiting so launcher can reconnect...")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

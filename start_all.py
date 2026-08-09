@@ -10,12 +10,16 @@ RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://jiraiya-bot-monitor.onren
 
 def run_bot():
     print("[Launcher] Starting Jiraiya Discord Bot background process...")
-    try:
-        env = os.environ.copy()
-        env["RUNNING_IN_START_ALL"] = "1"
-        subprocess.run([sys.executable, "bot.py"], env=env)
-    except Exception as e:
-        print(f"[Launcher ERROR] Bot process exception: {e}")
+    while True:
+        try:
+            env = os.environ.copy()
+            env["RUNNING_IN_START_ALL"] = "1"
+            print("[Launcher] Launching bot.py process...")
+            res = subprocess.run([sys.executable, "bot.py"], env=env)
+            print(f"[Launcher WARNING] bot.py process exited with returncode {res.returncode}. Restarting in 5 seconds...")
+        except Exception as e:
+            print(f"[Launcher ERROR] Bot process exception: {e}. Restarting in 5 seconds...")
+        time.sleep(5)
 
 
 def run_keep_alive():
