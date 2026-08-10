@@ -215,8 +215,8 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
                 pass
 
     if qty is None and amount is not None and amount > 0:
-        rk_unit = kit_pricing.KIT_PRICES.get("rk", 1000)
-        ck_unit = kit_pricing.KIT_PRICES.get("ck", 900)
+        rk_unit = config.KIT_PRICES.get("rk", 1000)
+        ck_unit = config.KIT_PRICES.get("ck", 900)
         rk_qty = int(amount // rk_unit)
         if rk_qty > 0:
             qty = {"rk": rk_qty, "ck": 0}
@@ -453,13 +453,35 @@ def get_logged_message_ids() -> set:
     return logged
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
-    """Scans RECENT messages in a configured channel for invoice images or text logs missed while offline.
-    Sorts messages in chronological order (Aug 01 -> Aug 31) before writing to Google Sheets."""
-    if not config.is_august_channel(channel_name):
-        return 0
+def resolve_target_sheet_key(message: discord.Message, channel_name: str):
+    """Figures out which destination sheet a message would be logged to
+    (Kits / Service / a generic sheet name like Upgrades), WITHOUT running
+    OCR or writing anything. Used to group messages across channels so each
+    destination sheet can be written in chronological order."""
+    cfg, cfg_key, _ = resolve_message_channel_config(message)
+    if not cfg:
+        cfg, cfg_key = config.get_channel_config(channel_name)
+    if not cfg:
+        return None
 
-    scanned = 0
+    cat = str(cfg.get("category", "")).lower()
+    if cfg.get("kit_channel") or cat == "kit":
+        return "Kits"
+    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service"):
+        return "Service"
+    return cfg.get("sheet_name", "Transactions")
+
+
+async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
+    """Scans RECENT messages in ONE channel and returns the filtered, still-
+    unprocessed discord.Message objects (oldest first). Does NOT write
+    anything to Google Sheets — that's done by scan_and_log_channels() after
+    grouping messages from every channel by destination sheet, so that each
+    sheet's rows end up in chronological order even when multiple channels
+    feed the same sheet."""
+    if not config.is_august_channel(channel_name):
+        return []
+
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
     start_cutoff = datetime.datetime(2026, 8, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     end_cutoff = datetime.datetime(2026, 8, 31, 23, 59, 59, tzinfo=datetime.timezone.utc)
@@ -488,18 +510,41 @@ async def backfill_channel_history(channel, channel_name: str, limit: int = 500,
     except Exception as e:
         ocr.logger.error(f"Error reading channel history for #{channel_name}: {e}")
 
-    # Sort messages chronologically (oldest first: Aug 01 -> Aug 31)
     history_messages.sort(key=lambda m: m.created_at)
+    return history_messages
 
-    for message in history_messages:
-        try:
-            await process_invoice_message(message, channel_name, is_backfill=True, is_full_rescan=is_full_rescan)
-            scanned += 1
-            await asyncio.sleep(1.5)
-        except Exception as e:
-            ocr.logger.error(f"Error processing message {message.id} in #{channel_name}: {e}")
 
-    return scanned
+async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = False, limit: int = 500) -> int:
+    """Scans every configured channel/thread in the guild, groups the
+    resulting messages by destination sheet (Kits / Service / Upgrades /
+    etc.), sorts EACH group chronologically across all contributing
+    channels, and only then writes them out — so every sheet's rows come
+    out in correct date order (Aug 01 -> Aug 31) no matter which channel
+    each entry originally came from."""
+    targets = await collect_target_channels(guild)
+
+    grouped: dict[str, list] = {}
+    for channel in targets:
+        channel_name = channel.name
+        messages = await backfill_channel_history(channel, channel_name, limit=limit, is_full_rescan=is_full_rescan)
+        for message in messages:
+            sheet_key = resolve_target_sheet_key(message, channel_name)
+            if sheet_key is None:
+                continue
+            grouped.setdefault(sheet_key, []).append((message, channel_name))
+
+    total_synced = 0
+    for sheet_key, entries in grouped.items():
+        entries.sort(key=lambda pair: pair[0].created_at)
+        for message, channel_name in entries:
+            try:
+                await process_invoice_message(message, channel_name, is_backfill=True, is_full_rescan=is_full_rescan)
+                total_synced += 1
+                await asyncio.sleep(1.5)
+            except Exception as e:
+                ocr.logger.error(f"Error processing message {message.id} in #{channel_name}: {e}")
+
+    return total_synced
 
 
 async def collect_target_channels(guild: discord.Guild):
@@ -588,13 +633,10 @@ async def real_time_auto_scan_loop():
 
         total_synced = 0
         for guild in bot.guilds:
-            targets = await collect_target_channels(guild)
-            for channel in targets:
-                try:
-                    cnt = await backfill_channel_history(channel, channel.name, limit=scan_limit, is_full_rescan=is_full_rescan)
-                    total_synced += cnt
-                except Exception:
-                    pass
+            try:
+                total_synced += await scan_and_log_channels(guild, is_full_rescan=is_full_rescan, limit=scan_limit)
+            except Exception as e:
+                ocr.logger.error(f"Auto-scan failed for guild {guild.id}: {e}")
 
         # Always clear the in-memory row cache and refresh the dashboard so
         # date-windowed totals (today/weekly/monthly) are always up to date.
@@ -630,16 +672,13 @@ async def on_ready():
 
     print("Scanning configured channels/threads for invoices missed while offline...")
     for guild in bot.guilds:
-        targets = await collect_target_channels(guild)
-        for channel in targets:
-            channel_name = channel.name
-            try:
-                count = await backfill_channel_history(channel, channel_name)
-                print(f"  #{channel.name}: scanned {count} message(s).")
-            except discord.Forbidden:
-                print(f"  #{channel.name}: missing permission to read history, skipped.")
-            except Exception as e:
-                print(f"  #{channel.name}: error during backfill scan: {e}")
+        try:
+            count = await scan_and_log_channels(guild)
+            print(f"  guild {guild.name}: scanned and logged {count} message(s) in date order.")
+        except discord.Forbidden:
+            print(f"  guild {guild.name}: missing permission to read history, skipped.")
+        except Exception as e:
+            print(f"  guild {guild.name}: error during startup scan: {e}")
 
     with sheets._CACHE_LOCK:
         sheets._ROWS_CACHE.clear()

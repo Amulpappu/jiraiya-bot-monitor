@@ -81,8 +81,8 @@ _NAME_EXCLUDE_WORDS = {
     "Novehicle", "Novehicleconnected",
 }
 
-FALLBACK_NAME_PATTERN = r"\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)\b"
-FALLBACK_SINGLE_WORD_NAME_PATTERN = r"\b([A-Z][a-z]{2,20})\b"
+FALLBACK_NAME_PATTERN = r"\b([A-Z][A-Za-z]+(?:\s[A-Z][A-Za-z]+)+)\b"
+FALLBACK_SINGLE_WORD_NAME_PATTERN = r"\b([A-Z][A-Za-z]{2,20})\b"
 
 
 def _fallback_amount(text):

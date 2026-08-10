@@ -90,7 +90,11 @@ def parse_kit_quantities(text: str):
 
 
 def _discount_for(combined_qty: int) -> float:
-    """User directive: No discount price so no percent."""
+    """Looks up the discount fraction for a combined RK+CK quantity using
+    config.KIT_DISCOUNT_BRACKETS (min, max, discount_fraction)."""
+    for lo, hi, pct in config.KIT_DISCOUNT_BRACKETS:
+        if lo <= combined_qty <= hi:
+            return pct
     return 0.0
 
 
