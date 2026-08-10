@@ -103,14 +103,8 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     amount = parsed.get("amount") if parsed else None
 
     # Fallback to extracting amount from message content if OCR couldn't extract it
-    if amount is None and message.content:
-        import re
-        numbers = re.findall(r"\b\d{4,7}\b", message.content)
-        if numbers:
-            try:
-                amount = float(numbers[0])
-            except ValueError:
-                pass
+    if (amount is None or amount <= 0) and message.content:
+        amount = service_pricing.extract_amount_from_text(message.content)
 
     keyword_category = service_pricing.parse_service_category(message.content)
     author_emp = config.resolve_employee_from_author(message.author)
@@ -399,14 +393,8 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         value = value if value is not None else 0
 
         # Fallback to text number if OCR missed amount
-        if value <= 0 and message.content:
-            import re
-            numbers = re.findall(r"\b\d{4,7}\b", message.content)
-            if numbers:
-                try:
-                    value = float(numbers[0])
-                except ValueError:
-                    pass
+        if (value is None or value <= 0) and message.content:
+            value = service_pricing.extract_amount_from_text(message.content) or 0
 
         try:
             sheets.append_entry(

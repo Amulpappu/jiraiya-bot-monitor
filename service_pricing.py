@@ -87,3 +87,59 @@ def resolve_category_and_count(amount: float, keyword_cat: str = "", text: str =
         "unit_price": unit_price,
         "total": total,
     }
+
+
+def extract_amount_from_text(text: str) -> float:
+    """Extracts numeric invoice amounts from message text or OCR fallback text,
+    properly handling commas (e.g. 27,810), 'k' notation (7k, 10k, 20k), currency symbols,
+    and 3 to 6 digit integers while excluding dates and years (e.g. 2026)."""
+    if not text:
+        return None
+
+    # Exclude dates like 2026-08-10 or 2026/08/10
+    t = re.sub(r"\b202\d[-/]\d{1,2}[-/]\d{1,2}\b", " ", text)
+    # Exclude standalone year numbers 2024-2029
+    t = re.sub(r"\b202[4-9]\b", " ", t)
+
+    # 1. Match 'k' notation like 7k, 10k, 20k, 18k, 1k, 0.9k
+    k_match = re.search(r"\b(\d+(?:\.\d+)?)\s*k\b", t, re.IGNORECASE)
+    if k_match:
+        try:
+            return float(k_match.group(1)) * 1000.0
+        except ValueError:
+            pass
+
+    # 2. Match currency symbols ₹, $, Rs., INR followed by numbers (including commas)
+    curr_match = re.search(r"(?:[₹$]|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)", t, re.IGNORECASE)
+    if curr_match:
+        try:
+            val = float(curr_match.group(1).replace(",", ""))
+            if val > 0:
+                return val
+        except ValueError:
+            pass
+
+    # 3. Match comma-separated numbers like 27,810 or 23,244 or 10,000 or 7,000
+    comma_match = re.search(r"\b(\d{1,3}(?:,\d{3})+)\b", t)
+    if comma_match:
+        try:
+            return float(comma_match.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # 4. Labeled amounts like total: 7000 or amount: 10000
+    label_match = re.search(r"(?:total|amount|price|paid|val|cost)\s*[:\-]?\s*(\d+)", t, re.IGNORECASE)
+    if label_match:
+        try:
+            return float(label_match.group(1))
+        except ValueError:
+            pass
+
+    # 5. Standalone numbers between 3 and 6 digits (excluding years)
+    nums = re.findall(r"\b\d{3,6}\b", t)
+    for n in nums:
+        val = float(n)
+        if 100 <= val <= 999999 and val not in (2024, 2025, 2026, 2027, 2028, 2029):
+            return val
+
+    return None

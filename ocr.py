@@ -142,12 +142,8 @@ def parse_invoice(text: str, fields: list) -> dict:
         result["customer"] = name.strip() if name else None
 
     if "amount" in fields:
-        # A literal "$" amount is a much more reliable signal than a nearby
-        # label word (table screenshots can have a header word like "Total"
-        # sitting right next to an unrelated number). Try that first.
-        amount_str = _fallback_amount(text)
-        if not amount_str:
-            amount_str = _search_patterns(AMOUNT_PATTERNS, text)
+        import service_pricing
+        amount_str = _search_patterns(AMOUNT_PATTERNS, text)
         if amount_str:
             amount_str = amount_str.replace(",", "")
             try:
@@ -155,7 +151,7 @@ def parse_invoice(text: str, fields: list) -> dict:
             except ValueError:
                 result["amount"] = None
         else:
-            result["amount"] = None
+            result["amount"] = service_pricing.extract_amount_from_text(text)
 
     if "quantity" in fields:
         qty_str = _search_patterns(QUANTITY_PATTERNS, text)
