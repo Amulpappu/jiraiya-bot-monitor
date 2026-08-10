@@ -16,10 +16,16 @@ EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69
 
 
 def is_august_channel(channel_name: str) -> bool:
-    """User Rule: Only process August 2026 channels. Exclude previous month channels (july, june, etc.)."""
+    """User Rule: Only process August 2026 channels. Exclude previous month channels and claim/vip/ticket channels."""
     if not channel_name:
         return False
     c_low = str(channel_name).lower().strip()
+
+    # User directive: Exclude claim/vip/ticket channels (e.g. vip-claim-logs)
+    excluded_keywords = ("claim", "claims", "vip", "ticket", "tickets")
+    if any(ex in c_low for ex in excluded_keywords):
+        return False
+
     other_months = (
         "july", "jul", "june", "jun", "may", "april", "apr", "march", "mar",
         "february", "feb", "january", "jan", "december", "dec", "november", "nov",
