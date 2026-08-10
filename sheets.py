@@ -60,7 +60,7 @@ KIT_HEADERS = [
     "Timestamp", "Customer Name", "Repair Kit Qty", "Cleaning Kit Qty",
     "Discount %", "Total Amount", "Employee", "Message ID",
 ]
-TRANSACTIONS_HEADERS = ["Date", "Amount", "Description", "Category"]
+TRANSACTIONS_HEADERS = ["Date", "Amount", "Description", "Category", "Employee", "Message ID"]
 USER_AUDIT_HEADERS = ["Timestamp (IST)", "Action", "User", "Role", "Details"]
 
 
@@ -257,14 +257,6 @@ def setup_all_sheets():
     update_dashboard()
 
 
-def append_transaction_entry(amount, description: str, category: str, employee: str = ""):
-    """Logs one row to the consolidated Transactions ledger — Date, Amount,
-    Description (e.g. '10x', '2x', or blank), Category, and Employee Name."""
-    ws = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
-    date_str = now_ist().strftime(TIMESTAMP_FORMAT)
-    _with_retry(lambda: ws.append_row([date_str, amount, description or "", category, employee or ""]))
-
-
 def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
     if not message_id:
         return False
@@ -273,13 +265,29 @@ def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
         return False
     with _CACHE_LOCK:
         rows = _LAST_KNOWN_ROWS.get(sheet_name, [])
-    msg_col_map = {"Service": 6, "Kits": 7, "Upgrades": 4}
+    msg_col_map = {"Service": 6, "Kits": 7, "Upgrades": 4, "Transactions": 5}
     col = msg_col_map.get(sheet_name, -1)
     if col >= 0:
         for r in rows:
             if len(r) > col and str(r[col]).strip() == msg_id_str:
                 return True
     return False
+
+
+def append_transaction_entry(amount, description: str, category: str, employee: str = "", message_id: str = ""):
+    """Logs one row to the consolidated Transactions ledger — Date, Amount,
+    Description, Category, Employee Name, and Message ID (with deduplication)."""
+    if message_id and is_message_already_logged("Transactions", message_id):
+        return
+    ws = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
+    date_str = now_ist().strftime(TIMESTAMP_FORMAT)
+    row = [date_str, amount, description or "", category, employee or "", message_id or ""]
+    _with_retry(lambda: ws.append_row(row))
+    with _CACHE_LOCK:
+        if "Transactions" not in _LAST_KNOWN_ROWS:
+            _LAST_KNOWN_ROWS["Transactions"] = []
+        _LAST_KNOWN_ROWS["Transactions"].append(row)
+        _save_disk_cache()
 
 
 def append_service_entry(customer: str, category: str, total, employee: str, message_id: str, count=None, timestamp: str = None):
@@ -512,18 +520,18 @@ def get_row_employee(sheet_name: str, row: list) -> str:
 
     raw_emp = ""
     if sheet_name == "Service":
-        if len(row) >= 7:
+        if len(row) >= 6:
             raw_emp = str(row[5]).strip()
-        elif len(row) >= 5:
+        elif len(row) == 5:
             raw_emp = str(row[4]).strip()
     elif sheet_name == "Kits":
-        if len(row) >= 8:
+        if len(row) >= 7:
             raw_emp = str(row[6]).strip()
-        elif len(row) in (6, 7):
-            raw_emp = str(row[4]).strip()
+        elif len(row) == 6:
+            raw_emp = str(row[5]).strip()
         elif len(row) >= 4:
             raw_emp = str(row[3]).strip()
-    elif sheet_name == "Upgrades":
+    elif sheet_name in ("Upgrades", "Transactions"):
         if len(row) >= 4:
             raw_emp = str(row[3]).strip()
 

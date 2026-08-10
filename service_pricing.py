@@ -25,9 +25,16 @@ def parse_service_category(text: str) -> str:
 
 
 def is_upgrade_message(text: str, amount: float = None) -> bool:
-    """Detects whether a message represents a Vehicle Upgrade (vs standard Car Service).
-    Service amounts are ALWAYS flat ₹7,000 (Civilian) or ₹10,000 (Govt/PD/EMS/Taxi).
-    If an amount is NOT an exact multiple of 7,000 or 10,000 (e.g. 27810, 23122), it is a Car Upgrade."""
+    """User Rule: Vehicle upgrade amount limit is ₹100 - ₹40,000.
+    Amounts outside this range (e.g. ₹2,000,000 donations) are excluded."""
+    if amount is not None:
+        try:
+            val = float(amount)
+            if val < 100 or val > 40000:
+                return False
+        except (ValueError, TypeError):
+            pass
+
     if not text:
         text = ""
     t = text.lower()
@@ -36,8 +43,7 @@ def is_upgrade_message(text: str, amount: float = None) -> bool:
 
     if amount and amount > 0:
         val = float(amount)
-        # Non-standard service amounts (e.g. 27810, 23122) are vehicle upgrade invoices
-        if val % 7000.0 != 0 and val % 10000.0 != 0:
+        if 100 <= val <= 40000 and val % 7000.0 != 0 and val % 10000.0 != 0:
             return True
 
     return False

@@ -128,7 +128,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
                 message_id=str(message.id),
                 timestamp=msg_ts,
             )
-            sheets.append_transaction_entry(upgrade_val, customer or "Car UpGrade", "Car UpGrade")
+            sheets.append_transaction_entry(upgrade_val, customer or "Car UpGrade", "Car UpGrade", employee=author_emp, message_id=str(message.id))
         except Exception as e:
             ocr.logger.error(f"Failed to log Upgrade entry for message {message.id}: {e}")
         if image_hash:
@@ -164,7 +164,7 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
         txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
         txn_description = f"{result['count']}x {result['category']}"
         try:
-            sheets.append_transaction_entry(service_total, txn_description, txn_category)
+            sheets.append_transaction_entry(service_total, txn_description, txn_category, employee=author_emp, message_id=str(message.id))
         except Exception as e:
             ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
@@ -269,13 +269,14 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
         processed_hashes.add(image_hash)
         save_processed_hashes(processed_hashes)
 
+    author_emp = config.resolve_employee_from_author(message.author)
     try:
         if qty["rk"] > 0:
-            sheets.append_transaction_entry(rk_subtotal or total, f"{qty['rk']}x", "Repair Kit")
+            sheets.append_transaction_entry(rk_subtotal or total, f"{qty['rk']}x", "Repair Kit", employee=author_emp, message_id=str(message.id))
         if qty["ck"] > 0:
-            sheets.append_transaction_entry(ck_subtotal or total, f"{qty['ck']}x", "Cleaning Kit")
+            sheets.append_transaction_entry(ck_subtotal or total, f"{qty['ck']}x", "Cleaning Kit", employee=author_emp, message_id=str(message.id))
         if qty["rk"] == 0 and qty["ck"] == 0 and total > 0:
-            sheets.append_transaction_entry(total, "Kit Sale", "Repair Kit")
+            sheets.append_transaction_entry(total, "Kit Sale", "Repair Kit", employee=author_emp, message_id=str(message.id))
     except Exception as e:
         ocr.logger.error(f"Failed to write Transactions entries for message {message.id}: {e}")
 
@@ -361,7 +362,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                     message_id=str(message.id),
                     timestamp=msg_ts,
                 )
-                sheets.append_transaction_entry(upg_val, "Car UpGrade", "Car UpGrade", employee=author_emp)
+                sheets.append_transaction_entry(upg_val, "Car UpGrade", "Car UpGrade", employee=author_emp, message_id=str(message.id))
                 await safe_add_reaction(message, "✅")
                 return
             except Exception:
@@ -427,7 +428,7 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
         txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(cfg.get("sheet_name"))
         if txn_category:
             try:
-                sheets.append_transaction_entry(value, customer or "Car UpGrade", txn_category, employee=author_emp)
+                sheets.append_transaction_entry(value, customer or "Car UpGrade", txn_category, employee=author_emp, message_id=str(message.id))
             except Exception as e:
                 ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
