@@ -15,14 +15,32 @@ SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69-Employee Tracker", "1Tz2YxzNO0ibySgftxNGltulxx0o7NLx3HCLbk-RpNRM"))
 
 
-def is_august_channel(channel_name: str) -> bool:
+EXACT_CHANNEL_IDS = {}
+
+EXCLUDED_CHANNEL_IDS = {
+    1533512854588620800,  # bill_claim Channel
+}
+
+
+def is_august_channel(channel_input) -> bool:
     """User Rule: Only process August 2026 channels. Exclude previous month channels and claim/vip/ticket channels."""
-    if not channel_name:
+    if not channel_input:
         return False
+    ch_id = getattr(channel_input, "id", None)
+    if ch_id is None and isinstance(channel_input, (int, str)) and str(channel_input).isdigit():
+        ch_id = int(channel_input)
+
+    if ch_id and ch_id in EXCLUDED_CHANNEL_IDS:
+        return False
+
+    if ch_id and ch_id in EXACT_CHANNEL_IDS:
+        return True
+
+    channel_name = getattr(channel_input, "name", str(channel_input))
     c_low = str(channel_name).lower().strip()
 
-    # User directive: Exclude claim/vip/ticket channels (e.g. vip-claim-logs)
-    excluded_keywords = ("claim", "claims", "vip", "ticket", "tickets")
+    # User directive: Exclude claim/vip/ticket channels (e.g. bill_claim, vip-claim-logs)
+    excluded_keywords = ("claim", "claims", "vip", "ticket", "tickets", "bill_claim")
     if any(ex in c_low for ex in excluded_keywords):
         return False
 
@@ -36,11 +54,19 @@ def is_august_channel(channel_name: str) -> bool:
     return True
 
 
-def get_channel_config(channel_name: str):
-    """Dynamically resolves channel configuration based on exact or fuzzy channel name matching.
-    Supports channels with Unicode, emojis, month names (august/aug), and special Discord formatting."""
-    if not channel_name or not is_august_channel(channel_name):
+def get_channel_config(channel_input):
+    """Dynamically resolves channel configuration based on exact Discord Channel/Thread ID or fuzzy name matching."""
+    if not channel_input or not is_august_channel(channel_input):
         return None, None
+
+    ch_id = getattr(channel_input, "id", None)
+    if ch_id is None and isinstance(channel_input, (int, str)) and str(channel_input).isdigit():
+        ch_id = int(channel_input)
+
+    if ch_id and ch_id in EXACT_CHANNEL_IDS:
+        return EXACT_CHANNEL_IDS[ch_id]
+
+    channel_name = getattr(channel_input, "name", str(channel_input))
 
     # Exact match check
     if channel_name in CHANNEL_CONFIG:
@@ -50,37 +76,29 @@ def get_channel_config(channel_name: str):
     if c_low in CHANNEL_CONFIG:
         return CHANNEL_CONFIG[c_low], c_low
 
-    # Strip unicode decorators, emojis, special chars -> plain ASCII words only
     import unicodedata
     try:
-        # Normalize unicode small caps / decorative letters to ASCII equivalent
         normalized = unicodedata.normalize("NFKD", c_low)
         normalized = "".join(c for c in normalized if ord(c) < 128)
     except Exception:
         normalized = c_low
 
     clean = normalized.replace("┆", " ").replace("-", " ").replace("_", " ").replace(".", " ").strip()
-    # Remove emoji characters
     import re
     clean = re.sub(r"[^\x00-\x7F]+", " ", clean).strip()
     clean = re.sub(r"\s+", " ", clean)
 
-    # Kit channel detection (also check raw unicode small-cap letters: ᴋɪᴛꜱ)
     if any(k in clean for k in ("kit", "kits", "rk", "ck", "repair", "cleaning")):
         return _KIT_CONFIG, "Kits"
-    # Raw unicode check for small-cap "ᴋɪᴛ" (Discord decorative font)
     if "\u1d0b\u026a\u1d1b" in c_low or "kit" in c_low:
         return _KIT_CONFIG, "Kits"
 
-    # Upgrade channel detection (check upgrades before generic service/logs)
     if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
         return _UPGRADE_CONFIG, "Upgrades"
 
-    # Service channel detection
     if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
         return _SERVICE_CONFIG, "Service"
 
-    # Aug-logs / August combined logs channel -> treat as service
     if any(k in clean for k in ("log", "logs", "aug", "august")):
         return _SERVICE_CONFIG, "Service"
 
@@ -224,6 +242,13 @@ _KIT_CONFIG = {
     "sheet_name": "Kits",
     "fields": ["customer", "amount"],
     "kit_channel": True,  # triggers text-based RK/CK quantity parsing instead of OCR amount
+}
+
+EXACT_CHANNEL_IDS = {
+    1533123559164084455: (_SERVICE_CONFIG, "Service"),
+    1533122823063601223: (_UPGRADE_CONFIG, "Upgrades"),
+    1533122328412815521: (_KIT_CONFIG, "Kits"),
+    153312328412815521: (_KIT_CONFIG, "Kits"),
 }
 
 CHANNEL_CONFIG = {

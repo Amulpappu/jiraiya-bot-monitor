@@ -551,22 +551,28 @@ async def collect_target_channels(guild: discord.Guild):
     """Gathers every text channel, forum channel, AND thread in the guild matching configured August 2026 invoice channels."""
     targets = []
 
+    # 1. First, check exact IDs configured in config.EXACT_CHANNEL_IDS
+    for exact_id in config.EXACT_CHANNEL_IDS:
+        ch = guild.get_channel(exact_id) or guild.get_thread(exact_id)
+        if ch and ch not in targets and config.is_august_channel(ch):
+            targets.append(ch)
+
     channels_to_check = list(guild.text_channels)
     if hasattr(guild, "forums"):
         channels_to_check.extend(guild.forums)
 
     for channel in channels_to_check:
-        if not config.is_august_channel(channel.name):
+        if not config.is_august_channel(channel):
             continue
 
-        parent_cfg, _ = config.get_channel_config(channel.name)
-        if parent_cfg and isinstance(channel, discord.TextChannel):
+        parent_cfg, _ = config.get_channel_config(channel)
+        if parent_cfg and isinstance(channel, discord.TextChannel) and channel not in targets:
             targets.append(channel)
 
         for thread in getattr(channel, "threads", []):
-            if not config.is_august_channel(thread.name):
+            if not config.is_august_channel(thread):
                 continue
-            cfg_t, _ = config.get_channel_config(thread.name)
+            cfg_t, _ = config.get_channel_config(thread)
             if cfg_t or parent_cfg:
                 if thread not in targets:
                     targets.append(thread)
@@ -574,9 +580,9 @@ async def collect_target_channels(guild: discord.Guild):
         try:
             if hasattr(channel, "archived_threads"):
                 async for thread in channel.archived_threads(limit=100):
-                    if not config.is_august_channel(thread.name):
+                    if not config.is_august_channel(thread):
                         continue
-                    cfg_t, _ = config.get_channel_config(thread.name)
+                    cfg_t, _ = config.get_channel_config(thread)
                     if cfg_t or parent_cfg:
                         if thread not in targets:
                             targets.append(thread)
@@ -584,11 +590,11 @@ async def collect_target_channels(guild: discord.Guild):
             pass
 
     for thread in guild.threads:
-        if not config.is_august_channel(thread.name):
+        if not config.is_august_channel(thread):
             continue
-        cfg_t, _ = config.get_channel_config(thread.name)
+        cfg_t, _ = config.get_channel_config(thread)
         parent = getattr(thread, "parent", None)
-        parent_cfg2, _ = config.get_channel_config(getattr(parent, "name", "")) if parent else (None, None)
+        parent_cfg2, _ = config.get_channel_config(parent) if parent else (None, None)
         if (cfg_t or parent_cfg2) and thread not in targets:
             targets.append(thread)
 
