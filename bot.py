@@ -453,33 +453,32 @@ def get_logged_message_ids() -> set:
     return logged
 
 
-def resolve_target_sheet_key(message: discord.Message, channel_name: str):
+def resolve_target_sheet_key(message: discord.Message, channel):
     """Figures out which destination sheet a message would be logged to
     (Kits / Service / a generic sheet name like Upgrades), WITHOUT running
     OCR or writing anything. Used to group messages across channels so each
     destination sheet can be written in chronological order."""
     cfg, cfg_key, _ = resolve_message_channel_config(message)
     if not cfg:
-        cfg, cfg_key = config.get_channel_config(channel_name)
+        cfg, cfg_key = config.get_channel_config(channel)
     if not cfg:
         return None
 
     cat = str(cfg.get("category", "")).lower()
-    if cfg.get("kit_channel") or cat == "kit":
+    if cfg.get("kit_channel") or cat == "kit" or cfg_key == "Kits":
         return "Kits"
-    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service"):
+    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service") or cfg_key == "Service":
         return "Service"
+    if cfg_key == "Upgrades" or cat == "upgrade":
+        return "Upgrades"
     return cfg.get("sheet_name", "Transactions")
 
 
-async def backfill_channel_history(channel, channel_name: str, limit: int = 500, is_full_rescan: bool = False):
+async def backfill_channel_history(channel, limit: int = 500, is_full_rescan: bool = False):
     """Scans RECENT messages in ONE channel and returns the filtered, still-
-    unprocessed discord.Message objects (oldest first). Does NOT write
-    anything to Google Sheets — that's done by scan_and_log_channels() after
-    grouping messages from every channel by destination sheet, so that each
-    sheet's rows end up in chronological order even when multiple channels
-    feed the same sheet."""
-    if not config.is_august_channel(channel_name):
+    unprocessed discord.Message objects (oldest first)."""
+    channel_name = getattr(channel, "name", str(channel))
+    if not config.is_august_channel(channel):
         return []
 
     # User directive: Scan and log ONLY August 2026 (Month 8) invoices
@@ -525,10 +524,10 @@ async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = Fal
 
     grouped: dict[str, list] = {}
     for channel in targets:
-        channel_name = channel.name
-        messages = await backfill_channel_history(channel, channel_name, limit=limit, is_full_rescan=is_full_rescan)
+        channel_name = getattr(channel, "name", str(channel))
+        messages = await backfill_channel_history(channel, limit=limit, is_full_rescan=is_full_rescan)
         for message in messages:
-            sheet_key = resolve_target_sheet_key(message, channel_name)
+            sheet_key = resolve_target_sheet_key(message, channel)
             if sheet_key is None:
                 continue
             grouped.setdefault(sheet_key, []).append((message, channel_name))

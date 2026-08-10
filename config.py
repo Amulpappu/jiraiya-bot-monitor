@@ -17,9 +17,10 @@ EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69
 
 
 def is_august_channel(channel_input) -> bool:
-    """User Directive: Scan ONLY in the exact specified target channel/thread IDs."""
+    """Checks if a channel object or channel name/ID is allowed for August scanning."""
     if not channel_input:
         return False
+
     ch_id = getattr(channel_input, "id", None)
     if ch_id is None and isinstance(channel_input, (int, str)) and str(channel_input).isdigit():
         ch_id = int(channel_input)
@@ -30,11 +31,20 @@ def is_august_channel(channel_input) -> bool:
     if ch_id and ch_id in EXACT_CHANNEL_IDS:
         return True
 
+    channel_name = getattr(channel_input, "name", str(channel_input))
+    c_low = str(channel_name).lower().strip()
+
+    if any(ex in c_low for ex in ("claim", "vip", "ticket")):
+        return False
+
+    if any(k in c_low for k in ("service", "services", "kit", "kits", "upgrade", "upgrades", "aug", "august", "log", "logs", "bill_claim")):
+        return True
+
     return False
 
 
 def get_channel_config(channel_input):
-    """Resolves channel configuration strictly for exact Discord Channel/Thread IDs."""
+    """Resolves channel configuration for channel objects, channel IDs, or string names."""
     if not channel_input or not is_august_channel(channel_input):
         return None, None
 
@@ -45,11 +55,8 @@ def get_channel_config(channel_input):
     if ch_id and ch_id in EXACT_CHANNEL_IDS:
         return EXACT_CHANNEL_IDS[ch_id]
 
-    return None, None
-
     channel_name = getattr(channel_input, "name", str(channel_input))
 
-    # Exact match check
     if channel_name in CHANNEL_CONFIG:
         return CHANNEL_CONFIG[channel_name], channel_name
 
@@ -77,7 +84,7 @@ def get_channel_config(channel_input):
     if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
         return _UPGRADE_CONFIG, "Upgrades"
 
-    if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi")):
+    if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi", "bill_claim")):
         return _SERVICE_CONFIG, "Service"
 
     if any(k in clean for k in ("log", "logs", "aug", "august")):
