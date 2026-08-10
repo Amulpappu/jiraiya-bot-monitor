@@ -274,13 +274,13 @@ def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
     return False
 
 
-def append_transaction_entry(amount, description: str, category: str, employee: str = "", message_id: str = ""):
+def append_transaction_entry(amount, description: str, category: str, employee: str = "", message_id: str = "", timestamp: str = None):
     """Logs one row to the consolidated Transactions ledger — Date, Amount,
     Description, Category, Employee Name, and Message ID (with deduplication)."""
     if message_id and is_message_already_logged("Transactions", message_id):
         return
     ws = _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
-    date_str = now_ist().strftime(TIMESTAMP_FORMAT)
+    date_str = timestamp or now_ist().strftime(TIMESTAMP_FORMAT)
     row = [date_str, amount, description or "", category, employee or "", message_id or ""]
     _with_retry(lambda: ws.append_row(row))
     with _CACHE_LOCK:
