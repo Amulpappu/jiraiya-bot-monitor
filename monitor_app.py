@@ -315,10 +315,11 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
 
             type_tag = "Service-Government" if cat.upper() in ("GOVT", "GOVERNMENT", "PD", "EMS") else "Service-Civilian"
             cat_display = f"{count}x {cat}" if count and count != "1" else f"Service ({cat})"
+            cust_display = cust if cust and cust.lower() not in ("unknown", "none", "") else cat_display
             items.append({
                 "date": dt,
                 "type": type_tag,
-                "customer": cust if cust not in ("Unknown", "") else cat_display,
+                "customer": cust_display,
                 "amount": amt,
                 "staff": staff
             })
@@ -326,13 +327,14 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
     for r in upgrade_rows:
         if len(r) >= 3:
             dt = str(r[0]).strip()
-            cust = str(r[1]).strip() if len(r) > 1 and r[1] else "Car Upgrade Invoice"
+            raw_cust = str(r[1]).strip() if len(r) > 1 and r[1] else ""
+            cust_display = raw_cust if raw_cust and raw_cust.lower() not in ("unknown", "none", "") else "Car Upgrade"
             amt = sheets.get_row_amount("Upgrades", r)
             staff = sheets.get_row_employee("Upgrades", r)
             items.append({
                 "date": dt,
                 "type": "Car Upgrade",
-                "customer": cust if cust else "Car Upgrade Invoice",
+                "customer": cust_display,
                 "amount": amt,
                 "staff": staff
             })
@@ -340,7 +342,7 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
     for r in kit_rows:
         if len(r) >= 3:
             dt = str(r[0]).strip()
-            cust = str(r[1]).strip() if len(r) > 1 and r[1] else "Unknown"
+            raw_cust = str(r[1]).strip() if len(r) > 1 and r[1] else ""
             details = ""
             if len(r) >= 8:
                 rk = str(r[2]).strip()
@@ -352,12 +354,13 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             elif len(r) >= 3:
                 details = str(r[2]).strip() or "Kit Sale"
 
+            cust_display = raw_cust if raw_cust and raw_cust.lower() not in ("unknown", "none", "") else details
             amt = sheets.get_row_amount("Kits", r)
             staff = sheets.get_row_employee("Kits", r)
             items.append({
                 "date": dt,
                 "type": "Kit",
-                "customer": details if details else cust,
+                "customer": cust_display,
                 "amount": amt,
                 "staff": staff
             })
@@ -409,13 +412,13 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             pass
         return datetime.datetime.min
 
-    # User directive: Only include August 2026 (Month 8) onwards for official employees, sorted newest first
+    # User directive: Only include August 2026 (Month 8) onwards for official employees, sorted in ascending date order (Aug 01 -> Aug 31)
     aug_start = datetime.datetime(2026, 8, 1, 0, 0, 0)
     aug_items = [
         it for it in items
         if parse_dt(it) >= aug_start and it.get("staff") in config.OFFICIAL_EMPLOYEE_NAMES
     ]
-    aug_items.sort(key=parse_dt, reverse=True)
+    aug_items.sort(key=parse_dt, reverse=False)
     return aug_items
 
 
