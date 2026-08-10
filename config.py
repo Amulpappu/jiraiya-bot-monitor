@@ -15,12 +15,6 @@ SPREADSHEET_NAME = os.getenv("SPREADSHEET_NAME", "Code69-Employee Tracker")
 EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69-Employee Tracker", "1Tz2YxzNO0ibySgftxNGltulxx0o7NLx3HCLbk-RpNRM"))
 
 
-EXACT_CHANNEL_IDS = {}
-
-EXCLUDED_CHANNEL_IDS = {
-    1533512854588620800,  # bill_claim Channel
-}
-
 
 def is_august_channel(channel_input) -> bool:
     """User Directive: Scan ONLY in the exact specified target channel/thread IDs."""
@@ -236,6 +230,11 @@ EXACT_CHANNEL_IDS = {
     1533122823063601223: (_UPGRADE_CONFIG, "Upgrades"),
     1533122328412815521: (_KIT_CONFIG, "Kits"),
     153312328412815521: (_KIT_CONFIG, "Kits"),
+    1533512854588620800: (_SERVICE_CONFIG, "Service"),  # 💸┆ʙɪʟʟ_ᴄʟᴀɪᴍ (UNBLOCKED & SCANNED REAL-TIME)
+}
+
+EXCLUDED_CHANNEL_IDS = {
+    1519029266371838033,  # 💸┆vip-claim-logs (BLOCKED)
 }
 
 CHANNEL_CONFIG = {
