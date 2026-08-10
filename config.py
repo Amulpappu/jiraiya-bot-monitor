@@ -23,7 +23,7 @@ EXCLUDED_CHANNEL_IDS = {
 
 
 def is_august_channel(channel_input) -> bool:
-    """User Rule: Only process August 2026 channels. Exclude previous month channels and claim/vip/ticket channels."""
+    """User Directive: Scan ONLY in the exact specified target channel/thread IDs."""
     if not channel_input:
         return False
     ch_id = getattr(channel_input, "id", None)
@@ -36,26 +36,11 @@ def is_august_channel(channel_input) -> bool:
     if ch_id and ch_id in EXACT_CHANNEL_IDS:
         return True
 
-    channel_name = getattr(channel_input, "name", str(channel_input))
-    c_low = str(channel_name).lower().strip()
-
-    # User directive: Exclude claim/vip/ticket channels (e.g. bill_claim, vip-claim-logs)
-    excluded_keywords = ("claim", "claims", "vip", "ticket", "tickets", "bill_claim")
-    if any(ex in c_low for ex in excluded_keywords):
-        return False
-
-    other_months = (
-        "july", "jul", "june", "jun", "may", "april", "apr", "march", "mar",
-        "february", "feb", "january", "jan", "december", "dec", "november", "nov",
-        "october", "oct", "september", "sept"
-    )
-    if any(m in c_low for m in other_months) and not ("aug" in c_low or "august" in c_low):
-        return False
-    return True
+    return False
 
 
 def get_channel_config(channel_input):
-    """Dynamically resolves channel configuration based on exact Discord Channel/Thread ID or fuzzy name matching."""
+    """Resolves channel configuration strictly for exact Discord Channel/Thread IDs."""
     if not channel_input or not is_august_channel(channel_input):
         return None, None
 
@@ -65,6 +50,8 @@ def get_channel_config(channel_input):
 
     if ch_id and ch_id in EXACT_CHANNEL_IDS:
         return EXACT_CHANNEL_IDS[ch_id]
+
+    return None, None
 
     channel_name = getattr(channel_input, "name", str(channel_input))
 

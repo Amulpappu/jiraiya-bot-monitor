@@ -548,55 +548,24 @@ async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = Fal
 
 
 async def collect_target_channels(guild: discord.Guild):
-    """Gathers every text channel, forum channel, AND thread in the guild matching configured August 2026 invoice channels."""
+    """Gathers ONLY the exact specified target channel/thread IDs from the guild."""
     targets = []
 
-    # 1. First, check exact IDs configured in config.EXACT_CHANNEL_IDS
     for exact_id in config.EXACT_CHANNEL_IDS:
         ch = guild.get_channel(exact_id) or guild.get_thread(exact_id)
-        if ch and ch not in targets and config.is_august_channel(ch):
+        if not ch:
+            for channel in guild.text_channels:
+                if channel.id == exact_id:
+                    ch = channel
+                    break
+                for thread in getattr(channel, "threads", []):
+                    if thread.id == exact_id:
+                        ch = thread
+                        break
+                if ch:
+                    break
+        if ch and ch not in targets:
             targets.append(ch)
-
-    channels_to_check = list(guild.text_channels)
-    if hasattr(guild, "forums"):
-        channels_to_check.extend(guild.forums)
-
-    for channel in channels_to_check:
-        if not config.is_august_channel(channel):
-            continue
-
-        parent_cfg, _ = config.get_channel_config(channel)
-        if parent_cfg and isinstance(channel, discord.TextChannel) and channel not in targets:
-            targets.append(channel)
-
-        for thread in getattr(channel, "threads", []):
-            if not config.is_august_channel(thread):
-                continue
-            cfg_t, _ = config.get_channel_config(thread)
-            if cfg_t or parent_cfg:
-                if thread not in targets:
-                    targets.append(thread)
-
-        try:
-            if hasattr(channel, "archived_threads"):
-                async for thread in channel.archived_threads(limit=100):
-                    if not config.is_august_channel(thread):
-                        continue
-                    cfg_t, _ = config.get_channel_config(thread)
-                    if cfg_t or parent_cfg:
-                        if thread not in targets:
-                            targets.append(thread)
-        except Exception:
-            pass
-
-    for thread in guild.threads:
-        if not config.is_august_channel(thread):
-            continue
-        cfg_t, _ = config.get_channel_config(thread)
-        parent = getattr(thread, "parent", None)
-        parent_cfg2, _ = config.get_channel_config(parent) if parent else (None, None)
-        if (cfg_t or parent_cfg2) and thread not in targets:
-            targets.append(thread)
 
     return targets
 
