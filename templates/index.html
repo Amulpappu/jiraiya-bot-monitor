@@ -3,174 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jiraiya Bot Monitor — Financial Intelligence Dashboard</title>
-    <meta name="description" content="Real-time financial intelligence dashboard for Jiraiya Discord Bot.">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Jiraiya Bot — Legendary Financial & Operational Intelligence</title>
+    <meta name="description" content="Real-time financial and operational intelligence dashboard for Jiraiya Discord Bot.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg-primary: #0B0F19;
-            --bg-secondary: #111827;
-            --bg-card: rgba(17, 24, 39, 0.7);
-            --bg-sidebar: #0F1629;
-            --border: rgba(255, 255, 255, 0.06);
-            --border-hover: rgba(99, 102, 241, 0.4);
-            --text-primary: #F1F5F9;
-            --text-secondary: #94A3B8;
-            --text-muted: #64748B;
-            --accent: #6366F1;
-            --accent-light: #818CF8;
-            --green: #10B981;
-            --green-bg: rgba(16, 185, 129, 0.12);
-            --red: #EF4444;
-            --red-bg: rgba(239, 68, 68, 0.12);
-            --amber: #F59E0B;
-            --amber-bg: rgba(245, 158, 11, 0.12);
-            --blue: #3B82F6;
-            --blue-bg: rgba(59, 130, 246, 0.12);
-            --purple: #8B5CF6;
-            --purple-bg: rgba(139, 92, 246, 0.12);
-            --cyan: #06B6D4;
-            --cyan-bg: rgba(6, 182, 212, 0.12);
+            --bg-midnight: #0A0B12;
+            --bg-midnight-800: #101120;
+            --bg-ink: #12131F;
+            --bg-ink-700: #181A2A;
+            --bg-ink-600: #20223A;
+            --border-ink: rgba(36, 38, 64, 0.8);
+            --border-hover: rgba(123, 92, 250, 0.45);
+            --jiraiya: #7B5CFA;
+            --jiraiya-400: #9C81FF;
+            --jiraiya-600: #5F3FE0;
+            --jade: #34D399;
+            --jade-bg: rgba(52, 211, 153, 0.12);
+            --amber: #F5A524;
+            --amber-bg: rgba(245, 165, 36, 0.12);
+            --crimson: #F2545B;
+            --crimson-bg: rgba(242, 84, 91, 0.12);
+            --parchment: #F4F3FA;
+            --parchment-muted: #9A9BB8;
+            --parchment-faint: #5D5E7A;
             --sidebar-width: 260px;
         }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-midnight); color: var(--parchment); min-height: 100vh; overflow-x: hidden; }
+
+        /* TYPOGRAPHY HELPERS */
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .text-muted { color: var(--parchment-muted); }
+        .text-faint { color: var(--parchment-faint); }
+        .text-jiraiya { color: var(--jiraiya-400); }
+        .text-jade { color: var(--jade); }
+        .text-amber { color: var(--amber); }
+        .text-crimson { color: var(--crimson); }
 
         /* SIDEBAR */
-        .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
-        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .sidebar-brand .logo { width: 48px; height: 48px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #1a1f2e; display: flex; align-items: center; justify-content: center; }
+        .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh; background: var(--bg-midnight-800); border-right: 1px solid var(--border-ink); display: flex; flex-direction: column; z-index: 100; backdrop-filter: blur(16px); }
+        .sidebar-brand { display: flex; align-items: center; gap: 14px; padding: 20px 22px; border-bottom: 1px solid var(--border-ink); }
+        .sidebar-brand .logo { width: 44px; height: 44px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: rgba(123, 92, 250, 0.15); border: 1px solid rgba(123, 92, 250, 0.3); display: flex; align-items: center; justify-content: center; }
         .sidebar-brand .logo img { width: 100%; height: 100%; object-fit: cover; }
-        .sidebar-brand h2 { font-size: 17px; font-weight: 800; background: linear-gradient(135deg, var(--accent-light), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .sidebar-brand small { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
-        .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
-        .nav-section { margin-bottom: 24px; }
-        .nav-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted); padding: 0 8px; margin-bottom: 8px; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; margin-bottom: 2px; }
-        .nav-item:hover { background: rgba(99, 102, 241, 0.08); color: var(--text-primary); }
-        .nav-item.active { background: rgba(99, 102, 241, 0.15); color: var(--accent-light); font-weight: 600; }
-        .nav-item .icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
-        .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
-        .user-pill { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); }
-        .user-pill .avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
-        .user-pill .uname { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-        .user-pill .urole { font-size: 11px; color: var(--text-muted); }
+        .sidebar-brand-text h2 { font-size: 16px; font-weight: 800; tracking: 0.05em; color: var(--parchment); }
+        .sidebar-brand-text h2 span { color: var(--jiraiya-400); }
+        .sidebar-brand-text small { font-size: 10px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 1.5px; color: var(--parchment-faint); display: block; margin-top: 2px; }
+        
+        .sidebar-nav { flex: 1; padding: 18px 14px; overflow-y: auto; }
+        .nav-section { margin-bottom: 22px; }
+        .nav-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--parchment-faint); padding: 0 10px; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; color: var(--parchment-muted); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; margin-bottom: 3px; position: relative; }
+        .nav-item:hover { background: var(--bg-ink-600); color: var(--parchment); }
+        .nav-item.active { background: rgba(123, 92, 250, 0.15); color: var(--parchment); font-weight: 600; }
+        .nav-item.active::before { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3.5px; border-radius: 4px; background: var(--jiraiya-400); }
+        .nav-item .icon { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
+        
+        .sidebar-footer { padding: 16px 18px; border-top: 1px solid var(--border-ink); background: rgba(10, 11, 18, 0.5); }
+        .bot-status-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(32, 34, 58, 0.6); border: 1px solid var(--border-ink); }
+        .bot-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 10px var(--jade); }
+        .bot-status-pill .info { min-width: 0; }
+        .bot-status-pill .title { font-size: 12px; font-weight: 600; color: var(--parchment); }
+        .bot-status-pill .sub { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--parchment-faint); }
+        
+        .user-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(123, 92, 250, 0.12); border: 1px solid rgba(123, 92, 250, 0.25); margin-top: 10px; cursor: pointer; }
+        .user-pill .avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+        .user-pill .uname { font-size: 13px; font-weight: 600; color: var(--parchment); }
+        .user-pill .urole { font-size: 10.5px; color: var(--parchment-muted); font-family: 'JetBrains Mono', monospace; }
 
-        /* MAIN */
-        .main { margin-left: var(--sidebar-width); min-height: 100vh; }
-        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        /* MAIN LAYOUT */
+        .main { margin-left: var(--sidebar-width); min-height: 100vh; background: var(--bg-midnight); }
+        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(10, 11, 18, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-ink); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
         .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-left h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-        .month-badge { background: var(--bg-card); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+        .topbar-left h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+        .month-badge { background: var(--bg-ink); border: 1px solid var(--border-ink); padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--parchment-muted); display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; }
+        
+        .topbar-search { display: flex; align-items: center; gap: 10px; background: rgba(32, 34, 58, 0.4); border: 1px solid var(--border-ink); border-radius: 10px; padding: 7px 14px; max-width: 340px; width: 100%; }
+        .topbar-search input { background: transparent; border: none; outline: none; color: var(--parchment); font-size: 13px; width: 100%; font-family: inherit; }
+        .topbar-search input::placeholder { color: var(--parchment-faint); }
+
         .topbar-right { display: flex; align-items: center; gap: 12px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); animation: blink 2s infinite; }
         .status-dot.maint { background: var(--amber); }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-        .badge-live { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.25); }
-        .badge-maint { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.25); }
-        .btn { padding: 9px 18px; border-radius: 10px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
-        .btn-primary { background: linear-gradient(135deg, var(--accent), #4F46E5); color: white; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45); }
-        .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
-        .btn-ghost:hover { background: rgba(255,255,255,0.04); border-color: var(--border-hover); color: var(--text-primary); }
+        .badge-live { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52, 211, 153, 0.25); }
+        .badge-maint { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 165, 36, 0.25); }
+
+        .btn { padding: 9px 18px; border-radius: 10px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 7px; font-family: inherit; }
+        .btn-primary { background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600)); color: white; box-shadow: 0 4px 14px rgba(123, 92, 250, 0.35); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(123, 92, 250, 0.5); }
+        .btn-ghost { background: transparent; color: var(--parchment-muted); border: 1px solid var(--border-ink); }
+        .btn-ghost:hover { background: var(--bg-ink-600); border-color: var(--border-hover); color: var(--parchment); }
         .btn-green { background: linear-gradient(135deg, #10B981, #059669); color: white; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
         .btn-green:hover { transform: translateY(-1px); }
+        .btn-danger { background: rgba(242, 84, 91, 0.15); color: var(--crimson); border: 1px solid rgba(242, 84, 91, 0.3); }
+        .btn-danger:hover { background: rgba(242, 84, 91, 0.25); border-color: var(--crimson); }
         .btn-sm { padding: 6px 12px; font-size: 12px; }
+
         .content { padding: 28px 32px; }
         .page { display: none; }
-        .page.active { display: block; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .page.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* GLASS PANELS & CARDS */
+        .glass-panel { background: rgba(18, 19, 31, 0.75); backdrop-filter: blur(16px); border: 1px solid var(--border-ink); border-radius: 16px; padding: 24px; margin-bottom: 24px; position: relative; transition: all 0.25s ease; }
+        .glass-panel:hover { border-color: rgba(123, 92, 250, 0.25); }
 
         /* STAT CARDS */
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 24px; }
-        .stat-card { background: var(--bg-card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; transition: all 0.25s ease; position: relative; overflow: hidden; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 16px 16px 0 0; opacity: 0; transition: opacity 0.25s ease; }
-        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-        .stat-card:hover::before { opacity: 1; }
-        .stat-card.green::before { background: linear-gradient(90deg, var(--green), #34D399); }
-        .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), #60A5FA); }
-        .stat-card.purple::before { background: linear-gradient(90deg, var(--purple), #A78BFA); }
-        .stat-card.amber::before { background: linear-gradient(90deg, var(--amber), #FBBF24); }
-        .stat-card.red::before { background: linear-gradient(90deg, var(--red), #F87171); }
-        .stat-card.cyan::before { background: linear-gradient(90deg, var(--cyan), #22D3EE); }
-        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .stat-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-        .stat-icon.green { background: var(--green-bg); }
-        .stat-icon.blue { background: var(--blue-bg); }
-        .stat-icon.purple { background: var(--purple-bg); }
-        .stat-icon.amber { background: var(--amber-bg); }
-        .stat-icon.red { background: var(--red-bg); }
-        .stat-icon.cyan { background: var(--cyan-bg); }
-        .stat-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
-        .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .stat-card { background: rgba(18, 19, 31, 0.8); backdrop-filter: blur(16px); border: 1px solid var(--border-ink); border-radius: 16px; padding: 20px 22px; transition: all 0.25s ease; position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3.5px; border-radius: 16px 16px 0 0; opacity: 0.85; transition: opacity 0.25s ease; }
+        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+        
+        .stat-card.green::before { background: linear-gradient(90deg, var(--jade), #6EE7B7); }
+        .stat-card.purple::before { background: linear-gradient(90deg, var(--jiraiya), var(--jiraiya-400)); }
+        .stat-card.amber::before { background: linear-gradient(90deg, var(--amber), #FCD34D); }
+        .stat-card.crimson::before { background: linear-gradient(90deg, var(--crimson), #FCA5A5); }
+        .stat-card.blue::before { background: linear-gradient(90deg, #3B82F6, #93C5FD); }
+        .stat-card.cyan::before { background: linear-gradient(90deg, #06B6D4, #67E8F9); }
 
-        /* PANELS */
-        .panel { background: var(--bg-card); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .panel-title .icon { font-size: 18px; }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .stat-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px; }
+        .stat-icon.green { background: var(--jade-bg); }
+        .stat-icon.purple { background: rgba(123, 92, 250, 0.15); }
+        .stat-icon.amber { background: var(--amber-bg); }
+        .stat-icon.crimson { background: var(--crimson-bg); }
+        .stat-icon.blue { background: rgba(59, 130, 246, 0.15); }
+        .stat-icon.cyan { background: rgba(6, 182, 212, 0.15); }
+
+        .stat-label { font-size: 11.5px; font-weight: 700; color: var(--parchment-muted); text-transform: uppercase; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace; }
+        .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+        .stat-sub { font-size: 11px; color: var(--parchment-faint); margin-top: 6px; }
+
+        /* QUICK ACTIONS GRID */
+        .quick-actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        .quick-action-card { background: rgba(24, 26, 42, 0.7); border: 1px solid var(--border-ink); border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; color: var(--parchment); }
+        .quick-action-card:hover { background: var(--bg-ink-600); border-color: var(--border-hover); transform: translateY(-2px); }
+        .quick-action-card .icon { width: 38px; height: 38px; border-radius: 10px; background: rgba(123, 92, 250, 0.15); color: var(--jiraiya-400); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .quick-action-card .label { font-size: 13px; font-weight: 600; }
+        .quick-action-card .sub { font-size: 11px; color: var(--parchment-faint); }
+
+        /* TABLES */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .panel-title .icon { font-size: 19px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th { background: rgba(24, 26, 42, 0.8); color: var(--parchment-faint); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border-ink); font-family: 'JetBrains Mono', monospace; }
+        tbody td { padding: 14px 16px; font-size: 13.5px; color: var(--parchment-muted); border-bottom: 1px solid rgba(36, 38, 64, 0.5); }
+        tbody tr:hover td { background: rgba(123, 92, 250, 0.05); color: var(--parchment); }
+        .emp-name { color: var(--parchment); font-weight: 600; }
+
+        .tag { display: inline-block; padding: 4px 11px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+        .tag-green { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52, 211, 153, 0.2); }
+        .tag-purple { background: rgba(123, 92, 250, 0.15); color: var(--jiraiya-400); border: 1px solid rgba(123, 92, 250, 0.25); }
+        .tag-blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.25); }
+        .tag-cyan { background: rgba(6, 182, 212, 0.15); color: #22D3EE; border: 1px solid rgba(6, 182, 212, 0.25); }
+        .tag-crimson { background: var(--crimson-bg); color: var(--crimson); border: 1px solid rgba(242, 84, 91, 0.25); }
+        .tag-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 165, 36, 0.25); }
+
+        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4); }
+        .rank-2 { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
+        .rank-3 { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
+        .rank-other { background: rgba(36, 38, 64, 0.8); color: var(--parchment-faint); }
+
+        /* GRID LAYOUTS */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
 
-        /* TABLE */
-        table { width: 100%; border-collapse: collapse; }
-        thead th { background: rgba(30, 41, 59, 0.5); color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
-        tbody td { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
-        tbody tr:hover td { background: rgba(99, 102, 241, 0.04); }
-        .emp-name { color: var(--text-primary); font-weight: 600; }
-        .tag { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-        .tag-green { background: var(--green-bg); color: var(--green); }
-        .tag-blue { background: var(--blue-bg); color: var(--blue); }
-        .tag-purple { background: var(--purple-bg); color: var(--purple); }
-        .tag-amber { background: var(--amber-bg); color: var(--amber); }
-        .tag-red { background: var(--red-bg); color: var(--red); }
-        .tag-cyan { background: var(--cyan-bg); color: var(--cyan); }
-        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 800; }
-        .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; }
-        .rank-2 { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
-        .rank-3 { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
-        .rank-other { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-
-        /* CHART */
-        .chart-container { position: relative; height: 280px; width: 100%; }
+        /* CHART CONTAINER */
+        .chart-container { position: relative; height: 290px; width: 100%; }
 
         /* MAINTENANCE OVERLAY */
-        .maint-overlay { position: fixed; inset: 0; background: rgba(9, 13, 22, 0.96); backdrop-filter: blur(24px); z-index: 999; display: flex; justify-content: center; align-items: center; padding: 24px; }
-        .maint-box { background: var(--bg-secondary); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 24px; padding: 52px 40px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); }
+        .maint-overlay { position: fixed; inset: 0; background: rgba(10, 11, 18, 0.96); backdrop-filter: blur(24px); z-index: 999; display: flex; justify-content: center; align-items: center; padding: 24px; }
+        .maint-box { background: var(--bg-ink); border: 1px solid rgba(245, 165, 36, 0.3); border-radius: 24px; padding: 52px 40px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6); }
         .maint-icon { font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         .maint-title { font-size: 26px; font-weight: 800; color: var(--amber); margin-bottom: 12px; }
-        .maint-desc { color: var(--text-secondary); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
+        .maint-desc { color: var(--parchment-muted); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
 
         /* MODAL */
-        .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(10px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
-        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-        .modal-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
-        .form-group { margin-bottom: 16px; text-align: left; }
-        label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        input[type="text"], input[type="password"], input[type="number"] { width: 100%; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; color: white; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
-        input:focus { border-color: var(--accent); }
-        .error-txt { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
-        .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+        .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal-content { background: var(--bg-ink); border: 1px solid var(--border-ink); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.7); }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: var(--parchment); }
+        .modal-sub { font-size: 13px; color: var(--parchment-faint); margin-bottom: 22px; }
+        
+        .form-group { margin-bottom: 18px; text-align: left; }
+        label { display: block; font-size: 11.5px; font-weight: 700; color: var(--parchment-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace; }
+        input[type="text"], input[type="password"], input[type="number"] { width: 100%; background: var(--bg-midnight); border: 1px solid var(--border-ink); border-radius: 10px; padding: 12px 16px; color: var(--parchment); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: var(--jiraiya-400); box-shadow: 0 0 12px rgba(123, 92, 250, 0.25); }
+        .error-txt { color: var(--crimson); font-size: 13px; margin-top: 10px; display: none; }
+        .empty { text-align: center; padding: 44px 20px; color: var(--parchment-faint); }
         .empty .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
 
-        /* ROLE SELECTION STYLES */
-        .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-        .role-card { background: var(--bg-primary); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; user-select: none; }
-        .role-card:hover { border-color: var(--border-hover); background: rgba(99, 102, 241, 0.06); transform: translateY(-1px); }
-        .role-card.active { border-color: var(--accent-light); background: rgba(99, 102, 241, 0.16); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
-        .role-card.active.role-admin { border-color: #818CF8; background: rgba(129, 140, 248, 0.16); }
-        .role-card.active.role-manager { border-color: #38BDF8; background: rgba(56, 189, 248, 0.16); }
-        .role-card.active.role-employee { border-color: #34D399; background: rgba(52, 211, 153, 0.16); }
+        /* ROLE CARDS IN AUTH MODAL */
+        .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+        .role-card { background: var(--bg-midnight); border: 1.5px solid var(--border-ink); border-radius: 14px; padding: 14px 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; user-select: none; }
+        .role-card:hover { border-color: var(--border-hover); background: rgba(123, 92, 250, 0.08); transform: translateY(-1px); }
+        .role-card.active { border-color: var(--jiraiya-400); background: rgba(123, 92, 250, 0.18); box-shadow: 0 4px 16px rgba(123, 92, 250, 0.3); }
         .role-card .role-icon { font-size: 24px; margin-bottom: 6px; }
-        .role-card .role-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-        .role-card .role-tag { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-        .role-info-box { background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 18px; display: flex; align-items: center; gap: 10px; line-height: 1.4; }
-
+        .role-card .role-name { font-size: 13px; font-weight: 700; color: var(--parchment); }
+        .role-card .role-tag { font-size: 10px; color: var(--parchment-faint); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+        .role-info-box { background: rgba(123, 92, 250, 0.1); border: 1px solid rgba(123, 92, 250, 0.25); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: var(--parchment-muted); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; line-height: 1.4; }
 
         @media (max-width: 1024px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
@@ -178,14 +218,12 @@
             .main { margin-left: 0; }
             .content { padding: 20px 16px; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .topbar-search { display: none; }
         }
     </style>
-    <!-- PRE-RENDER: instantly bypass maintenance overlay if user is already logged in -->
-    <!-- This runs BEFORE the DOM paints so there is zero flash of the maintenance screen -->
     <script>
         (function() {
             if (localStorage.getItem('jiraiya_user')) {
-                // Inject a style rule to hide the overlay before the DOM is painted
                 var s = document.createElement('style');
                 s.textContent = '#maint-screen { display: none !important; }';
                 document.head.appendChild(s);
@@ -208,27 +246,27 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <div class="logo"><img src="/static/logo.png" alt="Manjummel Logo"></div>
-            <div>
-                <h2>Jiraiya Bot</h2>
-                <small>Financial Intelligence</small>
+            <div class="logo"><img src="/static/logo.png" alt="Jiraiya Logo"></div>
+            <div class="sidebar-brand-text">
+                <h2>JIRAIYA <span>BOT</span></h2>
+                <small>The Legendary Bot</small>
             </div>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">
-                <div class="nav-section-label">Main</div>
+                <div class="nav-section-label">Core Dashboard</div>
                 <a class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
-                    <span class="icon">📊</span> <span>Dashboard</span>
+                    <span class="icon">📊</span> <span>Overview Dashboard</span>
                 </a>
                 <a class="nav-item" data-page="employees" onclick="switchPage('employees')">
                     <span class="icon">👥</span> <span>Employee Tracker</span>
                 </a>
                 <a class="nav-item" data-page="transactions" onclick="switchPage('transactions')">
-                    <span class="icon">💸</span> <span>Transactions</span>
+                    <span class="icon">💸</span> <span>Transaction Stream</span>
                 </a>
             </div>
             <div class="nav-section" id="nav-sec-management">
-                <div class="nav-section-label">Management</div>
+                <div class="nav-section-label">Operations</div>
                 <a class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
                     <span class="icon">📦</span> <span>Stock & Edit</span>
                 </a>
@@ -237,11 +275,11 @@
                 </a>
             </div>
             <div class="nav-section" id="nav-sec-system">
-                <div class="nav-section-label">System</div>
+                <div class="nav-section-label">System Control</div>
                 <a class="nav-item" id="nav-item-maintenance" onclick="openAuthModal('maintenance')">
-                    <span class="icon">🛠️</span> <span>Maintenance</span>
+                    <span class="icon">🛠️</span> <span>Maintenance Mode</span>
                 </a>
-                <a class="nav-item" id="nav-item-wipe" onclick="openAuthModal('wipe')" style="color:var(--red);">
+                <a class="nav-item" id="nav-item-wipe" onclick="openAuthModal('wipe')" style="color:var(--crimson);">
                     <span class="icon">🗑️</span> <span>Wipe & Rescan</span>
                 </a>
                 <a class="nav-item" id="nav-item-permissions" onclick="openPermissionsModal()">
@@ -249,7 +287,16 @@
                 </a>
             </div>
         </nav>
+
         <div class="sidebar-footer">
+            <div class="bot-status-pill">
+                <div class="dot"></div>
+                <div class="info">
+                    <div class="title">Bot Online</div>
+                    <div class="sub">42ms · 99.94% uptime</div>
+                </div>
+            </div>
+
             <div id="sidebar-user" class="user-pill" style="display: none;">
                 <div class="avatar" id="user-avatar">?</div>
                 <div>
@@ -270,9 +317,15 @@
     <div class="main">
         <div class="topbar">
             <div class="topbar-left">
-                <h1 id="topbar-title">Dashboard</h1>
+                <h1 id="topbar-title">Control Center</h1>
                 <div class="month-badge">📅 August 2026</div>
             </div>
+
+            <div class="topbar-search">
+                <span class="text-faint">🔍</span>
+                <input type="search" placeholder="Search members, transactions, logs…" oninput="filterTransactions(this.value)">
+            </div>
+
             <div class="topbar-right">
                 <span class="badge {{ 'badge-maint' if is_maintenance else 'badge-live' }}">
                     <span class="status-dot {{ 'maint' if is_maintenance else '' }}"></span>
@@ -280,9 +333,9 @@
                 </span>
                 <button class="btn btn-ghost" onclick="triggerRescan()" title="Rescan Discord channel history">🔍 Rescan</button>
                 <button class="btn btn-ghost" onclick="refreshAll()">🔄 Refresh</button>
-                <button class="btn" id="topbar-wipe-btn" onclick="openAuthModal('wipe')" style="background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);padding:7px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🗑️ Wipe Data</button>
+                <button class="btn btn-danger" id="topbar-wipe-btn" onclick="openAuthModal('wipe')">🗑️ Wipe Data</button>
                 <button class="btn btn-primary" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
-                <span id="topbar-user-pill" style="display:none;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);padding:7px 16px;border-radius:10px;font-size:13px;font-weight:600;color:var(--accent-light);">👤 <span id="topbar-user-name"></span></span>
+                <span id="topbar-user-pill" style="display:none;background:rgba(123,92,250,0.15);border:1px solid rgba(123,92,250,0.3);padding:7px 16px;border-radius:10px;font-size:13px;font-weight:600;color:var(--jiraiya-400);">👤 <span id="topbar-user-name"></span></span>
             </div>
         </div>
 
@@ -290,14 +343,16 @@
 
             <!-- ===== DASHBOARD PAGE ===== -->
             <div id="page-dashboard" class="page active">
+                
+                <!-- METRICS GRID -->
                 <div class="stat-grid">
                     <div class="stat-card green">
                         <div class="stat-header"><div class="stat-icon green">💰</div><div class="stat-label">Total Sales</div></div>
                         <div class="stat-value" id="s-total-sales">—</div>
-                        <div class="stat-sub">August 2026</div>
+                        <div class="stat-sub">August 2026 Gross</div>
                     </div>
-                    <div class="stat-card red">
-                        <div class="stat-header"><div class="stat-icon red">📤</div><div class="stat-label">Expense</div></div>
+                    <div class="stat-card crimson">
+                        <div class="stat-header"><div class="stat-icon crimson">📤</div><div class="stat-label">Expense</div></div>
                         <div class="stat-value" id="s-expense">—</div>
                         <div class="stat-sub" id="s-expense-count">0 claims</div>
                     </div>
@@ -307,26 +362,46 @@
                         <div class="stat-sub">15% of Total Sales</div>
                     </div>
                     <div class="stat-card purple">
-                        <div class="stat-header"><div class="stat-icon purple">📈</div><div class="stat-label">Profit</div></div>
+                        <div class="stat-header"><div class="stat-icon purple">📈</div><div class="stat-label">Net Profit</div></div>
                         <div class="stat-value" id="s-profit">—</div>
                         <div class="stat-sub">Sales − Expense − Tax</div>
                     </div>
                     <div class="stat-card blue">
                         <div class="stat-header"><div class="stat-icon blue">🔄</div><div class="stat-label">Total Transactions</div></div>
                         <div class="stat-value" id="s-total-txns">—</div>
-                        <div class="stat-sub">All categories</div>
+                        <div class="stat-sub">All August Categories</div>
                     </div>
                     <div class="stat-card cyan">
                         <div class="stat-header"><div class="stat-icon cyan">👥</div><div class="stat-label">Total Employees</div></div>
                         <div class="stat-value" id="s-total-emp">—</div>
-                        <div class="stat-sub">Active staff</div>
+                        <div class="stat-sub">Active Duty Staff</div>
                     </div>
                 </div>
 
-                <!-- Monthly Revenue Chart -->
-                <div class="panel">
+                <!-- QUICK ACTIONS GRID -->
+                <div class="quick-actions-grid">
+                    <div class="quick-action-card" onclick="switchPage('transactions')">
+                        <div class="icon">💳</div>
+                        <div><div class="label">View Transactions</div><div class="sub">August logs feed</div></div>
+                    </div>
+                    <div class="quick-action-card" onclick="switchPage('inventory')">
+                        <div class="icon">📦</div>
+                        <div><div class="label">Manage Stock</div><div class="sub">Inventory & restock</div></div>
+                    </div>
+                    <div class="quick-action-card" onclick="switchPage('employees')">
+                        <div class="icon">🏆</div>
+                        <div><div class="label">Staff Leaderboard</div><div class="sub">Performance metrics</div></div>
+                    </div>
+                    <div class="quick-action-card" onclick="triggerRescan()">
+                        <div class="icon">🔍</div>
+                        <div><div class="label">Rescan Channels</div><div class="sub">Discord auto-sync</div></div>
+                    </div>
+                </div>
+
+                <!-- REVENUE CHART -->
+                <div class="glass-panel">
                     <div class="panel-header">
-                        <div class="panel-title"><span class="icon">📈</span> Monthly Revenue</div>
+                        <div class="panel-title"><span class="icon">📈</span> Monthly Revenue Trend</div>
                         <div style="display:flex;gap:6px;">
                             <span class="tag tag-blue">Services</span>
                             <span class="tag tag-purple">Upgrades</span>
@@ -340,7 +415,7 @@
 
                 <div class="grid-3">
                     <!-- Recent Transactions -->
-                    <div class="panel">
+                    <div class="glass-panel">
                         <div class="panel-header">
                             <div class="panel-title"><span class="icon">💳</span> Recent Transactions</div>
                             <span class="tag tag-blue" id="s-txn-badge">0</span>
@@ -351,7 +426,7 @@
                         </table>
                     </div>
                     <!-- Top Employees -->
-                    <div class="panel">
+                    <div class="glass-panel">
                         <div class="panel-header"><div class="panel-title"><span class="icon">🏆</span> Top Employees</div></div>
                         <div id="top-emp-list" style="display: flex; flex-direction: column; gap: 10px;"><div class="empty"><p>Loading...</p></div></div>
                     </div>
@@ -360,7 +435,7 @@
 
             <!-- ===== EMPLOYEE TRACKER PAGE ===== -->
             <div id="page-employees" class="page">
-                <div class="panel">
+                <div class="glass-panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">👥</span> Employee Performance Tracker</div>
                         <button class="btn btn-ghost btn-sm" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
@@ -374,7 +449,7 @@
 
             <!-- ===== TRANSACTIONS PAGE ===== -->
             <div id="page-transactions" class="page">
-                <div class="panel">
+                <div class="glass-panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">💸</span> All Transactions (August 2026)</div>
                         <button class="btn btn-ghost btn-sm" onclick="fetchDashboard()">🔄 Refresh</button>
@@ -388,7 +463,7 @@
 
             <!-- ===== INVENTORY PAGE ===== -->
             <div id="page-inventory" class="page">
-                <div class="panel">
+                <div class="glass-panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">📦</span> Inventory (Stock & Restock)</div>
                         <div style="display:flex;gap:8px;">
@@ -405,7 +480,7 @@
 
             <!-- ===== AUDIT LOGS PAGE ===== -->
             <div id="page-audit" class="page">
-                <div class="panel">
+                <div class="glass-panel">
                     <div class="panel-header">
                         <div class="panel-title"><span class="icon">📋</span> User Audit Logs</div>
                         <button class="btn btn-ghost btn-sm" onclick="fetchAuditLogs()">🔄 Refresh</button>
@@ -481,7 +556,7 @@
             <div class="form-group" style="position:relative;">
                 <label>Role Password</label>
                 <input type="password" id="user-pass-input" placeholder="Enter password (e.g. admin2026)">
-                <span onclick="togglePasswordVisibility()" style="position:absolute;right:14px;top:34px;cursor:pointer;opacity:0.75;font-size:16px;" title="Show/Hide Password">👁️</span>
+                <span onclick="togglePasswordVisibility()" style="position:absolute;right:14px;top:36px;cursor:pointer;opacity:0.75;font-size:16px;" title="Show/Hide Password">👁️</span>
             </div>
 
             <div id="auth-error" class="error-txt"></div>
@@ -525,7 +600,7 @@
             <div style="overflow-x:auto;">
                 <table style="width:100%;margin-top:12px;border-collapse:collapse;">
                     <thead>
-                        <tr style="border-bottom:1px solid var(--border);text-align:left;">
+                        <tr style="border-bottom:1px solid var(--border-ink);text-align:left;">
                             <th style="padding:10px;">Menu Option</th>
                             <th style="padding:10px;text-align:center;">👑 Admin</th>
                             <th style="padding:10px;text-align:center;">💼 Manager</th>
@@ -555,8 +630,8 @@
         document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
         const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
         if (nav) nav.classList.add('active');
-        const titles = {dashboard:'Dashboard',employees:'Employee Tracker',transactions:'Transactions',inventory:'Inventory',audit:'Audit Logs'};
-        document.getElementById('topbar-title').textContent = titles[page] || 'Dashboard';
+        const titles = {dashboard:'Overview Dashboard',employees:'Employee Tracker',transactions:'Transaction Stream',inventory:'Stock & Edit Inventory',audit:'User Audit Logs'};
+        document.getElementById('topbar-title').textContent = titles[page] || 'Overview Dashboard';
         if (page === 'employees') fetchEmployeeTracker();
         if (page === 'transactions') fetchTransactions();
         if (page === 'inventory') fetchInventory();
@@ -576,12 +651,21 @@
             let html = '';
             d.transactions.forEach(t => {
                 const typeStr = t.type || '';
-                const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-red';
+                const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
                 const isNeg = String(t.amount).startsWith('-');
-                html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--red)':'var(--green)'};font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
+                html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
             });
             allTbody.innerHTML = html;
         } catch(e) { console.error('Transactions fetch error:', e); }
+    }
+
+    function filterTransactions(query) {
+        const q = query.toLowerCase().trim();
+        const rows = document.querySelectorAll('#all-txns-body tr, #recent-txns-body tr');
+        rows.forEach(r => {
+            const txt = r.textContent.toLowerCase();
+            r.style.display = txt.includes(q) ? '' : 'none';
+        });
     }
 
     // ===== FORMAT =====
@@ -599,130 +683,51 @@
             document.getElementById('s-expense').textContent = fmt(d.total_expenses);
             document.getElementById('s-tax').textContent = fmt(d.tax);
             document.getElementById('s-profit').textContent = fmt(d.profit);
-            document.getElementById('s-total-txns').textContent = d.total_transactions || 0;
+            document.getElementById('s-total-txns').textContent = (d.total_transactions || 0).toLocaleString();
             document.getElementById('s-total-emp').textContent = d.total_employees || 0;
             document.getElementById('s-expense-count').textContent = (d.expense_count || 0) + ' claims';
-            document.getElementById('s-txn-badge').textContent = (d.total_transactions || 0) + ' total';
 
-            // Profit color
-            const profitEl = document.getElementById('s-profit');
-            profitEl.style.color = d.profit >= 0 ? 'var(--green)' : 'var(--red)';
-
-            // Recent transactions
-            const tbody = document.getElementById('recent-txns-body');
-            if (d.recent_transactions && d.recent_transactions.length > 0) {
+            // Recent txns table
+            const rTbody = document.getElementById('recent-txns-body');
+            document.getElementById('s-txn-badge').textContent = d.recent_transactions ? d.recent_transactions.length : 0;
+            if (d.recent_transactions && d.recent_transactions.length) {
                 let html = '';
-                d.recent_transactions.forEach(t => {
+                d.recent_transactions.slice(0, 10).forEach(t => {
                     const typeStr = t.type || '';
-                    const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-red';
-                    html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:var(--green);font-weight:700;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
+                    const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
+                    const isNeg = String(t.amount).startsWith('-');
+                    html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
                 });
-                tbody.innerHTML = html;
+                rTbody.innerHTML = html;
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No transactions yet</p></td></tr>';
+                rTbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No recent transactions</p></td></tr>';
             }
 
             // Top employees
-            const empDiv = document.getElementById('top-emp-list');
-            if (d.top_employees && d.top_employees.length > 0) {
-                empDiv.innerHTML = '';
-                d.top_employees.forEach((e, i) => {
-                    const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
-                    empDiv.innerHTML += `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);">
-                        <span class="rank-badge ${rc}">${i+1}</span>
-                        <div style="flex:1;"><div class="emp-name">${e.name}</div><div style="font-size:12px;color:var(--text-muted);">${e.count} txns</div></div>
+            const topList = document.getElementById('top-emp-list');
+            if (d.top_employees && d.top_employees.length) {
+                let html = '';
+                d.top_employees.forEach((emp, i) => {
+                    const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+                    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(24,26,42,0.6);border-radius:12px;border:1px solid var(--border-ink);">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="rank-badge ${rankCls}">${i+1}</span>
+                            <div>
+                                <div class="emp-name">${emp.name}</div>
+                                <div style="font-size:11px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${emp.civ_count||0} Civ · ${emp.govt_count||0} Govt</div>
+                            </div>
+                        </div>
+                        <div style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;">${emp.total_logs||0} logs</div>
                     </div>`;
                 });
-            } else { empDiv.innerHTML = '<div class="empty"><p>No data</p></div>'; }
-
-            // Chart
-            renderChart(d.chart_labels || [], d.chart_values || []);
-        } catch(e) { console.error('Dashboard error:', e); }
-    }
-
-    // ===== CHART =====
-    function renderChart(labels, values) {
-        const ctx = document.getElementById('revenueChart');
-        if (!ctx) return;
-        if (revenueChart) revenueChart.destroy();
-
-        if (!labels || labels.length === 0) {
-            // No data — show placeholder message on canvas
-            const c = ctx.getContext('2d');
-            c.clearRect(0, 0, ctx.width, ctx.height);
-            c.fillStyle = 'rgba(100,116,139,0.5)';
-            c.font = '14px Inter, sans-serif';
-            c.textAlign = 'center';
-            c.fillText('No revenue data for this period', ctx.width / 2, ctx.height / 2);
-            return;
-        }
-
-        // Format labels for display — handle DD/MM/YYYY or raw strings
-        const displayLabels = labels.map(l => {
-            const parts = l.split('/');
-            if (parts.length >= 3) return parts[0] + ' Aug';  // DD/MM/YYYY -> "DD Aug"
-            if (parts.length === 2) return parts[0] + ' Aug';  // DD/MM -> "DD Aug"
-            return l;
-        });
-
-        // Use bar chart for single data point (line with 1 point looks odd),
-        // otherwise use a smooth line chart
-        const chartType = labels.length === 1 ? 'bar' : 'line';
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.01)');
-
-        const dataset = chartType === 'bar' ? {
-            label: 'Revenue',
-            data: values,
-            backgroundColor: 'rgba(99, 102, 241, 0.7)',
-            borderColor: '#818CF8',
-            borderWidth: 1.5,
-            borderRadius: 8,
-            borderSkipped: false,
-        } : {
-            label: 'Revenue',
-            data: values,
-            borderColor: '#818CF8',
-            backgroundColor: gradient,
-            borderWidth: 2.5,
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#818CF8',
-            pointBorderColor: '#0B0F19',
-            pointBorderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-        };
-
-        revenueChart = new Chart(ctx, {
-            type: chartType,
-            data: { labels: displayLabels, datasets: [dataset] },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#1E293B',
-                        titleColor: '#F1F5F9',
-                        bodyColor: '#94A3B8',
-                        borderColor: 'rgba(99, 102, 241, 0.3)',
-                        borderWidth: 1,
-                        cornerRadius: 10,
-                        padding: 14,
-                        callbacks: {
-                            label: c => 'Revenue: ₹' + Number(c.parsed.y).toLocaleString('en-IN')
-                        }
-                    }
-                },
-                scales: {
-                    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 } } },
-                    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 }, callback: v => '₹' + (v/1000).toFixed(0) + 'k' }, beginAtZero: true }
-                },
-                interaction: { intersect: false, mode: 'index' }
+                topList.innerHTML = html;
+            } else {
+                topList.innerHTML = '<div class="empty"><p>No employee data</p></div>';
             }
-        });
+
+            // Render Chart
+            renderChart(d.chart_labels || [], d.chart_values || []);
+        } catch(e) { console.error('Dashboard fetch error:', e); }
     }
 
     // ===== EMPLOYEE TRACKER =====
@@ -731,102 +736,53 @@
             const res = await fetch('/api/employee-tracker');
             const d = await res.json();
             const tbody = document.getElementById('emp-tracker-body');
-            if (!d.success || !d.employees || !d.employees.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No employee data</p></td></tr>'; return; }
-            d.employees.sort((a, b) => fmtNum(b.total) - fmtNum(a.total));
-            tbody.innerHTML = '';
-            d.employees.forEach((e, i) => {
-                const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
-                tbody.innerHTML += `<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td class="emp-name">${e.name}</td><td><span class="tag tag-blue">${e.civilian||0}</span></td><td><span class="tag tag-purple">${e.govt||0}</span></td><td>${e.service_logs||0}</td><td>${e.upgrades||0}</td><td style="font-weight:800;color:var(--green);">${fmtNum(e.total)}</td><td style="font-size:12px;color:var(--text-muted);">${e.last_date||'—'}</td></tr>`;
+            if (!d.success || !d.employees || !d.employees.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No employees found</p></td></tr>';
+                return;
+            }
+            let html = '';
+            d.employees.forEach((emp, i) => {
+                const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+                html += `<tr>
+                    <td><span class="rank-badge ${rankCls}">${i+1}</span></td>
+                    <td class="emp-name">${emp.name}</td>
+                    <td><span class="tag tag-green">${emp.civ_count||0}</span></td>
+                    <td><span class="tag tag-purple">${emp.govt_count||0}</span></td>
+                    <td>${emp.service_count||0}</td>
+                    <td>${emp.upgrade_count||0}</td>
+                    <td style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;">${emp.total_logs||0}</td>
+                    <td style="font-size:11.5px;color:var(--parchment-faint);">${emp.last_active||'—'}</td>
+                </tr>`;
             });
-        } catch(e) { console.error(e); }
+            tbody.innerHTML = html;
+        } catch(e) { console.error('Employee tracker fetch error:', e); }
     }
 
     // ===== INVENTORY =====
-    let currentInventoryItems = [];
-
     async function fetchInventory() {
         try {
             const res = await fetch('/api/inventory');
             const d = await res.json();
             const tbody = document.getElementById('inventory-body');
-            if (!d.success || !d.items || !d.items.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty"><div class="icon">📦</div><p>No inventory items. Click "Create New Item" to add one.</p></td></tr>'; return; }
-            tbody.innerHTML = '';
-            currentInventoryItems = d.items;
-            d.items.forEach((item, idx) => {
-                tbody.innerHTML += `<tr>
-                    <td class="emp-name">${item.name}</td>
-                    <td><span class="tag tag-green">${item.stock}</span></td>
+            if (!d.success || !d.items || !d.items.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No inventory items</p></td></tr>';
+                return;
+            }
+            let html = '';
+            d.items.forEach(item => {
+                html += `<tr>
+                    <td class="emp-name">${item.item_name}</td>
+                    <td><span class="tag ${item.in_stock > 10 ? 'tag-green' : 'tag-amber'}">${item.in_stock}</span></td>
                     <td>${item.bought}</td>
-                    <td style="font-size:12px;">${item.restock_date||'—'}</td>
-                    <td style="color:var(--amber);font-weight:600;">${fmt(fmtNum(item.unit_price))}</td>
-                    <td style="color:var(--green);font-weight:700;">${fmt(fmtNum(item.total_value))}</td>
-                    <td style="font-size:11px;color:var(--text-muted);">${item.last_updated||''}</td>
-                    <td><button class="btn btn-ghost btn-sm" onclick="openEditInventory(${idx})">✏️ Edit</button></td>
+                    <td>${item.restock_date||'—'}</td>
+                    <td style="font-family:'JetBrains Mono',monospace;">${fmt(item.unit_price)}</td>
+                    <td style="font-weight:700;color:var(--jade);font-family:'JetBrains Mono',monospace;">${fmt(item.total_value)}</td>
+                    <td style="font-size:11.5px;color:var(--parchment-faint);">${item.last_updated||'—'}</td>
+                    <td><button class="btn btn-ghost btn-sm" onclick="editInventoryItem('${item.row_index}','${item.item_name}','${item.in_stock}','${item.unit_price}','${item.bought}','${item.restock_date||''}')">✏️ Edit</button></td>
                 </tr>`;
             });
-        } catch(e) { console.error(e); }
-    }
-
-    function openInventoryModal(mode, item) {
-        invMode = mode;
-        document.getElementById('inv-error').style.display = 'none';
-        if (mode === 'create') {
-            document.getElementById('inv-modal-heading').textContent = 'Create New Item';
-            document.getElementById('inv-modal-sub').textContent = 'Add a new inventory item to the stock sheet.';
-            document.getElementById('inv-submit-btn').innerHTML = '➕ Create Item';
-            document.getElementById('inv-name').value = '';
-            document.getElementById('inv-stock').value = '';
-            document.getElementById('inv-price').value = '';
-            document.getElementById('inv-row-index').value = '';
-            document.getElementById('inv-bought').value = '0';
-            document.getElementById('inv-restock-date').value = '';
-        } else {
-            document.getElementById('inv-modal-heading').textContent = 'Edit: ' + (item ? item.name : '');
-            document.getElementById('inv-modal-sub').textContent = 'Update name, stock, bought this month, unit rate, and restock date.';
-            document.getElementById('inv-submit-btn').innerHTML = '💾 Save Changes';
-            document.getElementById('inv-name').value = item.name || '';
-            document.getElementById('inv-stock').value = item.stock || 0;
-            document.getElementById('inv-price').value = item.unit_price || 0;
-            document.getElementById('inv-row-index').value = item.row_index || '';
-            document.getElementById('inv-bought').value = item.bought || 0;
-            document.getElementById('inv-restock-date').value = item.restock_date || '';
-        }
-        document.getElementById('inv-modal').style.display = 'flex';
-    }
-
-    function openEditInventory(itemOrIdx) {
-        const item = (typeof itemOrIdx === 'number') ? currentInventoryItems[itemOrIdx] : itemOrIdx;
-        openInventoryModal('edit', item);
-    }
-
-    async function submitInventory() {
-        const name = document.getElementById('inv-name').value.trim();
-        const stock = document.getElementById('inv-stock').value;
-        const price = document.getElementById('inv-price').value;
-        const bought = document.getElementById('inv-bought').value;
-        const restock_date = document.getElementById('inv-restock-date').value;
-        const err = document.getElementById('inv-error');
-        if (!name) { err.textContent = 'Enter item name!'; err.style.display = 'block'; return; }
-
-        const endpoint = invMode === 'create' ? '/api/inventory/create' : '/api/inventory/update';
-        const body = {
-            name,
-            stock: parseInt(stock) || 0,
-            unit_price: parseFloat(price) || 0,
-            bought: parseInt(bought) || 0,
-            restock_date: restock_date,
-            user_name: loggedInUser || 'Admin',
-            row_index: document.getElementById('inv-row-index').value,
-        };
-        try {
-            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-            const d = await res.json();
-            if (d.success) {
-                closeModal('inv-modal');
-                alert(d.message);
-                fetchInventory();
-            } else { err.textContent = d.error || 'Failed!'; err.style.display = 'block'; }
-        } catch(e) { err.textContent = 'Server error!'; err.style.display = 'block'; }
+            tbody.innerHTML = html;
+        } catch(e) { console.error('Inventory fetch error:', e); }
     }
 
     // ===== AUDIT LOGS =====
@@ -835,367 +791,349 @@
             const res = await fetch('/api/audit-logs');
             const d = await res.json();
             const tbody = document.getElementById('audit-logs-body');
-            if (!d.success || !d.logs || !d.logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No audit logs</p></td></tr>'; return; }
-            tbody.innerHTML = '';
-            d.logs.slice().reverse().forEach(r => {
-                const ac = (r[1]||'').includes('LOGIN') ? 'tag-green' : (r[1]||'').includes('MAINTENANCE') ? 'tag-amber' : (r[1]||'').includes('INVENTORY') ? 'tag-cyan' : 'tag-blue';
-                tbody.innerHTML += `<tr><td style="font-size:12px;">${r[0]||''}</td><td><span class="tag ${ac}">${r[1]||''}</span></td><td class="emp-name">${r[2]||''}</td><td>${r[3]||''}</td><td style="font-size:12px;color:var(--text-muted);">${r[4]||''}</td></tr>`;
+            if (!d.success || !d.logs || !d.logs.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No audit logs found</p></td></tr>';
+                return;
+            }
+            let html = '';
+            d.logs.forEach(l => {
+                html += `<tr>
+                    <td style="font-size:11.5px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${l.timestamp}</td>
+                    <td><span class="tag tag-blue">${l.action}</span></td>
+                    <td class="emp-name">${l.user}</td>
+                    <td><span class="tag tag-purple">${l.role}</span></td>
+                    <td style="font-size:12.5px;">${l.details}</td>
+                </tr>`;
             });
-        } catch(e) { console.error(e); }
+            tbody.innerHTML = html;
+        } catch(e) { console.error('Audit logs fetch error:', e); }
     }
 
-    // ===== AUTH & ROLE MANAGEMENT (single declaration block) =====
-    let selectedRole = 'Admin';
-    let loggedInUser = null;
-    let loggedInRole = null;
-    let currentAction = 'login';
-    let invMode = 'create';
-    let revenueChart = null;
-    let currentPermissions = null;
+    // ===== REVENUE CHART =====
+    let chartInstance = null;
+    function renderChart(labels, values) {
+        const ctx = document.getElementById('revenueChart');
+        if (!ctx) return;
+        if (chartInstance) chartInstance.destroy();
 
-    // ===== MODAL HELPERS =====
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.length ? labels : ['Aug 01', 'Aug 05', 'Aug 10', 'Aug 15', 'Aug 20', 'Aug 25', 'Aug 30'],
+                datasets: [{
+                    label: 'Daily Sales (₹)',
+                    data: values.length ? values : [15000, 28000, 42000, 39000, 56000, 68000, 85000],
+                    borderColor: '#7B5CFA',
+                    borderWidth: 3,
+                    backgroundColor: (context) => {
+                        const bg = context.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                        bg.addColorStop(0, 'rgba(123, 92, 250, 0.35)');
+                        bg.addColorStop(1, 'rgba(123, 92, 250, 0.0)');
+                        return bg;
+                    },
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#9C81FF',
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(36, 38, 64, 0.5)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 11 } } },
+                    y: { grid: { color: 'rgba(36, 38, 64, 0.5)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 11 }, callback: v => '₹' + v.toLocaleString() } }
+                }
+            }
+        });
+    }
+
+    // ===== MULTI-ROLE AUTH & USER SESSION =====
+    let activeSelectedRole = 'Admin';
+    let currentAuthAction = 'login'; // 'login', 'wipe', 'maintenance'
+
+    const roleScopes = {
+        'Admin': { icon: '👑', text: 'Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance Mode, Access Control & Data Wipe.' },
+        'Manager': { icon: '💼', text: 'Management access: View Dashboard, Employee Tracker, Edit Inventory & Stock, View Audit Logs.' },
+        'Employee': { icon: '👤', text: 'Employee Portal: View Staff Leaderboard & Personal Log History.' }
+    };
+
+    function selectRole(role) {
+        activeSelectedRole = role;
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+        const card = document.getElementById('role-card-' + role);
+        if (card) card.classList.add('active');
+        const scope = roleScopes[role] || roleScopes['Admin'];
+        document.getElementById('role-info-icon').textContent = scope.icon;
+        document.getElementById('role-info-text').textContent = scope.text;
+    }
+
     function openAuthModal(action) {
-        currentAction = action;
-        document.getElementById('auth-error').style.display = 'none';
-        document.getElementById('user-name-input').value = loggedInUser || '';
-        document.getElementById('user-pass-input').value = '';
-        
+        currentAuthAction = action;
         const heading = document.getElementById('modal-heading');
-        const subtext = document.getElementById('modal-subtext');
+        const sub = document.getElementById('modal-subtext');
+        const btn = document.getElementById('auth-submit-btn');
 
         if (action === 'wipe') {
-            if (heading) heading.textContent = '🗑️ Wipe & Rescan Data';
-            if (subtext) subtext.textContent = 'Enter Admin Password to wipe all Google Sheet data (Service, Kits, Upgrades, Transactions) and trigger a full Discord rescan.';
-            selectRole('Admin');
+            heading.textContent = '⚠️ Confirm Data Wipe & Rescan';
+            sub.textContent = 'Enter your Admin credentials to trigger a clean data wipe & rescan.';
+            btn.textContent = '🗑️ Authenticate & Wipe Data';
+            btn.className = 'btn btn-danger';
         } else if (action === 'maintenance') {
-            if (heading) heading.textContent = '🛠️ Maintenance System Toggle';
-            if (subtext) subtext.textContent = 'Enter Admin Password to toggle system maintenance mode on/off.';
-            selectRole('Admin');
+            heading.textContent = '🛠️ Toggle Maintenance Mode';
+            sub.textContent = 'Authenticate as Admin to toggle system maintenance mode.';
+            btn.textContent = '🛠️ Authenticate & Toggle Mode';
+            btn.className = 'btn btn-primary';
         } else {
-            if (heading) heading.textContent = 'System Portal Authentication';
-            if (subtext) subtext.textContent = 'Select your role tab (Admin, Manager, or Employee) and sign in.';
-            selectRole('Admin');
+            heading.textContent = 'System Portal Authentication';
+            sub.textContent = 'Select your role tab (Admin, Manager, or Employee) and sign in.';
+            btn.textContent = '🔐 Sign In & Authenticate';
+            btn.className = 'btn btn-primary';
         }
 
+        document.getElementById('auth-error').style.display = 'none';
         document.getElementById('auth-modal').style.display = 'flex';
+    }
+
+    function togglePasswordVisibility() {
+        const input = document.getElementById('user-pass-input');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    async function submitAuthAction() {
+        const name = document.getElementById('user-name-input').value.trim();
+        const pass = document.getElementById('user-pass-input').value.trim();
+        const errDiv = document.getElementById('auth-error');
+
+        if (!name) { errDiv.textContent = 'Please enter your name.'; errDiv.style.display = 'block'; return; }
+        if (!pass) { errDiv.textContent = 'Please enter the role password.'; errDiv.style.display = 'block'; return; }
+
+        errDiv.style.display = 'none';
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, password: pass, role: activeSelectedRole })
+            });
+            const d = await res.json();
+            if (!d.success) {
+                errDiv.textContent = d.message || 'Invalid credentials for this role.';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            // Save user session locally
+            const userObj = { name: d.user, role: d.role };
+            localStorage.setItem('jiraiya_user', JSON.stringify(userObj));
+            updateUserUI(userObj);
+            closeModal('auth-modal');
+
+            if (currentAuthAction === 'wipe') {
+                confirmWipe();
+            } else if (currentAuthAction === 'maintenance') {
+                toggleMaintenance();
+            }
+        } catch(e) {
+            errDiv.textContent = 'Server authentication error.';
+            errDiv.style.display = 'block';
+        }
+    }
+
+    function updateUserUI(user) {
+        if (!user) return;
+        document.getElementById('sidebar-login').style.display = 'none';
+        const sUser = document.getElementById('sidebar-user');
+        if (sUser) {
+            sUser.style.display = 'flex';
+            document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+            document.getElementById('user-display-name').textContent = user.name;
+            sUser.querySelector('.urole').textContent = user.role;
+        }
+
+        document.getElementById('topbar-login-btn').style.display = 'none';
+        const tPill = document.getElementById('topbar-user-pill');
+        if (tPill) {
+            tPill.style.display = 'inline-block';
+            document.getElementById('topbar-user-name').textContent = `${user.name} (${user.role})`;
+        }
+    }
+
+    function checkExistingUserSession() {
+        const saved = localStorage.getItem('jiraiya_user');
+        if (saved) {
+            try {
+                const user = JSON.parse(saved);
+                updateUserUI(user);
+            } catch(e){}
+        }
+    }
+
+    // ===== INVENTORY MODAL ACTIONS =====
+    function openInventoryModal(mode) {
+        document.getElementById('inv-modal-heading').textContent = mode === 'create' ? 'Create New Inventory Item' : 'Edit Inventory Item';
+        document.getElementById('inv-submit-btn').textContent = mode === 'create' ? '➕ Create Item' : '💾 Save Changes';
+        if (mode === 'create') {
+            document.getElementById('inv-row-index').value = '';
+            document.getElementById('inv-name').value = '';
+            document.getElementById('inv-stock').value = '0';
+            document.getElementById('inv-price').value = '0';
+            document.getElementById('inv-bought').value = '0';
+            document.getElementById('inv-restock-date').value = '';
+        }
+        document.getElementById('inv-modal').style.display = 'flex';
+    }
+
+    function editInventoryItem(rowIndex, name, stock, price, bought, restockDate) {
+        document.getElementById('inv-row-index').value = rowIndex;
+        document.getElementById('inv-name').value = name;
+        document.getElementById('inv-stock').value = stock;
+        document.getElementById('inv-price').value = price;
+        document.getElementById('inv-bought').value = bought;
+        document.getElementById('inv-restock-date').value = restockDate;
+        openInventoryModal('edit');
+    }
+
+    async function submitInventory() {
+        const rowIndex = document.getElementById('inv-row-index').value;
+        const itemName = document.getElementById('inv-name').value.trim();
+        const inStock = document.getElementById('inv-stock').value;
+        const unitPrice = document.getElementById('inv-price').value;
+        const bought = document.getElementById('inv-bought').value;
+        const restockDate = document.getElementById('inv-restock-date').value.trim();
+        const errDiv = document.getElementById('inv-error');
+
+        if (!itemName) { errDiv.textContent = 'Please enter item name.'; errDiv.style.display = 'block'; return; }
+        errDiv.style.display = 'none';
+
+        try {
+            const res = await fetch('/api/stock-edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ row_index: rowIndex, item_name: itemName, in_stock: inStock, unit_price: unitPrice, bought, restock_date: restockDate })
+            });
+            const d = await res.json();
+            if (d.success) {
+                closeModal('inv-modal');
+                fetchInventory();
+            } else {
+                errDiv.textContent = d.message || 'Error updating item.';
+                errDiv.style.display = 'block';
+            }
+        } catch(e) { errDiv.textContent = 'Inventory save error.'; errDiv.style.display = 'block'; }
+    }
+
+    // ===== RESCAN & WIPE =====
+    async function triggerRescan() {
+        if (!confirm('Re-scan Discord channel history for August 2026?')) return;
+        try {
+            const res = await fetch('/api/rescan', { method: 'POST' });
+            const d = await res.json();
+            alert(d.message || 'Rescan triggered!');
+            refreshAll();
+        } catch(e) { alert('Rescan error'); }
+    }
+
+    async function confirmWipe() {
+        if (!confirm('⚠️ Are you sure you want to WIPE all existing data and run a complete rescan?')) return;
+        try {
+            const res = await fetch('/api/wipe', { method: 'POST' });
+            const d = await res.json();
+            alert(d.message || 'Data wiped and rescan started!');
+            refreshAll();
+        } catch(e) { alert('Wipe error'); }
+    }
+
+    async function toggleMaintenance() {
+        try {
+            const res = await fetch('/api/maintenance', { method: 'POST' });
+            const d = await res.json();
+            alert(d.message || 'Maintenance mode toggled!');
+            window.location.reload();
+        } catch(e) { alert('Maintenance toggle error'); }
+    }
+
+    // ===== ACCESS CONTROL MANAGER =====
+    async function openPermissionsModal() {
+        try {
+            const res = await fetch('/api/access-control');
+            const d = await res.json();
+            if (!d.success) { alert('Could not load permissions rules.'); return; }
+
+            const tbody = document.getElementById('permissions-table-body');
+            let html = '';
+            const options = [
+                { id: 'dashboard', name: 'Overview Dashboard' },
+                { id: 'employees', name: 'Employee Tracker' },
+                { id: 'transactions', name: 'Transaction Feed' },
+                { id: 'inventory', name: 'Stock & Edit Inventory' },
+                { id: 'audit', name: 'Audit Logs' },
+                { id: 'maintenance', name: 'Maintenance Mode' },
+                { id: 'wipe', name: 'Wipe & Rescan' }
+            ];
+
+            options.forEach(opt => {
+                const adminChecked = (d.rules.Admin || []).includes(opt.id) ? 'checked' : '';
+                const managerChecked = (d.rules.Manager || []).includes(opt.id) ? 'checked' : '';
+                const empChecked = (d.rules.Employee || []).includes(opt.id) ? 'checked' : '';
+                html += `<tr style="border-bottom:1px solid rgba(36,38,64,0.5);">
+                    <td style="padding:10px;font-weight:600;color:var(--parchment);">${opt.name}</td>
+                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Admin" data-opt="${opt.id}" ${adminChecked}></td>
+                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Manager" data-opt="${opt.id}" ${managerChecked}></td>
+                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Employee" data-opt="${opt.id}" ${empChecked}></td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+            document.getElementById('permissions-modal').style.display = 'flex';
+        } catch(e) { alert('Error fetching permissions'); }
+    }
+
+    async function savePermissions() {
+        const rules = { Admin: [], Manager: [], Employee: [] };
+        document.querySelectorAll('#permissions-table-body input[type="checkbox"]').forEach(cb => {
+            if (cb.checked) {
+                const role = cb.getAttribute('data-role');
+                const opt = cb.getAttribute('data-opt');
+                if (rules[role]) rules[role].push(opt);
+            }
+        });
+
+        try {
+            const res = await fetch('/api/access-control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rules })
+            });
+            const d = await res.json();
+            if (d.success) {
+                alert('Access control rules saved successfully!');
+                closeModal('permissions-modal');
+            } else {
+                alert(d.message || 'Error saving rules.');
+            }
+        } catch(e) { alert('Save permissions error'); }
     }
 
     function closeModal(id) {
         document.getElementById(id).style.display = 'none';
     }
 
-    function selectRole(role) {
-        selectedRole = role;
-        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
-        const card = document.getElementById('role-card-' + role);
-        if (card) card.classList.add('active');
-
-        const infoIcon = document.getElementById('role-info-icon');
-        const infoText = document.getElementById('role-info-text');
-        const passInp = document.getElementById('user-pass-input');
-
-        if (role === 'Admin') {
-            if (infoIcon) infoIcon.textContent = '🛡️';
-            if (infoText) infoText.textContent = 'Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Wipe Data.';
-            if (passInp) passInp.placeholder = 'Enter admin password';
-        } else if (role === 'Manager') {
-            if (infoIcon) infoIcon.textContent = '💼';
-            if (infoText) infoText.textContent = 'Manager access: Dashboard, Employee Performance, Stock & Edit, and Transactions.';
-            if (passInp) passInp.placeholder = 'Enter manager password';
-        } else {
-            if (infoIcon) infoIcon.textContent = '👤';
-            if (infoText) infoText.textContent = 'Employee access: Employee Performance, Stock & Edit, and Transactions.';
-            if (passInp) passInp.placeholder = 'Enter employee password';
-        }
-    }
-
-    async function submitAuthAction() {
-        const name = document.getElementById('user-name-input').value.trim();
-        const pass = document.getElementById('user-pass-input').value.trim();
-        const err = document.getElementById('auth-error');
-
-        if (!name) { err.textContent = 'Please enter your Name!'; err.style.display = 'block'; return; }
-        if (!pass) { err.textContent = 'Please enter Password!'; err.style.display = 'block'; return; }
-        err.style.display = 'none';
-
-        if (currentAction === 'wipe') {
-            if (!confirm('⚠️ CRITICAL WARNING!\n\nAre you sure you want to WIPE all Google Sheets data (Service, Kits, Upgrades, Transactions) and trigger a full Discord channel rescan?\n\nThis action cannot be undone!')) {
-                return;
-            }
-            try {
-                const res = await fetch('/api/wipe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: pass, user_name: name })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    closeModal('auth-modal');
-                    alert(data.message || 'All data wiped! Bot is now rescanning all Discord channels.');
-                    window.location.reload();
-                } else {
-                    err.textContent = data.error || 'Failed to wipe data!';
-                    err.style.display = 'block';
-                }
-            } catch(e) {
-                err.textContent = 'Server error!';
-                err.style.display = 'block';
-            }
-            return;
-        }
-
-        if (currentAction === 'maintenance') {
-            // Maintenance toggle requires admin password
-            try {
-                const res = await fetch('/api/maintenance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password: pass, user_name: name })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    closeModal('auth-modal');
-                    alert(data.message || 'Maintenance mode toggled!');
-                    window.location.reload();
-                } else {
-                    err.textContent = data.error || 'Failed!';
-                    err.style.display = 'block';
-                }
-            } catch(e) {
-                err.textContent = 'Server error!';
-                err.style.display = 'block';
-            }
-            return;
-        }
-
-        // Login flow
-        try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, password: pass, role: selectedRole })
-            });
-            const data = await res.json();
-            if (data.success) {
-                closeModal('auth-modal');
-                setLoggedIn(data.user_name || name, data.user_role || selectedRole);
-            } else {
-                err.textContent = data.error || 'Invalid credentials!';
-                err.style.display = 'block';
-            }
-        } catch(e) {
-            err.textContent = 'Server connection error!';
-            err.style.display = 'block';
-        }
-    }
-
-    async function triggerRescan() {
-        if (!confirm('Start a full rescan of recent Discord channel history?')) return;
-        try {
-            const res = await fetch('/api/rescan', { method: 'POST' });
-            const data = await res.json();
-            alert(data.message || 'Rescan triggered!');
-            setTimeout(refreshAll, 3000);
-        } catch(e) {
-            alert('Failed to trigger rescan!');
-        }
-    }
-
-    function togglePasswordVisibility() {
-        const p = document.getElementById('user-pass-input');
-        p.type = p.type === 'password' ? 'text' : 'password';
-    }
-
     function refreshAll() {
         fetchDashboard();
-        const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
-        if (activePage === 'employees') fetchEmployeeTracker();
-        if (activePage === 'transactions') fetchTransactions();
-        if (activePage === 'inventory') fetchInventory();
-        if (activePage === 'audit') fetchAuditLogs();
+        fetchEmployeeTracker();
+        fetchTransactions();
+        fetchInventory();
+        fetchAuditLogs();
     }
 
-    async function fetchPermissions() {
-        try {
-            const res = await fetch('/api/permissions');
-            const data = await res.json();
-            if (data.success) {
-                currentPermissions = data.permissions;
-                applyRolePermissions(loggedInRole || 'Admin');
-            }
-        } catch(e) { console.error('Failed to fetch permissions', e); }
-    }
-
-    function openPermissionsModal() {
-        if (!currentPermissions) {
-            fetchPermissions().then(() => renderPermissionsTable());
-        } else {
-            renderPermissionsTable();
-        }
-        document.getElementById('permissions-error').style.display = 'none';
-        document.getElementById('permissions-modal').style.display = 'flex';
-    }
-
-    function renderPermissionsTable() {
-        const tbody = document.getElementById('permissions-table-body');
-        if (!tbody || !currentPermissions) return;
-
-        const optionsMap = [
-            { key: 'dashboard', label: '📊 Dashboard' },
-            { key: 'employees', label: '👥 Employee Performance' },
-            { key: 'transactions', label: '💸 All Transactions' },
-            { key: 'inventory', label: '📦 Stock & Edit' },
-            { key: 'audit', label: '📋 User Audit Logs' },
-            { key: 'maintenance', label: '🛠️ Maintenance System' },
-            { key: 'wipe', label: '🗑️ Wipe & Rescan Data' }
-        ];
-
-        let html = '';
-        optionsMap.forEach(opt => {
-            const adminChecked = currentPermissions.Admin && currentPermissions.Admin[opt.key] ? 'checked' : '';
-            const managerChecked = currentPermissions.Manager && currentPermissions.Manager[opt.key] ? 'checked' : '';
-            const empChecked = currentPermissions.Employee && currentPermissions.Employee[opt.key] ? 'checked' : '';
-
-            html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-                <td style="padding:12px 10px;font-weight:600;">${opt.label}</td>
-                <td style="padding:12px 10px;text-align:center;"><input type="checkbox" id="perm-Admin-${opt.key}" ${adminChecked}></td>
-                <td style="padding:12px 10px;text-align:center;"><input type="checkbox" id="perm-Manager-${opt.key}" ${managerChecked}></td>
-                <td style="padding:12px 10px;text-align:center;"><input type="checkbox" id="perm-Employee-${opt.key}" ${empChecked}></td>
-            </tr>`;
-        });
-
-        tbody.innerHTML = html;
-    }
-
-    async function savePermissions() {
-        const err = document.getElementById('permissions-error');
-        const optionsKeys = ['dashboard', 'employees', 'transactions', 'inventory', 'audit', 'maintenance', 'wipe'];
-
-        const newPerms = { Admin: {}, Manager: {}, Employee: {} };
-
-        ['Admin', 'Manager', 'Employee'].forEach(role => {
-            optionsKeys.forEach(key => {
-                const el = document.getElementById(`perm-${role}-${key}`);
-                newPerms[role][key] = el ? el.checked : false;
-            });
-        });
-
-        try {
-            const res = await fetch('/api/permissions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ permissions: newPerms, user_name: loggedInUser || 'Admin' })
-            });
-            const data = await res.json();
-            if (data.success) {
-                currentPermissions = data.permissions;
-                closeModal('permissions-modal');
-                alert('Access control rules saved successfully!');
-                applyRolePermissions(loggedInRole || 'Admin');
-            } else {
-                err.textContent = data.error || 'Failed to save access control rules!';
-                err.style.display = 'block';
-            }
-        } catch(e) {
-            err.textContent = 'Server error!';
-            err.style.display = 'block';
-        }
-    }
-
-    function applyRolePermissions(role) {
-        if (!currentPermissions || !currentPermissions[role]) return;
-        const p = currentPermissions[role];
-
-        const navDashboard = document.querySelector('.nav-item[data-page="dashboard"]');
-        const navEmployees = document.querySelector('.nav-item[data-page="employees"]');
-        const navTransactions = document.querySelector('.nav-item[data-page="transactions"]');
-        const navInventory = document.querySelector('.nav-item[data-page="inventory"]');
-        const navAudit = document.querySelector('.nav-item[data-page="audit"]');
-        const navMaintenance = document.getElementById('nav-item-maintenance');
-        const navWipe = document.getElementById('nav-item-wipe');
-        const navPermissions = document.getElementById('nav-item-permissions');
-        const topbarWipe = document.getElementById('topbar-wipe-btn');
-        const secSystem = document.getElementById('nav-sec-system');
-
-        if (navDashboard) navDashboard.style.display = p.dashboard ? 'flex' : 'none';
-        if (navEmployees) navEmployees.style.display = p.employees ? 'flex' : 'none';
-        if (navTransactions) navTransactions.style.display = p.transactions ? 'flex' : 'none';
-        if (navInventory) navInventory.style.display = p.inventory ? 'flex' : 'none';
-        if (navAudit) navAudit.style.display = p.audit ? 'flex' : 'none';
-        if (navMaintenance) navMaintenance.style.display = p.maintenance ? 'flex' : 'none';
-        if (navWipe) navWipe.style.display = p.wipe ? 'flex' : 'none';
-        if (topbarWipe) topbarWipe.style.display = p.wipe ? 'inline-block' : 'none';
-        if (navPermissions) navPermissions.style.display = (role === 'Admin') ? 'flex' : 'none';
-        if (secSystem) secSystem.style.display = (p.maintenance || p.wipe || role === 'Admin') ? 'block' : 'none';
-
-        // Auto switch page if current active page is restricted
-        const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
-        if (activePage && !p[activePage]) {
-            if (p.dashboard) switchPage('dashboard');
-            else if (p.employees) switchPage('employees');
-            else if (p.transactions) switchPage('transactions');
-            else if (p.inventory) switchPage('inventory');
-        }
-    }
-
-    function setLoggedIn(name, role = 'Admin', is_admin = true, is_manager = true) {
-        loggedInUser = name;
-        loggedInRole = role;
-
-        localStorage.setItem('jiraiya_user', name);
-        localStorage.setItem('jiraiya_role', role);
-
-        const roleIcon = role === 'Admin' ? '👑' : role === 'Manager' ? '💼' : '👤';
-
-        // Update Sidebar user pill
-        const userAvatar = document.getElementById('user-avatar');
-        if (userAvatar) userAvatar.textContent = roleIcon;
-        const userDisp = document.getElementById('user-display-name');
-        if (userDisp) userDisp.textContent = name;
-        const userRoleEl = document.querySelector('.sidebar-footer .urole');
-        if (userRoleEl) userRoleEl.textContent = role;
-
-        const sbUser = document.getElementById('sidebar-user');
-        if (sbUser) sbUser.style.display = 'flex';
-        const sbLogin = document.getElementById('sidebar-login');
-        if (sbLogin) sbLogin.style.display = 'none';
-
-        // Update Topbar login pill
-        const tbBtn = document.getElementById('topbar-login-btn');
-        if (tbBtn) tbBtn.style.display = 'none';
-        const tbPill = document.getElementById('topbar-user-pill');
-        if (tbPill) {
-            tbPill.innerHTML = `${roleIcon} <span>${name}</span> <span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,0.12);margin-left:4px;">${role}</span> <button class="btn btn-ghost btn-sm" onclick="logout()" style="padding:2px 8px;font-size:11px;margin-left:6px;">Exit</button>`;
-            tbPill.style.display = 'inline-flex';
-        }
-
-        // Fetch dynamic permissions and apply navigation rules
-        fetchPermissions();
-    }
-
-    function logout() {
-        localStorage.removeItem('jiraiya_user');
-        localStorage.removeItem('jiraiya_role');
-        fetch('/api/logout', { method: 'POST' }).catch(() => {});
-        window.location.href = '/login';
-    }
-
-    // ===== INIT =====
-    const _savedUser = localStorage.getItem('jiraiya_user');
-    const _savedRole = localStorage.getItem('jiraiya_role') || 'Admin';
-    if (_savedUser && _savedUser.toLowerCase() !== 'guest') {
-        setLoggedIn(_savedUser, _savedRole);
-        fetch('/api/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: _savedUser, role: _savedRole })
-        }).catch(() => {});
-    } else {
-        setLoggedIn('Guest', 'Admin');
-    }
-
-    fetchDashboard();
-    setInterval(fetchDashboard, 15000);
+    // INIT
+    window.addEventListener('DOMContentLoaded', () => {
+        checkExistingUserSession();
+        fetchDashboard();
+    });
 </script>
 </body>
 </html>
