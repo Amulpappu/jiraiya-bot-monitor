@@ -427,29 +427,17 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
 
 
 def get_logged_message_ids() -> set:
-    """Fetches all Discord Message IDs already logged in Google Sheets (to avoid duplicate entries).
-
-    Column layout (0-indexed):
-      Service  : [Timestamp, Customer, Category, Count, Total Amount, Employee, Message ID]  → col 6
-      Kits     : [Timestamp, Customer, RK Qty, CK Qty, Discount%, Total Amount, Employee, Message ID] → col 7
-      Upgrades : [Timestamp, Customer, Total Amount, Employee, Message ID] → col 4
-    """
-    MSG_ID_COL = {"Service": 6, "Kits": 7, "Upgrades": 4}
+    """Fetches all Discord Message IDs already logged in Google Sheets from batch cache (0 extra API calls)."""
+    MSG_ID_COL = {"Service": 6, "Kits": 7, "Upgrades": 4, "Transactions": 5}
     logged = set()
-    try:
-        ss = sheets.get_spreadsheet()
-        for sheet_name in ["Service", "Kits", "Upgrades"]:
-            try:
-                ws = ss.worksheet(sheet_name)
-                all_vals = ws.get_all_values()
-                col = MSG_ID_COL[sheet_name]
-                for row in all_vals[1:]:  # skip header
-                    if len(row) > col and row[col].strip():
-                        logged.add(row[col].strip())
-            except Exception:
-                pass
-    except Exception:
-        pass
+    for sheet_name, col in MSG_ID_COL.items():
+        try:
+            rows = sheets._all_rows(sheet_name)
+            for row in rows:
+                if len(row) > col and str(row[col]).strip():
+                    logged.add(str(row[col]).strip())
+        except Exception:
+            pass
     return logged
 
 
@@ -547,9 +535,11 @@ async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = Fal
 
 
 async def collect_target_channels(guild: discord.Guild):
-    """Gathers ONLY the exact specified target channel/thread IDs from the guild."""
+    """Gathers all relevant August logging channels and active/archived threads across the server."""
     targets = []
+    seen_ids = set()
 
+    # 1. Channels with exact IDs
     for exact_id in config.EXACT_CHANNEL_IDS:
         ch = guild.get_channel(exact_id) or guild.get_thread(exact_id)
         if not ch:
@@ -563,8 +553,36 @@ async def collect_target_channels(guild: discord.Guild):
                         break
                 if ch:
                     break
-        if ch and ch not in targets:
+        if ch and ch.id not in seen_ids:
+            seen_ids.add(ch.id)
             targets.append(ch)
+
+    # 2. Guild text channels & active/archived threads matching August logging
+    for channel in guild.text_channels:
+        if channel.id in config.EXCLUDED_CHANNEL_IDS:
+            continue
+
+        if config.is_august_channel(channel):
+            if channel.id not in seen_ids:
+                seen_ids.add(channel.id)
+                targets.append(channel)
+
+        # Scan active threads
+        for thread in getattr(channel, "threads", []):
+            if thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(thread) or config.is_august_channel(channel)):
+                if thread.id not in seen_ids:
+                    seen_ids.add(thread.id)
+                    targets.append(thread)
+
+        # Scan archived threads
+        try:
+            async for archived_thread in channel.archived_threads(limit=100):
+                if archived_thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(archived_thread) or config.is_august_channel(channel)):
+                    if archived_thread.id not in seen_ids:
+                        seen_ids.add(archived_thread.id)
+                        targets.append(archived_thread)
+        except Exception:
+            pass
 
     return targets
 
@@ -572,20 +590,13 @@ async def collect_target_channels(guild: discord.Guild):
 @tasks.loop(seconds=30)
 async def real_time_auto_scan_loop():
     """Background loop running every 30 seconds to catch and sync any missed Discord log messages in real-time.
-    Dashboard is refreshed every cycle regardless of whether new messages were found, so daily/weekly/monthly
-    totals stay current even during quiet periods.
     Also checks for wipe_trigger.flag and rescan_trigger.flag created by the web dashboard."""
     try:
         # Check for wipe/rescan signals from the web dashboard
         is_full_rescan = False
         if os.path.exists("wipe_trigger.flag"):
             print("[Auto-Scan] Wipe trigger detected — clearing bot caches and processed hashes...")
-            # Clear in-memory caches in the bot process
-            with sheets._CACHE_LOCK:
-                sheets._ROWS_CACHE.clear()
-                sheets._LAST_KNOWN_ROWS.clear()
-                sheets._save_disk_cache()
-            # Clear processed image hashes so messages aren't skipped as duplicates
+            sheets.clear_rows_cache()
             global processed_hashes
             processed_hashes.clear()
             save_processed_hashes(processed_hashes)
@@ -597,6 +608,7 @@ async def real_time_auto_scan_loop():
 
         if os.path.exists("rescan_trigger.flag"):
             print("[Auto-Scan] Rescan trigger detected — starting full server rescan...")
+            sheets.clear_rows_cache()
             try:
                 os.remove("rescan_trigger.flag")
             except Exception:
@@ -612,16 +624,12 @@ async def real_time_auto_scan_loop():
             except Exception as e:
                 ocr.logger.error(f"Auto-scan failed for guild {guild.id}: {e}")
 
-        # Always clear the in-memory row cache and refresh the dashboard so
-        # date-windowed totals (today/weekly/monthly) are always up to date.
-        with sheets._CACHE_LOCK:
-            sheets._ROWS_CACHE.clear()
-        try:
-            sheets.update_dashboard()
-        except Exception as e:
-            ocr.logger.error(f"Real-time auto-scan dashboard update error: {e}")
-
         if total_synced > 0 or is_full_rescan:
+            sheets.clear_rows_cache()
+            try:
+                sheets.update_dashboard()
+            except Exception as e:
+                ocr.logger.error(f"Real-time auto-scan dashboard update error: {e}")
             print(f"[Real-Time Auto-Scan] {'Full rescan' if is_full_rescan else 'Auto-scan'}: synced {total_synced} message(s) to Google Sheets.")
     except Exception as e:
         ocr.logger.error(f"Real-time auto-scan loop error: {e}")

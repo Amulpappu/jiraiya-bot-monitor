@@ -34,11 +34,14 @@ def is_august_channel(channel_input) -> bool:
     channel_name = getattr(channel_input, "name", str(channel_input))
     c_low = str(channel_name).lower().strip()
 
-    if any(ex in c_low for ex in ("claim", "vip", "ticket")):
+    if any(ex in c_low for ex in ("vip", "ticket")):
         return False
 
-    if any(k in c_low for k in ("service", "services", "kit", "kits", "upgrade", "upgrades", "aug", "august", "log", "logs", "bill_claim")):
+    if any(k in c_low for k in ("service", "services", "kit", "kits", "upgrade", "upgrades", "aug", "august", "log", "logs", "bill_claim", "bill-claim", "bill claim", "ʙɪʟʟ")):
         return True
+
+    if "claim" in c_low and not any(k in c_low for k in ("bill", "service", "aug", "kit", "upgrade")):
+        return False
 
     return False
 

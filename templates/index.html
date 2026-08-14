@@ -11,12 +11,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg-midnight: #0A0B12;
-            --bg-midnight-800: #101120;
-            --bg-ink: #12131F;
-            --bg-ink-700: #181A2A;
-            --bg-ink-600: #20223A;
-            --border-ink: rgba(36, 38, 64, 0.8);
+            --midnight: #0A0B12;
+            --midnight-800: #101120;
+            --ink: #12131F;
+            --ink-700: #181A2A;
+            --ink-600: #20223A;
+            --ink-border: rgba(36, 38, 64, 0.8);
             --border-hover: rgba(123, 92, 250, 0.45);
             --jiraiya: #7B5CFA;
             --jiraiya-400: #9C81FF;
@@ -27,198 +27,387 @@
             --amber-bg: rgba(245, 165, 36, 0.12);
             --crimson: #F2545B;
             --crimson-bg: rgba(242, 84, 91, 0.12);
+            --blue: #3B82F6;
+            --blue-bg: rgba(59, 130, 246, 0.12);
+            --cyan: #06B6D4;
+            --cyan-bg: rgba(6, 182, 212, 0.12);
             --parchment: #F4F3FA;
             --parchment-muted: #9A9BB8;
             --parchment-faint: #5D5E7A;
-            --sidebar-width: 260px;
+            --sidebar-w: 260px;
+            --topbar-h: 64px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-midnight); color: var(--parchment); min-height: 100vh; overflow-x: hidden; }
-
-        /* TYPOGRAPHY HELPERS */
+        body { font-family: 'Inter', sans-serif; background: var(--midnight); color: var(--parchment); min-height: 100vh; overflow-x: hidden; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        .text-muted { color: var(--parchment-muted); }
-        .text-faint { color: var(--parchment-faint); }
-        .text-jiraiya { color: var(--jiraiya-400); }
-        .text-jade { color: var(--jade); }
-        .text-amber { color: var(--amber); }
-        .text-crimson { color: var(--crimson); }
 
-        /* SIDEBAR */
-        .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh; background: var(--bg-midnight-800); border-right: 1px solid var(--border-ink); display: flex; flex-direction: column; z-index: 100; backdrop-filter: blur(16px); }
-        .sidebar-brand { display: flex; align-items: center; gap: 14px; padding: 20px 22px; border-bottom: 1px solid var(--border-ink); }
-        .sidebar-brand .logo { width: 44px; height: 44px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: rgba(123, 92, 250, 0.15); border: 1px solid rgba(123, 92, 250, 0.3); display: flex; align-items: center; justify-content: center; }
-        .sidebar-brand .logo img { width: 100%; height: 100%; object-fit: cover; }
-        .sidebar-brand-text h2 { font-size: 16px; font-weight: 800; tracking: 0.05em; color: var(--parchment); }
-        .sidebar-brand-text h2 span { color: var(--jiraiya-400); }
-        .sidebar-brand-text small { font-size: 10px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 1.5px; color: var(--parchment-faint); display: block; margin-top: 2px; }
-        
-        .sidebar-nav { flex: 1; padding: 18px 14px; overflow-y: auto; }
-        .nav-section { margin-bottom: 22px; }
-        .nav-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--parchment-faint); padding: 0 10px; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; color: var(--parchment-muted); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; margin-bottom: 3px; position: relative; }
-        .nav-item:hover { background: var(--bg-ink-600); color: var(--parchment); }
-        .nav-item.active { background: rgba(123, 92, 250, 0.15); color: var(--parchment); font-weight: 600; }
-        .nav-item.active::before { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3.5px; border-radius: 4px; background: var(--jiraiya-400); }
-        .nav-item .icon { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
-        
-        .sidebar-footer { padding: 16px 18px; border-top: 1px solid var(--border-ink); background: rgba(10, 11, 18, 0.5); }
-        .bot-status-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(32, 34, 58, 0.6); border: 1px solid var(--border-ink); }
-        .bot-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 10px var(--jade); }
-        .bot-status-pill .info { min-width: 0; }
-        .bot-status-pill .title { font-size: 12px; font-weight: 600; color: var(--parchment); }
-        .bot-status-pill .sub { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--parchment-faint); }
-        
-        .user-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(123, 92, 250, 0.12); border: 1px solid rgba(123, 92, 250, 0.25); margin-top: 10px; cursor: pointer; }
-        .user-pill .avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
-        .user-pill .uname { font-size: 13px; font-weight: 600; color: var(--parchment); }
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh;
+            background: rgba(16, 17, 32, 0.95); backdrop-filter: blur(20px);
+            border-right: 1px solid var(--ink-border);
+            display: flex; flex-direction: column; z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .sb-brand {
+            display: flex; align-items: center; gap: 14px;
+            padding: 18px 22px; border-bottom: 1px solid var(--ink-border);
+        }
+        .sb-logo {
+            width: 44px; height: 44px; border-radius: 12px; overflow: hidden; flex-shrink: 0;
+            background: rgba(123, 92, 250, 0.15); border: 1px solid rgba(123, 92, 250, 0.3);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sb-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .sb-brand-text h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; }
+        .sb-brand-text h2 span { color: var(--jiraiya-400); }
+        .sb-brand-text small {
+            font-size: 9.5px; font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase; letter-spacing: 1.8px; color: var(--parchment-faint);
+            display: block; margin-top: 2px;
+        }
+
+        .sb-nav { flex: 1; padding: 16px 14px; overflow-y: auto; }
+        .sb-nav::-webkit-scrollbar { width: 4px; }
+        .sb-nav::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 4px; }
+
+        .nav-section { margin-bottom: 20px; }
+        .nav-label {
+            font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1.6px; color: var(--parchment-faint); padding: 0 12px;
+            margin-bottom: 8px; font-family: 'JetBrains Mono', monospace;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 14px; border-radius: 10px;
+            color: var(--parchment-muted); font-size: 13.5px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+            margin-bottom: 2px; position: relative;
+        }
+        .nav-item:hover { background: var(--ink-600); color: var(--parchment); }
+        .nav-item.active { background: rgba(123, 92, 250, 0.12); color: var(--parchment); font-weight: 600; }
+        .nav-item.active::before {
+            content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
+            width: 3px; border-radius: 4px; background: var(--jiraiya-400);
+        }
+        .nav-item .ni { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
+        .nav-item.danger { color: var(--crimson); }
+        .nav-item.danger:hover { background: var(--crimson-bg); }
+
+        .sb-footer {
+            padding: 14px 16px; border-top: 1px solid var(--ink-border);
+            background: rgba(10, 11, 18, 0.5);
+        }
+        .bot-pill {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 10px;
+            background: rgba(32, 34, 58, 0.5); border: 1px solid var(--ink-border);
+        }
+        .bot-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 10px var(--jade); }
+        .bot-pill .bp-title { font-size: 12px; font-weight: 600; }
+        .bot-pill .bp-sub { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--parchment-faint); }
+
+        .user-pill {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 10px; margin-top: 10px;
+            background: rgba(123, 92, 250, 0.1); border: 1px solid rgba(123, 92, 250, 0.25);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .user-pill:hover { background: rgba(123, 92, 250, 0.18); }
+        .user-pill .avatar {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+        }
+        .user-pill .uname { font-size: 13px; font-weight: 600; }
         .user-pill .urole { font-size: 10.5px; color: var(--parchment-muted); font-family: 'JetBrains Mono', monospace; }
 
-        /* MAIN LAYOUT */
-        .main { margin-left: var(--sidebar-width); min-height: 100vh; background: var(--bg-midnight); }
-        .topbar { position: sticky; top: 0; z-index: 50; background: rgba(10, 11, 18, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-ink); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-        .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-left h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-        .month-badge { background: var(--bg-ink); border: 1px solid var(--border-ink); padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--parchment-muted); display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; }
-        
-        .topbar-search { display: flex; align-items: center; gap: 10px; background: rgba(32, 34, 58, 0.4); border: 1px solid var(--border-ink); border-radius: 10px; padding: 7px 14px; max-width: 340px; width: 100%; }
-        .topbar-search input { background: transparent; border: none; outline: none; color: var(--parchment); font-size: 13px; width: 100%; font-family: inherit; }
-        .topbar-search input::placeholder { color: var(--parchment-faint); }
+        /* ===== MAIN CONTENT ===== */
+        .main { margin-left: var(--sidebar-w); min-height: 100vh; background: var(--midnight); }
 
-        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar {
+            position: sticky; top: 0; z-index: 50; height: var(--topbar-h);
+            background: rgba(10, 11, 18, 0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--ink-border);
+            padding: 0 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+        }
+        .tb-left { display: flex; align-items: center; gap: 16px; }
+        .tb-left h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+        .tb-breadcrumb { font-size: 12px; color: var(--parchment-faint); }
+        .tb-breadcrumb span { color: var(--jiraiya-400); }
+        .month-badge {
+            background: var(--ink); border: 1px solid var(--ink-border);
+            padding: 5px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 600;
+            color: var(--parchment-muted); font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tb-search {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(32, 34, 58, 0.4); border: 1px solid var(--ink-border);
+            border-radius: 10px; padding: 7px 14px; max-width: 320px; width: 100%;
+        }
+        .tb-search input {
+            background: transparent; border: none; outline: none;
+            color: var(--parchment); font-size: 13px; width: 100%; font-family: inherit;
+        }
+        .tb-search input::placeholder { color: var(--parchment-faint); }
+        .tb-search .kbd {
+            font-size: 10px; background: var(--ink-600); border: 1px solid var(--ink-border);
+            padding: 2px 6px; border-radius: 4px; color: var(--parchment-faint);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tb-right { display: flex; align-items: center; gap: 12px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); animation: blink 2s infinite; }
         .status-dot.maint { background: var(--amber); }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-        .badge-live { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52, 211, 153, 0.25); }
-        .badge-maint { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 165, 36, 0.25); }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-        .btn { padding: 9px 18px; border-radius: 10px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 7px; font-family: inherit; }
-        .btn-primary { background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600)); color: white; box-shadow: 0 4px 14px rgba(123, 92, 250, 0.35); }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(123, 92, 250, 0.5); }
-        .btn-ghost { background: transparent; color: var(--parchment-muted); border: 1px solid var(--border-ink); }
-        .btn-ghost:hover { background: var(--bg-ink-600); border-color: var(--border-hover); color: var(--parchment); }
-        .btn-green { background: linear-gradient(135deg, #10B981, #059669); color: white; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
+        .badge {
+            padding: 5px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .badge-live { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52,211,153,0.25); }
+        .badge-maint { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245,165,36,0.25); }
+
+        .btn {
+            padding: 8px 16px; border-radius: 10px; border: none;
+            font-weight: 600; font-size: 12.5px; cursor: pointer;
+            transition: all 0.2s ease; display: inline-flex; align-items: center;
+            gap: 6px; font-family: inherit;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--jiraiya), var(--jiraiya-600)); color: white; box-shadow: 0 4px 14px rgba(123,92,250,0.3); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(123,92,250,0.45); }
+        .btn-ghost { background: transparent; color: var(--parchment-muted); border: 1px solid var(--ink-border); }
+        .btn-ghost:hover { background: var(--ink-600); border-color: var(--border-hover); color: var(--parchment); }
+        .btn-green { background: linear-gradient(135deg, #10B981, #059669); color: white; }
         .btn-green:hover { transform: translateY(-1px); }
-        .btn-danger { background: rgba(242, 84, 91, 0.15); color: var(--crimson); border: 1px solid rgba(242, 84, 91, 0.3); }
-        .btn-danger:hover { background: rgba(242, 84, 91, 0.25); border-color: var(--crimson); }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-danger { background: var(--crimson-bg); color: var(--crimson); border: 1px solid rgba(242,84,91,0.3); }
+        .btn-danger:hover { background: rgba(242,84,91,0.2); }
+        .btn-sm { padding: 6px 12px; font-size: 11.5px; }
 
         .content { padding: 28px 32px; }
         .page { display: none; }
-        .page.active { display: block; animation: fadeIn 0.25s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 
-        /* GLASS PANELS & CARDS */
-        .glass-panel { background: rgba(18, 19, 31, 0.75); backdrop-filter: blur(16px); border: 1px solid var(--border-ink); border-radius: 16px; padding: 24px; margin-bottom: 24px; position: relative; transition: all 0.25s ease; }
-        .glass-panel:hover { border-color: rgba(123, 92, 250, 0.25); }
+        /* Page Header */
+        .page-header { margin-bottom: 24px; }
+        .page-header .eyebrow {
+            font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1.6px; color: var(--jiraiya-400);
+            font-family: 'JetBrains Mono', monospace; margin-bottom: 6px;
+        }
+        .page-header h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+        .page-header .desc { font-size: 14px; color: var(--parchment-muted); }
 
-        /* STAT CARDS */
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 24px; }
-        .stat-card { background: rgba(18, 19, 31, 0.8); backdrop-filter: blur(16px); border: 1px solid var(--border-ink); border-radius: 16px; padding: 20px 22px; transition: all 0.25s ease; position: relative; overflow: hidden; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3.5px; border-radius: 16px 16px 0 0; opacity: 0.85; transition: opacity 0.25s ease; }
-        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
-        
+        /* ===== GLASS PANELS ===== */
+        .glass {
+            background: rgba(18, 19, 31, 0.75); backdrop-filter: blur(16px);
+            border: 1px solid var(--ink-border); border-radius: 16px;
+            padding: 24px; margin-bottom: 20px; position: relative; transition: all 0.25s ease;
+        }
+        .glass:hover { border-color: rgba(123, 92, 250, 0.2); }
+        .glass-title {
+            font-size: 15px; font-weight: 700; display: flex; align-items: center;
+            gap: 10px; margin-bottom: 16px;
+        }
+        .glass-title .gi { font-size: 18px; }
+
+        /* ===== STAT CARDS ===== */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card {
+            background: rgba(18, 19, 31, 0.8); backdrop-filter: blur(16px);
+            border: 1px solid var(--ink-border); border-radius: 16px;
+            padding: 20px; transition: all 0.25s ease; position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 3px; border-radius: 16px 16px 0 0; opacity: 0.85;
+        }
+        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+
         .stat-card.green::before { background: linear-gradient(90deg, var(--jade), #6EE7B7); }
         .stat-card.purple::before { background: linear-gradient(90deg, var(--jiraiya), var(--jiraiya-400)); }
         .stat-card.amber::before { background: linear-gradient(90deg, var(--amber), #FCD34D); }
         .stat-card.crimson::before { background: linear-gradient(90deg, var(--crimson), #FCA5A5); }
-        .stat-card.blue::before { background: linear-gradient(90deg, #3B82F6, #93C5FD); }
-        .stat-card.cyan::before { background: linear-gradient(90deg, #06B6D4, #67E8F9); }
+        .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), #93C5FD); }
+        .stat-card.cyan::before { background: linear-gradient(90deg, var(--cyan), #67E8F9); }
 
-        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .stat-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px; }
-        .stat-icon.green { background: var(--jade-bg); }
-        .stat-icon.purple { background: rgba(123, 92, 250, 0.15); }
-        .stat-icon.amber { background: var(--amber-bg); }
-        .stat-icon.crimson { background: var(--crimson-bg); }
-        .stat-icon.blue { background: rgba(59, 130, 246, 0.15); }
-        .stat-icon.cyan { background: rgba(6, 182, 212, 0.15); }
+        .sc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .sc-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .sc-icon.green { background: var(--jade-bg); }
+        .sc-icon.purple { background: rgba(123,92,250,0.12); }
+        .sc-icon.amber { background: var(--amber-bg); }
+        .sc-icon.crimson { background: var(--crimson-bg); }
+        .sc-icon.blue { background: var(--blue-bg); }
+        .sc-icon.cyan { background: var(--cyan-bg); }
 
-        .stat-label { font-size: 11.5px; font-weight: 700; color: var(--parchment-muted); text-transform: uppercase; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace; }
-        .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
-        .stat-sub { font-size: 11px; color: var(--parchment-faint); margin-top: 6px; }
+        .sc-label { font-size: 11px; font-weight: 700; color: var(--parchment-muted); text-transform: uppercase; letter-spacing: 0.7px; font-family: 'JetBrains Mono', monospace; }
+        .sc-value { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+        .sc-sub { font-size: 11px; color: var(--parchment-faint); margin-top: 4px; }
 
-        /* QUICK ACTIONS GRID */
-        .quick-actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
-        .quick-action-card { background: rgba(24, 26, 42, 0.7); border: 1px solid var(--border-ink); border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; color: var(--parchment); }
-        .quick-action-card:hover { background: var(--bg-ink-600); border-color: var(--border-hover); transform: translateY(-2px); }
-        .quick-action-card .icon { width: 38px; height: 38px; border-radius: 10px; background: rgba(123, 92, 250, 0.15); color: var(--jiraiya-400); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-        .quick-action-card .label { font-size: 13px; font-weight: 600; }
-        .quick-action-card .sub { font-size: 11px; color: var(--parchment-faint); }
+        /* Quick Actions */
+        .qa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+        .qa-card {
+            background: rgba(24, 26, 42, 0.6); border: 1px solid var(--ink-border);
+            border-radius: 14px; padding: 16px; display: flex; align-items: center;
+            gap: 14px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; color: var(--parchment);
+        }
+        .qa-card:hover { background: var(--ink-600); border-color: var(--border-hover); transform: translateY(-2px); }
+        .qa-card .qi {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: rgba(123,92,250,0.12); color: var(--jiraiya-400);
+            display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0;
+        }
+        .qa-card .ql { font-size: 13px; font-weight: 600; }
+        .qa-card .qs { font-size: 11px; color: var(--parchment-faint); }
 
-        /* TABLES */
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-        .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-        .panel-title .icon { font-size: 19px; }
-
+        /* Tables */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
         table { width: 100%; border-collapse: collapse; }
-        thead th { background: rgba(24, 26, 42, 0.8); color: var(--parchment-faint); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border-ink); font-family: 'JetBrains Mono', monospace; }
-        tbody td { padding: 14px 16px; font-size: 13.5px; color: var(--parchment-muted); border-bottom: 1px solid rgba(36, 38, 64, 0.5); }
-        tbody tr:hover td { background: rgba(123, 92, 250, 0.05); color: var(--parchment); }
+        thead th {
+            background: rgba(24, 26, 42, 0.7); color: var(--parchment-faint);
+            font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.8px; padding: 12px 14px; text-align: left;
+            border-bottom: 1px solid var(--ink-border); font-family: 'JetBrains Mono', monospace;
+        }
+        tbody td {
+            padding: 12px 14px; font-size: 13px; color: var(--parchment-muted);
+            border-bottom: 1px solid rgba(36, 38, 64, 0.4);
+        }
+        tbody tr:hover td { background: rgba(123, 92, 250, 0.04); color: var(--parchment); }
         .emp-name { color: var(--parchment); font-weight: 600; }
 
-        .tag { display: inline-block; padding: 4px 11px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-        .tag-green { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52, 211, 153, 0.2); }
-        .tag-purple { background: rgba(123, 92, 250, 0.15); color: var(--jiraiya-400); border: 1px solid rgba(123, 92, 250, 0.25); }
-        .tag-blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.25); }
-        .tag-cyan { background: rgba(6, 182, 212, 0.15); color: #22D3EE; border: 1px solid rgba(6, 182, 212, 0.25); }
-        .tag-crimson { background: var(--crimson-bg); color: var(--crimson); border: 1px solid rgba(242, 84, 91, 0.25); }
-        .tag-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 165, 36, 0.25); }
+        .tag {
+            display: inline-block; padding: 3px 10px; border-radius: 6px;
+            font-size: 10.5px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+        }
+        .tag-green { background: var(--jade-bg); color: var(--jade); border: 1px solid rgba(52,211,153,0.2); }
+        .tag-purple { background: rgba(123,92,250,0.12); color: var(--jiraiya-400); border: 1px solid rgba(123,92,250,0.25); }
+        .tag-blue { background: var(--blue-bg); color: #60A5FA; border: 1px solid rgba(59,130,246,0.25); }
+        .tag-cyan { background: var(--cyan-bg); color: #22D3EE; border: 1px solid rgba(6,182,212,0.25); }
+        .tag-crimson { background: var(--crimson-bg); color: var(--crimson); border: 1px solid rgba(242,84,91,0.25); }
+        .tag-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245,165,36,0.25); }
 
-        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
-        .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4); }
+        .rank-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 8px;
+            font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+        }
+        .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: #fff; box-shadow: 0 2px 8px rgba(245,158,11,0.4); }
         .rank-2 { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
         .rank-3 { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
         .rank-other { background: rgba(36, 38, 64, 0.8); color: var(--parchment-faint); }
 
-        /* GRID LAYOUTS */
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+        /* Grids */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .grid-3-eq { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .chart-container { position: relative; height: 280px; width: 100%; }
 
-        /* CHART CONTAINER */
-        .chart-container { position: relative; height: 290px; width: 100%; }
+        .empty { text-align: center; padding: 40px 20px; color: var(--parchment-faint); }
+        .empty .ei { font-size: 36px; margin-bottom: 10px; opacity: 0.4; display: block; }
+        .empty p { font-size: 14px; }
 
-        /* MAINTENANCE OVERLAY */
-        .maint-overlay { position: fixed; inset: 0; background: rgba(10, 11, 18, 0.96); backdrop-filter: blur(24px); z-index: 999; display: flex; justify-content: center; align-items: center; padding: 24px; }
-        .maint-box { background: var(--bg-ink); border: 1px solid rgba(245, 165, 36, 0.3); border-radius: 24px; padding: 52px 40px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6); }
-        .maint-icon { font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        .maint-title { font-size: 26px; font-weight: 800; color: var(--amber); margin-bottom: 12px; }
-        .maint-desc { color: var(--parchment-muted); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
+        /* ===== MAINTENANCE OVERLAY ===== */
+        .maint-overlay {
+            position: fixed; inset: 0; background: rgba(10,11,18,0.96); backdrop-filter: blur(24px);
+            z-index: 999; display: flex; justify-content: center; align-items: center; padding: 24px;
+        }
+        .maint-box {
+            background: var(--ink); border: 1px solid rgba(245,165,36,0.3);
+            border-radius: 24px; padding: 48px 40px; max-width: 500px; width: 100%;
+            text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+        .maint-box .mi { font-size: 56px; margin-bottom: 18px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.06);} 100%{transform:scale(1);} }
+        .maint-box h3 { font-size: 24px; font-weight: 800; color: var(--amber); margin-bottom: 12px; }
+        .maint-box p { color: var(--parchment-muted); font-size: 15px; line-height: 1.7; margin-bottom: 28px; }
 
-        /* MODAL */
-        .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { background: var(--bg-ink); border: 1px solid var(--border-ink); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.7); }
-        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: var(--parchment); }
-        .modal-sub { font-size: 13px; color: var(--parchment-faint); margin-bottom: 22px; }
-        
-        .form-group { margin-bottom: 18px; text-align: left; }
-        label { display: block; font-size: 11.5px; font-weight: 700; color: var(--parchment-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace; }
-        input[type="text"], input[type="password"], input[type="number"] { width: 100%; background: var(--bg-midnight); border: 1px solid var(--border-ink); border-radius: 10px; padding: 12px 16px; color: var(--parchment); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
-        input:focus { border-color: var(--jiraiya-400); box-shadow: 0 0 12px rgba(123, 92, 250, 0.25); }
-        .error-txt { color: var(--crimson); font-size: 13px; margin-top: 10px; display: none; }
-        .empty { text-align: center; padding: 44px 20px; color: var(--parchment-faint); }
-        .empty .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+        /* ===== MODAL ===== */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+            z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-content {
+            background: var(--ink); border: 1px solid var(--ink-border);
+            border-radius: 20px; padding: 32px; max-width: 520px; width: 100%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+        }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+        .modal-sub { font-size: 13px; color: var(--parchment-faint); margin-bottom: 20px; }
 
-        /* ROLE CARDS IN AUTH MODAL */
-        .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
-        .role-card { background: var(--bg-midnight); border: 1.5px solid var(--border-ink); border-radius: 14px; padding: 14px 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; user-select: none; }
-        .role-card:hover { border-color: var(--border-hover); background: rgba(123, 92, 250, 0.08); transform: translateY(-1px); }
-        .role-card.active { border-color: var(--jiraiya-400); background: rgba(123, 92, 250, 0.18); box-shadow: 0 4px 16px rgba(123, 92, 250, 0.3); }
-        .role-card .role-icon { font-size: 24px; margin-bottom: 6px; }
-        .role-card .role-name { font-size: 13px; font-weight: 700; color: var(--parchment); }
-        .role-card .role-tag { font-size: 10px; color: var(--parchment-faint); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-        .role-info-box { background: rgba(123, 92, 250, 0.1); border: 1px solid rgba(123, 92, 250, 0.25); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: var(--parchment-muted); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; line-height: 1.4; }
+        .form-group { margin-bottom: 16px; text-align: left; }
+        label {
+            display: block; font-size: 10.5px; font-weight: 700; color: var(--parchment-muted);
+            margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        input[type="text"], input[type="password"], input[type="number"] {
+            width: 100%; background: var(--midnight); border: 1px solid var(--ink-border);
+            border-radius: 10px; padding: 11px 14px; color: var(--parchment);
+            font-size: 13.5px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        input:focus { border-color: var(--jiraiya-400); box-shadow: 0 0 12px rgba(123,92,250,0.2); }
+        .error-txt { color: var(--crimson); font-size: 13px; margin-top: 8px; display: none; }
 
-        @media (max-width: 1024px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+        .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        .role-card {
+            background: var(--midnight); border: 1.5px solid var(--ink-border);
+            border-radius: 14px; padding: 12px 8px; text-align: center;
+            cursor: pointer; transition: all 0.2s ease; user-select: none;
+        }
+        .role-card:hover { border-color: var(--border-hover); background: rgba(123,92,250,0.06); transform: translateY(-1px); }
+        .role-card.active { border-color: var(--jiraiya-400); background: rgba(123,92,250,0.15); box-shadow: 0 4px 16px rgba(123,92,250,0.25); }
+        .role-card .role-icon { font-size: 22px; margin-bottom: 4px; }
+        .role-card .role-name { font-size: 12.5px; font-weight: 700; }
+        .role-card .role-tag { font-size: 9.5px; color: var(--parchment-faint); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+        .role-info-box {
+            background: rgba(123,92,250,0.08); border: 1px solid rgba(123,92,250,0.2);
+            border-radius: 12px; padding: 11px 14px; font-size: 12px;
+            color: var(--parchment-muted); margin-bottom: 18px;
+            display: flex; align-items: center; gap: 10px; line-height: 1.4;
+        }
+
+        /* Economy Charts */
+        .eco-metric { text-align: center; padding: 16px; }
+        .eco-metric .val { font-size: 26px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .eco-metric .lbl { font-size: 11px; color: var(--parchment-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+        /* Moderation */
+        .mod-case {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-radius: 12px; margin-bottom: 8px;
+            background: rgba(24, 26, 42, 0.5); border: 1px solid var(--ink-border);
+            transition: all 0.2s;
+        }
+        .mod-case:hover { border-color: var(--border-hover); background: var(--ink-600); }
+
+        /* Responsive */
+        @media (max-width: 1024px) { .grid-2, .grid-3, .grid-3-eq { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
-            .sidebar { display: none; }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
             .main { margin-left: 0; }
             .content { padding: 20px 16px; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
-            .topbar-search { display: none; }
+            .tb-search { display: none; }
+            .topbar { padding: 0 16px; }
+            .mobile-toggle { display: block !important; }
+        }
+        .mobile-toggle {
+            display: none; background: none; border: none; color: var(--parchment);
+            font-size: 22px; cursor: pointer; padding: 4px;
+        }
+
+        .footer-bar {
+            text-align: center; padding: 20px; font-size: 12px;
+            color: var(--parchment-faint); border-top: 1px solid var(--ink-border);
         }
     </style>
     <script>
@@ -233,907 +422,1192 @@
 </head>
 <body>
 
-    <!-- MAINTENANCE OVERLAY -->
-    <div id="maint-screen" class="maint-overlay" style="display: {{ 'flex' if is_maintenance else 'none' }};">
-        <div class="maint-box">
-            <div class="maint-icon">⚙️</div>
-            <div class="maint-title">System Under Maintenance</div>
-            <div class="maint-desc">{{ maintenance_msg }}</div>
-            <button class="btn btn-primary" onclick="openAuthModal('login')">🔑 Admin & User Login</button>
+<!-- MAINTENANCE OVERLAY -->
+<div id="maint-screen" class="maint-overlay" style="display: {{ 'flex' if is_maintenance else 'none' }};">
+    <div class="maint-box">
+        <div class="mi">⚙️</div>
+        <h3>System Under Maintenance</h3>
+        <p>{{ maintenance_msg }}</p>
+        <button class="btn btn-primary" onclick="openAuthModal('login')">🔑 Admin & User Login</button>
+    </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+        <div class="sb-logo"><img src="/static/logo.png" alt="Jiraiya Logo"></div>
+        <div class="sb-brand-text">
+            <h2>JIRAIYA <span>BOT</span></h2>
+            <small>The Legendary Bot</small>
+        </div>
+    </div>
+    <nav class="sb-nav">
+        <div class="nav-section">
+            <div class="nav-label">Core Dashboard</div>
+            <a class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+                <span class="ni">📊</span> <span>Overview</span>
+            </a>
+            <a class="nav-item" data-page="economy" onclick="switchPage('economy')">
+                <span class="ni">💰</span> <span>Economy</span>
+            </a>
+            <a class="nav-item" data-page="employees" onclick="switchPage('employees')">
+                <span class="ni">👥</span> <span>Employees</span>
+            </a>
+            <a class="nav-item" data-page="transactions" onclick="switchPage('transactions')">
+                <span class="ni">💸</span> <span>Transactions</span>
+            </a>
+        </div>
+        <div class="nav-section" id="nav-sec-ops">
+            <div class="nav-label">Operations</div>
+            <a class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
+                <span class="ni">📦</span> <span>Stock & Edit</span>
+            </a>
+            <a class="nav-item" data-page="moderation" onclick="switchPage('moderation')">
+                <span class="ni">🛡️</span> <span>Moderation</span>
+            </a>
+            <a class="nav-item" data-page="audit" onclick="switchPage('audit')">
+                <span class="ni">📋</span> <span>Audit Logs</span>
+            </a>
+            <a class="nav-item" data-page="weblogs" onclick="switchPage('weblogs')">
+                <span class="ni">🌐</span> <span>Website Logs</span>
+            </a>
+        </div>
+        <div class="nav-section" id="nav-sec-system">
+            <div class="nav-label">System Control</div>
+            <a class="nav-item" id="nav-item-maintenance" onclick="openAuthModal('maintenance')">
+                <span class="ni">🛠️</span> <span>Maintenance</span>
+            </a>
+            <a class="nav-item danger" id="nav-item-wipe" onclick="openAuthModal('wipe')">
+                <span class="ni">🗑️</span> <span>Wipe & Rescan</span>
+            </a>
+            <a class="nav-item" id="nav-item-permissions" onclick="openPermissionsModal()">
+                <span class="ni">⚙️</span> <span>Access Control</span>
+            </a>
+        </div>
+    </nav>
+    <div class="sb-footer">
+        <div class="bot-pill">
+            <div class="dot"></div>
+            <div>
+                <div class="bp-title">Bot Online</div>
+                <div class="bp-sub">42ms · 99.94% uptime</div>
+            </div>
+        </div>
+        <div id="sidebar-user" class="user-pill" style="display:none;">
+            <div class="avatar" id="user-avatar">?</div>
+            <div>
+                <div class="uname" id="user-display-name">Guest</div>
+                <div class="urole" id="user-display-role">Admin</div>
+            </div>
+        </div>
+        <div id="sidebar-login" style="cursor:pointer;" onclick="openAuthModal('login')">
+            <div class="user-pill">
+                <div class="avatar">🔐</div>
+                <div><div class="uname">Log In</div><div class="urole">Click to authenticate</div></div>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+    <div class="topbar">
+        <div class="tb-left">
+            <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+            <h1 id="topbar-title">Overview</h1>
+            <div class="tb-breadcrumb">Dashboard > <span id="topbar-breadcrumb">Overview</span></div>
+            <div class="month-badge">📅 August 2026</div>
+        </div>
+        <div class="tb-search">
+            <span style="color:var(--parchment-faint)">🔍</span>
+            <input type="search" placeholder="Search members, transactions..." oninput="filterTransactions(this.value)">
+            <span class="kbd">Ctrl K</span>
+        </div>
+        <div class="tb-right">
+            <span class="badge {{ 'badge-maint' if is_maintenance else 'badge-live' }}">
+                <span class="status-dot {{ 'maint' if is_maintenance else '' }}"></span>
+                {{ '⚠️ Maintenance' if is_maintenance else 'Live Synced' }}
+            </span>
+            <button class="btn btn-ghost btn-sm" onclick="triggerRescan()" title="Rescan Discord">🔍 Rescan</button>
+            <button class="btn btn-ghost btn-sm" onclick="refreshAll()">🔄 Refresh</button>
+            <button class="btn btn-danger btn-sm" id="topbar-wipe-btn" onclick="openAuthModal('wipe')">🗑️ Wipe</button>
+            <button class="btn btn-primary btn-sm" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
+            <span id="topbar-user-pill" style="display:none;background:rgba(123,92,250,0.12);border:1px solid rgba(123,92,250,0.25);padding:6px 14px;border-radius:10px;font-size:12px;font-weight:600;color:var(--jiraiya-400);">
+                👤 <span id="topbar-user-name"></span>
+            </span>
         </div>
     </div>
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="logo"><img src="/static/logo.png" alt="Jiraiya Logo"></div>
-            <div class="sidebar-brand-text">
-                <h2>JIRAIYA <span>BOT</span></h2>
-                <small>The Legendary Bot</small>
-            </div>
-        </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-label">Core Dashboard</div>
-                <a class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
-                    <span class="icon">📊</span> <span>Overview Dashboard</span>
-                </a>
-                <a class="nav-item" data-page="employees" onclick="switchPage('employees')">
-                    <span class="icon">👥</span> <span>Employee Tracker</span>
-                </a>
-                <a class="nav-item" data-page="transactions" onclick="switchPage('transactions')">
-                    <span class="icon">💸</span> <span>Transaction Stream</span>
-                </a>
-            </div>
-            <div class="nav-section" id="nav-sec-management">
-                <div class="nav-section-label">Operations</div>
-                <a class="nav-item" data-page="inventory" onclick="switchPage('inventory')">
-                    <span class="icon">📦</span> <span>Stock & Edit</span>
-                </a>
-                <a class="nav-item" data-page="audit" onclick="switchPage('audit')">
-                    <span class="icon">📋</span> <span>Audit Logs</span>
-                </a>
-            </div>
-            <div class="nav-section" id="nav-sec-system">
-                <div class="nav-section-label">System Control</div>
-                <a class="nav-item" id="nav-item-maintenance" onclick="openAuthModal('maintenance')">
-                    <span class="icon">🛠️</span> <span>Maintenance Mode</span>
-                </a>
-                <a class="nav-item" id="nav-item-wipe" onclick="openAuthModal('wipe')" style="color:var(--crimson);">
-                    <span class="icon">🗑️</span> <span>Wipe & Rescan</span>
-                </a>
-                <a class="nav-item" id="nav-item-permissions" onclick="openPermissionsModal()">
-                    <span class="icon">⚙️</span> <span>Access Control</span>
-                </a>
-            </div>
-        </nav>
+    <div class="content">
 
-        <div class="sidebar-footer">
-            <div class="bot-status-pill">
-                <div class="dot"></div>
-                <div class="info">
-                    <div class="title">Bot Online</div>
-                    <div class="sub">42ms · 99.94% uptime</div>
+        <!-- ===== OVERVIEW DASHBOARD ===== -->
+        <div id="page-dashboard" class="page active">
+            <div class="page-header">
+                <div class="eyebrow">Control Center</div>
+                <h2>Good Morning, Welcome Back</h2>
+                <div class="desc">Here's what's happening in your CODE-69 server right now.</div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card green">
+                    <div class="sc-top"><div class="sc-icon green">💰</div><div class="sc-label">Total Sales</div></div>
+                    <div class="sc-value" id="s-total-sales">—</div>
+                    <div class="sc-sub">August 2026 Gross</div>
+                </div>
+                <div class="stat-card crimson">
+                    <div class="sc-top"><div class="sc-icon crimson">📤</div><div class="sc-label">Expense</div></div>
+                    <div class="sc-value" id="s-expense">—</div>
+                    <div class="sc-sub" id="s-expense-count">0 claims</div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="sc-top"><div class="sc-icon amber">🏛️</div><div class="sc-label">Tax (15%)</div></div>
+                    <div class="sc-value" id="s-tax">—</div>
+                    <div class="sc-sub">15% of Total Sales</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="sc-top"><div class="sc-icon purple">📈</div><div class="sc-label">Net Profit</div></div>
+                    <div class="sc-value" id="s-profit">—</div>
+                    <div class="sc-sub">Sales − Expense − Tax</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="sc-top"><div class="sc-icon blue">🔄</div><div class="sc-label">Transactions</div></div>
+                    <div class="sc-value" id="s-total-txns">—</div>
+                    <div class="sc-sub">All August Categories</div>
+                </div>
+                <div class="stat-card cyan">
+                    <div class="sc-top"><div class="sc-icon cyan">👥</div><div class="sc-label">Employees</div></div>
+                    <div class="sc-value" id="s-total-emp">—</div>
+                    <div class="sc-sub">Active Duty Staff</div>
                 </div>
             </div>
 
-            <div id="sidebar-user" class="user-pill" style="display: none;">
-                <div class="avatar" id="user-avatar">?</div>
-                <div>
-                    <div class="uname" id="user-display-name">Guest</div>
-                    <div class="urole">Admin</div>
+            <div class="qa-grid">
+                <div class="qa-card" onclick="switchPage('transactions')">
+                    <div class="qi">💳</div>
+                    <div><div class="ql">View Transactions</div><div class="qs">August logs feed</div></div>
+                </div>
+                <div class="qa-card" onclick="switchPage('inventory')">
+                    <div class="qi">📦</div>
+                    <div><div class="ql">Manage Stock</div><div class="qs">Inventory & restock</div></div>
+                </div>
+                <div class="qa-card" onclick="switchPage('employees')">
+                    <div class="qi">🏆</div>
+                    <div><div class="ql">Staff Leaderboard</div><div class="qs">Performance metrics</div></div>
+                </div>
+                <div class="qa-card" onclick="triggerRescan()">
+                    <div class="qi">🔍</div>
+                    <div><div class="ql">Rescan Channels</div><div class="qs">Discord auto-sync</div></div>
                 </div>
             </div>
-            <div id="sidebar-login" style="cursor:pointer;" onclick="openAuthModal('login')">
-                <div class="user-pill">
-                    <div class="avatar">🔐</div>
-                    <div><div class="uname">Log In</div><div class="urole">Click to authenticate</div></div>
-                </div>
-            </div>
-        </div>
-    </aside>
 
-    <!-- MAIN CONTENT -->
-    <div class="main">
-        <div class="topbar">
-            <div class="topbar-left">
-                <h1 id="topbar-title">Control Center</h1>
-                <div class="month-badge">📅 August 2026</div>
-            </div>
-
-            <div class="topbar-search">
-                <span class="text-faint">🔍</span>
-                <input type="search" placeholder="Search members, transactions, logs…" oninput="filterTransactions(this.value)">
-            </div>
-
-            <div class="topbar-right">
-                <span class="badge {{ 'badge-maint' if is_maintenance else 'badge-live' }}">
-                    <span class="status-dot {{ 'maint' if is_maintenance else '' }}"></span>
-                    {{ '⚠️ Maintenance' if is_maintenance else 'Live Synced' }}
-                </span>
-                <button class="btn btn-ghost" onclick="triggerRescan()" title="Rescan Discord channel history">🔍 Rescan</button>
-                <button class="btn btn-ghost" onclick="refreshAll()">🔄 Refresh</button>
-                <button class="btn btn-danger" id="topbar-wipe-btn" onclick="openAuthModal('wipe')">🗑️ Wipe Data</button>
-                <button class="btn btn-primary" id="topbar-login-btn" onclick="openAuthModal('login')">👤 Log In</button>
-                <span id="topbar-user-pill" style="display:none;background:rgba(123,92,250,0.15);border:1px solid rgba(123,92,250,0.3);padding:7px 16px;border-radius:10px;font-size:13px;font-weight:600;color:var(--jiraiya-400);">👤 <span id="topbar-user-name"></span></span>
-            </div>
-        </div>
-
-        <div class="content">
-
-            <!-- ===== DASHBOARD PAGE ===== -->
-            <div id="page-dashboard" class="page active">
-                
-                <!-- METRICS GRID -->
-                <div class="stat-grid">
-                    <div class="stat-card green">
-                        <div class="stat-header"><div class="stat-icon green">💰</div><div class="stat-label">Total Sales</div></div>
-                        <div class="stat-value" id="s-total-sales">—</div>
-                        <div class="stat-sub">August 2026 Gross</div>
-                    </div>
-                    <div class="stat-card crimson">
-                        <div class="stat-header"><div class="stat-icon crimson">📤</div><div class="stat-label">Expense</div></div>
-                        <div class="stat-value" id="s-expense">—</div>
-                        <div class="stat-sub" id="s-expense-count">0 claims</div>
-                    </div>
-                    <div class="stat-card amber">
-                        <div class="stat-header"><div class="stat-icon amber">🏛️</div><div class="stat-label">Tax (15%)</div></div>
-                        <div class="stat-value" id="s-tax">—</div>
-                        <div class="stat-sub">15% of Total Sales</div>
-                    </div>
-                    <div class="stat-card purple">
-                        <div class="stat-header"><div class="stat-icon purple">📈</div><div class="stat-label">Net Profit</div></div>
-                        <div class="stat-value" id="s-profit">—</div>
-                        <div class="stat-sub">Sales − Expense − Tax</div>
-                    </div>
-                    <div class="stat-card blue">
-                        <div class="stat-header"><div class="stat-icon blue">🔄</div><div class="stat-label">Total Transactions</div></div>
-                        <div class="stat-value" id="s-total-txns">—</div>
-                        <div class="stat-sub">All August Categories</div>
-                    </div>
-                    <div class="stat-card cyan">
-                        <div class="stat-header"><div class="stat-icon cyan">👥</div><div class="stat-label">Total Employees</div></div>
-                        <div class="stat-value" id="s-total-emp">—</div>
-                        <div class="stat-sub">Active Duty Staff</div>
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">📈</span> Monthly Revenue Trend</div>
+                    <div style="display:flex;gap:6px;">
+                        <span class="tag tag-blue">Services</span>
+                        <span class="tag tag-purple">Upgrades</span>
+                        <span class="tag tag-cyan">Kits</span>
                     </div>
                 </div>
+                <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+            </div>
 
-                <!-- QUICK ACTIONS GRID -->
-                <div class="quick-actions-grid">
-                    <div class="quick-action-card" onclick="switchPage('transactions')">
-                        <div class="icon">💳</div>
-                        <div><div class="label">View Transactions</div><div class="sub">August logs feed</div></div>
-                    </div>
-                    <div class="quick-action-card" onclick="switchPage('inventory')">
-                        <div class="icon">📦</div>
-                        <div><div class="label">Manage Stock</div><div class="sub">Inventory & restock</div></div>
-                    </div>
-                    <div class="quick-action-card" onclick="switchPage('employees')">
-                        <div class="icon">🏆</div>
-                        <div><div class="label">Staff Leaderboard</div><div class="sub">Performance metrics</div></div>
-                    </div>
-                    <div class="quick-action-card" onclick="triggerRescan()">
-                        <div class="icon">🔍</div>
-                        <div><div class="label">Rescan Channels</div><div class="sub">Discord auto-sync</div></div>
-                    </div>
-                </div>
-
-                <!-- REVENUE CHART -->
-                <div class="glass-panel">
+            <div class="grid-3">
+                <div class="glass">
                     <div class="panel-header">
-                        <div class="panel-title"><span class="icon">📈</span> Monthly Revenue Trend</div>
-                        <div style="display:flex;gap:6px;">
-                            <span class="tag tag-blue">Services</span>
-                            <span class="tag tag-purple">Upgrades</span>
-                            <span class="tag tag-cyan">Kits</span>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="revenueChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="grid-3">
-                    <!-- Recent Transactions -->
-                    <div class="glass-panel">
-                        <div class="panel-header">
-                            <div class="panel-title"><span class="icon">💳</span> Recent Transactions</div>
-                            <span class="tag tag-blue" id="s-txn-badge">0</span>
-                        </div>
-                        <table>
-                            <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Staff</th></tr></thead>
-                            <tbody id="recent-txns-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
-                        </table>
-                    </div>
-                    <!-- Top Employees -->
-                    <div class="glass-panel">
-                        <div class="panel-header"><div class="panel-title"><span class="icon">🏆</span> Top Employees</div></div>
-                        <div id="top-emp-list" style="display: flex; flex-direction: column; gap: 10px;"><div class="empty"><p>Loading...</p></div></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== EMPLOYEE TRACKER PAGE ===== -->
-            <div id="page-employees" class="page">
-                <div class="glass-panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><span class="icon">👥</span> Employee Performance Tracker</div>
-                        <button class="btn btn-ghost btn-sm" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
-                    </div>
-                    <table>
-                        <thead><tr><th>#</th><th>Employee</th><th>Civilian</th><th>Government</th><th>Service Logs</th><th>Upgrades</th><th>Total</th><th>Last Active</th></tr></thead>
-                        <tbody id="emp-tracker-body"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ===== TRANSACTIONS PAGE ===== -->
-            <div id="page-transactions" class="page">
-                <div class="glass-panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><span class="icon">💸</span> All Transactions (August 2026)</div>
-                        <button class="btn btn-ghost btn-sm" onclick="fetchDashboard()">🔄 Refresh</button>
+                        <div class="glass-title"><span class="gi">💳</span> Recent Transactions</div>
+                        <span class="tag tag-blue" id="s-txn-badge">0</span>
                     </div>
                     <table>
                         <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Staff</th></tr></thead>
-                        <tbody id="all-txns-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
+                        <tbody id="recent-txns-body"><tr><td colspan="5" class="empty"><span class="ei">💳</span><p>Loading...</p></td></tr></tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- ===== INVENTORY PAGE ===== -->
-            <div id="page-inventory" class="page">
-                <div class="glass-panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><span class="icon">📦</span> Inventory (Stock & Restock)</div>
-                        <div style="display:flex;gap:8px;">
-                            <button class="btn btn-green btn-sm" onclick="openInventoryModal('create')">➕ Create New Item</button>
-                            <button class="btn btn-ghost btn-sm" onclick="fetchInventory()">🔄 Refresh</button>
-                        </div>
+                <div class="glass">
+                    <div class="glass-title"><span class="gi">🏆</span> Top Employees</div>
+                    <div id="top-emp-list" style="display:flex;flex-direction:column;gap:8px;">
+                        <div class="empty"><span class="ei">🏆</span><p>Loading...</p></div>
                     </div>
-                    <table>
-                        <thead><tr><th>Item</th><th>In Stock</th><th>Bought</th><th>Restock Date</th><th>Unit Price</th><th>Total Value</th><th>Last Updated</th><th>Actions</th></tr></thead>
-                        <tbody id="inventory-body"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody>
-                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ECONOMY PAGE ===== -->
+        <div id="page-economy" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Financial Intelligence</div>
+                <h2>Economy Dashboard</h2>
+                <div class="desc">Complete financial overview for August 2026 operations.</div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card green">
+                    <div class="sc-top"><div class="sc-icon green">💰</div><div class="sc-label">Total Revenue</div></div>
+                    <div class="sc-value" id="eco-revenue">—</div>
+                    <div class="sc-sub">All income streams</div>
+                </div>
+                <div class="stat-card crimson">
+                    <div class="sc-top"><div class="sc-icon crimson">📤</div><div class="sc-label">Total Expenses</div></div>
+                    <div class="sc-value" id="eco-expenses">—</div>
+                    <div class="sc-sub">All business claims</div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="sc-top"><div class="sc-icon amber">🏛️</div><div class="sc-label">Tax Collected</div></div>
+                    <div class="sc-value" id="eco-tax">—</div>
+                    <div class="sc-sub">15% tax rate</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="sc-top"><div class="sc-icon purple">📈</div><div class="sc-label">Net Profit</div></div>
+                    <div class="sc-value" id="eco-profit">—</div>
+                    <div class="sc-sub">After tax & expenses</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="sc-top"><div class="sc-icon blue">📊</div><div class="sc-label">Profit Margin</div></div>
+                    <div class="sc-value" id="eco-margin">—</div>
+                    <div class="sc-sub">Net / Revenue %</div>
                 </div>
             </div>
 
-            <!-- ===== AUDIT LOGS PAGE ===== -->
-            <div id="page-audit" class="page">
-                <div class="glass-panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><span class="icon">📋</span> User Audit Logs</div>
-                        <button class="btn btn-ghost btn-sm" onclick="fetchAuditLogs()">🔄 Refresh</button>
+            <div class="grid-2">
+                <div class="glass">
+                    <div class="glass-title"><span class="gi">📊</span> Income Breakdown</div>
+                    <div class="chart-container"><canvas id="incomeChart"></canvas></div>
+                </div>
+                <div class="glass">
+                    <div class="glass-title"><span class="gi">💡</span> Revenue by Category</div>
+                    <div id="eco-breakdown" style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+                        <div class="empty"><span class="ei">💡</span><p>Loading...</p></div>
                     </div>
-                    <table>
-                        <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
-                        <tbody id="audit-logs-body"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody>
-                    </table>
                 </div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- MULTI-ROLE AUTH MODAL -->
-    <div id="auth-modal" class="modal">
-        <div class="modal-content" style="max-width:520px;">
-            <div class="modal-title" id="modal-heading">System Portal Authentication</div>
-            <div class="modal-sub" id="modal-subtext">Select your role tab (Admin, Manager, or Employee) and sign in.</div>
-
-            <!-- Role Selector Tabs -->
-            <label>Select Your Access Role</label>
-            <div class="role-grid">
-                <div class="role-card active role-admin" id="role-card-Admin" onclick="selectRole('Admin')">
-                    <div class="role-icon">👑</div>
-                    <div class="role-name">Admin</div>
-                    <div class="role-tag">Full System</div>
-                </div>
-                <div class="role-card role-manager" id="role-card-Manager" onclick="selectRole('Manager')">
-                    <div class="role-icon">💼</div>
-                    <div class="role-name">Manager</div>
-                    <div class="role-tag">Reports & Inv</div>
-                </div>
-                <div class="role-card role-employee" id="role-card-Employee" onclick="selectRole('Employee')">
-                    <div class="role-icon">👤</div>
-                    <div class="role-name">Employee</div>
-                    <div class="role-tag">Staff Portal</div>
-                </div>
-            </div>
-
-            <!-- Role Permissions Scope Box -->
-            <div id="role-scope-box" class="role-info-box">
-                <span id="role-info-icon" style="font-size:18px;">🛡️</span>
-                <span id="role-info-text">Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Wipe Data.</span>
-            </div>
-
-            <div class="form-group">
-                <label>Your Name / Staff Name</label>
-                <input type="text" id="user-name-input" list="staff-list" placeholder="e.g. Amul Pappu" autocomplete="off">
-                <datalist id="staff-list">
-                    <option value="Amul">
-                    <option value="Jiyana Shree">
-                    <option value="Maria">
-                    <option value="Sandy">
-                    <option value="Sylas">
-                    <option value="Benny">
-                    <option value="Lara">
-                    <option value="Abrar">
-                    <option value="Arivu">
-                    <option value="Eli">
-                    <option value="Alexia">
-                    <option value="Mitchell">
-                    <option value="Lissa">
-                    <option value="Nesuko">
-                    <option value="Mikasa">
-                    <option value="TomCat">
-                    <option value="Mathew">
-                    <option value="EVE">
-                    <option value="Meenu Kutty">
-                </datalist>
-            </div>
-
-            <div class="form-group" style="position:relative;">
-                <label>Role Password</label>
-                <input type="password" id="user-pass-input" placeholder="Enter password (e.g. admin2026)">
-                <span onclick="togglePasswordVisibility()" style="position:absolute;right:14px;top:36px;cursor:pointer;opacity:0.75;font-size:16px;" title="Show/Hide Password">👁️</span>
-            </div>
-
-            <div id="auth-error" class="error-txt"></div>
-
-            <div style="display: flex; gap: 10px; margin-top: 24px;">
-                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('auth-modal')">Cancel</button>
-                <button class="btn btn-primary" style="flex:1.3;" id="auth-submit-btn" onclick="submitAuthAction()">🔐 Sign In & Authenticate</button>
+            <div class="glass">
+                <div class="glass-title"><span class="gi">📈</span> Income vs Expenses Trend</div>
+                <div class="chart-container"><canvas id="incomeExpenseChart"></canvas></div>
             </div>
         </div>
-    </div>
 
-    <!-- INVENTORY MODAL -->
-    <div id="inv-modal" class="modal">
-        <div class="modal-content" style="max-width:560px;">
-            <div class="modal-title" id="inv-modal-heading">Create New Item</div>
-            <div class="modal-sub" id="inv-modal-sub">Add a new inventory item to the stock sheet.</div>
-            <input type="hidden" id="inv-row-index" value="">
-            <div class="form-group"><label>Item Name</label><input type="text" id="inv-name" placeholder="e.g. Performance Part"></div>
-            <div class="grid-2" style="gap:12px;">
-                <div class="form-group"><label>Quantity in Stock (Current)</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
-                <div class="form-group"><label>Unit Price / Rate (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
+        <!-- ===== EMPLOYEE TRACKER ===== -->
+        <div id="page-employees" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Staff Intelligence</div>
+                <h2>Employee Performance Tracker</h2>
+                <div class="desc">Track employee performance, service logs, and activity metrics.</div>
             </div>
-            <div class="grid-2" style="gap:12px;">
-                <div class="form-group"><label>Bought This Month</label><input type="number" id="inv-bought" placeholder="0" min="0"></div>
-                <div class="form-group"><label>Restock Date</label><input type="text" id="inv-restock-date" placeholder="e.g. 01/08/2026"></div>
-            </div>
-            <div id="inv-error" class="error-txt"></div>
-            <div style="display: flex; gap: 10px; margin-top: 24px;">
-                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('inv-modal')">Cancel</button>
-                <button class="btn btn-green" style="flex:1;" id="inv-submit-btn" onclick="submitInventory()">➕ Create Item</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ROLE ACCESS CONTROL MODAL -->
-    <div id="permissions-modal" class="modal">
-        <div class="modal-content" style="max-width:600px;">
-            <div class="modal-title">⚙️ Access Control Manager</div>
-            <div class="modal-sub">Enable or disable access to any menu item/option for each user role.</div>
-            
-            <div style="overflow-x:auto;">
-                <table style="width:100%;margin-top:12px;border-collapse:collapse;">
-                    <thead>
-                        <tr style="border-bottom:1px solid var(--border-ink);text-align:left;">
-                            <th style="padding:10px;">Menu Option</th>
-                            <th style="padding:10px;text-align:center;">👑 Admin</th>
-                            <th style="padding:10px;text-align:center;">💼 Manager</th>
-                            <th style="padding:10px;text-align:center;">👤 Employee</th>
-                        </tr>
-                    </thead>
-                    <tbody id="permissions-table-body">
-                        <!-- Loaded dynamically via JS -->
-                    </tbody>
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">👥</span> Employee Overview</div>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchEmployeeTracker()">🔄 Refresh</button>
+                </div>
+                <table>
+                    <thead><tr><th>#</th><th>Employee</th><th>Civilian</th><th>Government</th><th>Service Logs</th><th>Upgrades</th><th>Total</th><th>Last Active</th></tr></thead>
+                    <tbody id="emp-tracker-body"><tr><td colspan="8" class="empty"><span class="ei">👥</span><p>Loading...</p></td></tr></tbody>
                 </table>
             </div>
+        </div>
 
-            <div id="permissions-error" class="error-txt"></div>
-
-            <div style="display: flex; gap: 10px; margin-top: 24px;">
-                <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('permissions-modal')">Cancel</button>
-                <button class="btn btn-primary" style="flex:1.4;" onclick="savePermissions()">💾 Save Access Rules</button>
+        <!-- ===== TRANSACTIONS ===== -->
+        <div id="page-transactions" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Financial Records</div>
+                <h2>Transaction Stream</h2>
+                <div class="desc">All financial transactions for August 2026.</div>
+            </div>
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">💸</span> All Transactions</div>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchTransactions()">🔄 Refresh</button>
+                </div>
+                <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Staff</th></tr></thead>
+                    <tbody id="all-txns-body"><tr><td colspan="5" class="empty"><span class="ei">💸</span><p>Loading...</p></td></tr></tbody>
+                </table>
             </div>
         </div>
+
+        <!-- ===== INVENTORY ===== -->
+        <div id="page-inventory" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Stock Management</div>
+                <h2>Inventory & Stock</h2>
+                <div class="desc">Manage inventory items, stock levels, and pricing.</div>
+            </div>
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">📦</span> Inventory Items</div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-green btn-sm" onclick="openInventoryModal('create')">➕ Create Item</button>
+                        <button class="btn btn-ghost btn-sm" onclick="fetchInventory()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <table>
+                    <thead><tr><th>Item</th><th>In Stock</th><th>Bought</th><th>Restock Date</th><th>Unit Price</th><th>Total Value</th><th>Updated</th><th>Actions</th></tr></thead>
+                    <tbody id="inventory-body"><tr><td colspan="8" class="empty"><span class="ei">📦</span><p>Loading...</p></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== MODERATION ===== -->
+        <div id="page-moderation" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Server Safety</div>
+                <h2>Moderation Center</h2>
+                <div class="desc">Monitor and manage server moderation actions.</div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card amber">
+                    <div class="sc-top"><div class="sc-icon amber">⚠️</div><div class="sc-label">Warnings</div></div>
+                    <div class="sc-value">24</div><div class="sc-sub">This month</div>
+                </div>
+                <div class="stat-card crimson">
+                    <div class="sc-top"><div class="sc-icon crimson">🔇</div><div class="sc-label">Mutes</div></div>
+                    <div class="sc-value">8</div><div class="sc-sub">Active: 2</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="sc-top"><div class="sc-icon blue">👢</div><div class="sc-label">Kicks</div></div>
+                    <div class="sc-value">3</div><div class="sc-sub">This month</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="sc-top"><div class="sc-icon purple">🔨</div><div class="sc-label">Bans</div></div>
+                    <div class="sc-value">1</div><div class="sc-sub">Total active</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="sc-top"><div class="sc-icon green">✅</div><div class="sc-label">Resolved</div></div>
+                    <div class="sc-value">19</div><div class="sc-sub">Today: 5</div>
+                </div>
+                <div class="stat-card cyan">
+                    <div class="sc-top"><div class="sc-icon cyan">🛡️</div><div class="sc-label">Safety Score</div></div>
+                    <div class="sc-value">94%</div><div class="sc-sub">Server health</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="glass">
+                    <div class="glass-title"><span class="gi">📋</span> Active Cases</div>
+                    <div class="mod-case">
+                        <div><span class="emp-name">User#1234</span><span style="font-size:12px;color:var(--parchment-faint);margin-left:8px;">Spam in #general</span></div>
+                        <span class="tag tag-amber">Warning</span>
+                    </div>
+                    <div class="mod-case">
+                        <div><span class="emp-name">User#5678</span><span style="font-size:12px;color:var(--parchment-faint);margin-left:8px;">NSFW content</span></div>
+                        <span class="tag tag-crimson">Muted</span>
+                    </div>
+                    <div class="mod-case">
+                        <div><span class="emp-name">User#9012</span><span style="font-size:12px;color:var(--parchment-faint);margin-left:8px;">Repeated rule violations</span></div>
+                        <span class="tag tag-purple">Under Review</span>
+                    </div>
+                    <div style="text-align:center;padding:12px;font-size:12px;color:var(--parchment-faint);">
+                        Showing 3 of 3 active cases
+                    </div>
+                </div>
+                <div class="glass">
+                    <div class="glass-title"><span class="gi">👮</span> Moderator Performance</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(24,26,42,0.5);border-radius:10px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span class="rank-badge rank-1">1</span>
+                                <span class="emp-name">Amul</span>
+                            </div>
+                            <span class="font-mono" style="color:var(--jiraiya-400);font-size:13px;">15 actions</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(24,26,42,0.5);border-radius:10px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span class="rank-badge rank-2">2</span>
+                                <span class="emp-name">Sandy</span>
+                            </div>
+                            <span class="font-mono" style="color:var(--jiraiya-400);font-size:13px;">11 actions</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(24,26,42,0.5);border-radius:10px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span class="rank-badge rank-3">3</span>
+                                <span class="emp-name">Sylas</span>
+                            </div>
+                            <span class="font-mono" style="color:var(--jiraiya-400);font-size:13px;">8 actions</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="qa-grid">
+                <div class="qa-card"><div class="qi">⚠️</div><div><div class="ql">Warn User</div><div class="qs">Issue warning</div></div></div>
+                <div class="qa-card"><div class="qi">🔇</div><div><div class="ql">Mute User</div><div class="qs">Timeout member</div></div></div>
+                <div class="qa-card"><div class="qi">👢</div><div><div class="ql">Kick User</div><div class="qs">Remove from server</div></div></div>
+                <div class="qa-card"><div class="qi">🔨</div><div><div class="ql">Ban User</div><div class="qs">Permanent ban</div></div></div>
+            </div>
+        </div>
+
+        <!-- ===== AUDIT LOGS ===== -->
+        <div id="page-audit" class="page">
+            <div class="page-header">
+                <div class="eyebrow">Security & Audit</div>
+                <h2>User Audit Logs</h2>
+                <div class="desc">Complete audit trail of user actions and system events.</div>
+            </div>
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">📋</span> Audit Log Explorer</div>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchAuditLogs()">🔄 Refresh</button>
+                </div>
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
+                    <tbody id="audit-logs-body"><tr><td colspan="5" class="empty"><span class="ei">📋</span><p>Loading...</p></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== WEBSITE LOGS ===== -->
+        <div id="page-weblogs" class="page">
+            <div class="page-header">
+                <div class="eyebrow">System Monitoring</div>
+                <h2>Website Activity Logs</h2>
+                <div class="desc">Track website logins, API requests, and system events.</div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card blue">
+                    <div class="sc-top"><div class="sc-icon blue">🌐</div><div class="sc-label">Total Events</div></div>
+                    <div class="sc-value" id="wl-total">—</div>
+                    <div class="sc-sub">All tracked events</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="sc-top"><div class="sc-icon green">🔐</div><div class="sc-label">Logins</div></div>
+                    <div class="sc-value" id="wl-logins">—</div>
+                    <div class="sc-sub">Successful auth</div>
+                </div>
+                <div class="stat-card crimson">
+                    <div class="sc-top"><div class="sc-icon crimson">❌</div><div class="sc-label">Failed</div></div>
+                    <div class="sc-value" id="wl-failed">—</div>
+                    <div class="sc-sub">Failed attempts</div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="sc-top"><div class="sc-icon amber">⚡</div><div class="sc-label">Actions</div></div>
+                    <div class="sc-value" id="wl-actions">—</div>
+                    <div class="sc-sub">Data operations</div>
+                </div>
+            </div>
+
+            <div class="glass">
+                <div class="panel-header">
+                    <div class="glass-title"><span class="gi">🌐</span> Website Event Log</div>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchWebLogs()">🔄 Refresh</button>
+                </div>
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Event Type</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
+                    <tbody id="weblogs-body"><tr><td colspan="5" class="empty"><span class="ei">🌐</span><p>Loading...</p></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
+    <div class="footer-bar">© 2026 Jiraiya Bot. All rights reserved. • The Legendary Bot</div>
+</div>
+
+<!-- AUTH MODAL -->
+<div id="auth-modal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+        <div class="modal-title" id="modal-heading">System Portal Authentication</div>
+        <div class="modal-sub" id="modal-subtext">Select your role tab and sign in.</div>
+
+        <label>Select Your Access Role</label>
+        <div class="role-grid">
+            <div class="role-card active" id="role-card-Admin" onclick="selectRole('Admin')">
+                <div class="role-icon">👑</div><div class="role-name">Admin</div><div class="role-tag">Full System</div>
+            </div>
+            <div class="role-card" id="role-card-Manager" onclick="selectRole('Manager')">
+                <div class="role-icon">💼</div><div class="role-name">Manager</div><div class="role-tag">Reports</div>
+            </div>
+            <div class="role-card" id="role-card-Employee" onclick="selectRole('Employee')">
+                <div class="role-icon">👤</div><div class="role-name">Employee</div><div class="role-tag">Staff</div>
+            </div>
+        </div>
+
+        <div id="role-scope-box" class="role-info-box">
+            <span id="role-info-icon" style="font-size:16px;">🛡️</span>
+            <span id="role-info-text">Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance & Wipe Data.</span>
+        </div>
+
+        <div class="form-group">
+            <label>Your Name / Staff Name</label>
+            <input type="text" id="user-name-input" list="staff-list-modal" placeholder="e.g. Amul Pappu" autocomplete="off">
+            <datalist id="staff-list-modal">
+                <option value="Amul"><option value="Jiyana Shree"><option value="Maria"><option value="Sandy">
+                <option value="Sylas"><option value="Benny"><option value="Lara"><option value="Abrar">
+                <option value="Arivu"><option value="Eli"><option value="Alexia"><option value="Mitchell">
+                <option value="Lissa"><option value="Nesuko"><option value="Mikasa"><option value="TomCat">
+                <option value="Mathew"><option value="EVE"><option value="Meenu Kutty">
+            </datalist>
+        </div>
+        <div class="form-group" style="position:relative;">
+            <label>Role Password</label>
+            <input type="password" id="user-pass-input" placeholder="Enter your password" autocomplete="current-password">
+            <span onclick="togglePasswordVisibility()" style="position:absolute;right:14px;top:34px;cursor:pointer;opacity:0.65;font-size:15px;" title="Show/Hide">👁️</span>
+        </div>
+
+        <div id="auth-error" class="error-txt"></div>
+
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('auth-modal')">Cancel</button>
+            <button class="btn btn-primary" style="flex:1.3;" id="auth-submit-btn" onclick="submitAuthAction()">🔐 Sign In</button>
+        </div>
+    </div>
+</div>
+
+<!-- INVENTORY MODAL -->
+<div id="inv-modal" class="modal">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-title" id="inv-modal-heading">Create New Item</div>
+        <div class="modal-sub" id="inv-modal-sub">Add a new inventory item to the stock sheet.</div>
+        <input type="hidden" id="inv-row-index" value="">
+        <div class="form-group"><label>Item Name</label><input type="text" id="inv-name" placeholder="e.g. Performance Part"></div>
+        <div class="grid-2" style="gap:12px;">
+            <div class="form-group"><label>Quantity in Stock</label><input type="number" id="inv-stock" placeholder="0" min="0"></div>
+            <div class="form-group"><label>Unit Price (₹)</label><input type="number" id="inv-price" placeholder="0" min="0"></div>
+        </div>
+        <div class="grid-2" style="gap:12px;">
+            <div class="form-group"><label>Bought This Month</label><input type="number" id="inv-bought" placeholder="0" min="0"></div>
+            <div class="form-group"><label>Restock Date</label><input type="text" id="inv-restock-date" placeholder="e.g. 01/08/2026"></div>
+        </div>
+        <div id="inv-error" class="error-txt"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('inv-modal')">Cancel</button>
+            <button class="btn btn-green" style="flex:1;" id="inv-submit-btn" onclick="submitInventory()">➕ Create Item</button>
+        </div>
+    </div>
+</div>
+
+<!-- PERMISSIONS MODAL -->
+<div id="permissions-modal" class="modal">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-title">⚙️ Access Control Manager</div>
+        <div class="modal-sub">Enable or disable access for each role.</div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;margin-top:10px;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--ink-border);">
+                        <th style="padding:10px;">Menu Option</th>
+                        <th style="padding:10px;text-align:center;">👑 Admin</th>
+                        <th style="padding:10px;text-align:center;">💼 Manager</th>
+                        <th style="padding:10px;text-align:center;">👤 Employee</th>
+                    </tr>
+                </thead>
+                <tbody id="permissions-table-body"></tbody>
+            </table>
+        </div>
+        <div id="permissions-error" class="error-txt"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('permissions-modal')">Cancel</button>
+            <button class="btn btn-primary" style="flex:1.4;" onclick="savePermissions()">💾 Save Access Rules</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    // ===== PAGE NAV =====
-    function switchPage(page) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById('page-' + page).classList.add('active');
-        document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
-        const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
-        if (nav) nav.classList.add('active');
-        const titles = {dashboard:'Overview Dashboard',employees:'Employee Tracker',transactions:'Transaction Stream',inventory:'Stock & Edit Inventory',audit:'User Audit Logs'};
-        document.getElementById('topbar-title').textContent = titles[page] || 'Overview Dashboard';
-        if (page === 'employees') fetchEmployeeTracker();
-        if (page === 'transactions') fetchTransactions();
-        if (page === 'inventory') fetchInventory();
-        if (page === 'audit') fetchAuditLogs();
-    }
+// ===== PAGE NAV =====
+const pageTitles = {
+    dashboard:'Overview', economy:'Economy', employees:'Employees',
+    transactions:'Transactions', inventory:'Stock & Edit',
+    moderation:'Moderation', audit:'Audit Logs', weblogs:'Website Logs'
+};
 
-    async function fetchTransactions() {
-        try {
-            const res = await fetch('/api/transactions');
-            const d = await res.json();
-            const allTbody = document.getElementById('all-txns-body');
-            if (!allTbody) return;
-            if (!d.success || !d.transactions || !d.transactions.length) {
-                allTbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No transactions found</p></td></tr>';
-                return;
-            }
+function switchPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
+    const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (nav) nav.classList.add('active');
+    document.getElementById('topbar-title').textContent = pageTitles[page] || 'Overview';
+    document.getElementById('topbar-breadcrumb').textContent = pageTitles[page] || 'Overview';
+
+    if (page === 'employees') fetchEmployeeTracker();
+    if (page === 'transactions') fetchTransactions();
+    if (page === 'inventory') fetchInventory();
+    if (page === 'audit') fetchAuditLogs();
+    if (page === 'economy') fetchEconomy();
+    if (page === 'weblogs') fetchWebLogs();
+
+    // Close mobile sidebar
+    document.getElementById('sidebar').classList.remove('open');
+}
+
+// ===== FORMAT =====
+function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+function fmtNum(v) { let n = parseFloat(String(v).replace(/[₹$,]/g, '')); return isNaN(n) ? 0 : n; }
+
+// ===== DASHBOARD =====
+async function fetchDashboard() {
+    try {
+        const res = await fetch('/api/dashboard');
+        const d = await res.json();
+        if (!d.success) return;
+
+        document.getElementById('s-total-sales').textContent = fmt(d.total_sales);
+        document.getElementById('s-expense').textContent = fmt(d.total_expenses);
+        document.getElementById('s-tax').textContent = fmt(d.tax);
+        document.getElementById('s-profit').textContent = fmt(d.profit);
+        document.getElementById('s-total-txns').textContent = (d.total_transactions || 0).toLocaleString();
+        document.getElementById('s-total-emp').textContent = d.total_employees || 0;
+        document.getElementById('s-expense-count').textContent = (d.expense_count || 0) + ' claims';
+
+        // Recent txns
+        const rTbody = document.getElementById('recent-txns-body');
+        document.getElementById('s-txn-badge').textContent = d.recent_transactions ? d.recent_transactions.length : 0;
+        if (d.recent_transactions && d.recent_transactions.length) {
             let html = '';
-            d.transactions.forEach(t => {
-                const typeStr = t.type || '';
-                const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
+            d.recent_transactions.slice(0, 10).forEach(t => {
+                const ts = t.type || '';
+                const tc = ts.includes('Service') ? 'tag-blue' : ts.includes('Grade') || ts.includes('Upgrade') ? 'tag-purple' : ts.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
                 const isNeg = String(t.amount).startsWith('-');
-                html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
+                html += `<tr><td style="font-size:12px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
             });
-            allTbody.innerHTML = html;
-        } catch(e) { console.error('Transactions fetch error:', e); }
-    }
-
-    function filterTransactions(query) {
-        const q = query.toLowerCase().trim();
-        const rows = document.querySelectorAll('#all-txns-body tr, #recent-txns-body tr');
-        rows.forEach(r => {
-            const txt = r.textContent.toLowerCase();
-            r.style.display = txt.includes(q) ? '' : 'none';
-        });
-    }
-
-    // ===== FORMAT =====
-    function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
-    function fmtNum(v) { let n = parseFloat(String(v).replace(/[₹$,]/g, '')); return isNaN(n) ? 0 : n; }
-
-    // ===== DASHBOARD =====
-    async function fetchDashboard() {
-        try {
-            const res = await fetch('/api/dashboard');
-            const d = await res.json();
-            if (!d.success) return;
-
-            document.getElementById('s-total-sales').textContent = fmt(d.total_sales);
-            document.getElementById('s-expense').textContent = fmt(d.total_expenses);
-            document.getElementById('s-tax').textContent = fmt(d.tax);
-            document.getElementById('s-profit').textContent = fmt(d.profit);
-            document.getElementById('s-total-txns').textContent = (d.total_transactions || 0).toLocaleString();
-            document.getElementById('s-total-emp').textContent = d.total_employees || 0;
-            document.getElementById('s-expense-count').textContent = (d.expense_count || 0) + ' claims';
-
-            // Recent txns table
-            const rTbody = document.getElementById('recent-txns-body');
-            document.getElementById('s-txn-badge').textContent = d.recent_transactions ? d.recent_transactions.length : 0;
-            if (d.recent_transactions && d.recent_transactions.length) {
-                let html = '';
-                d.recent_transactions.slice(0, 10).forEach(t => {
-                    const typeStr = t.type || '';
-                    const tc = typeStr.includes('Service') ? 'tag-blue' : typeStr.includes('Grade') || typeStr.includes('Upgrade') ? 'tag-purple' : typeStr.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
-                    const isNeg = String(t.amount).startsWith('-');
-                    html += `<tr><td>${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
-                });
-                rTbody.innerHTML = html;
-            } else {
-                rTbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No recent transactions</p></td></tr>';
-            }
-
-            // Top employees
-            const topList = document.getElementById('top-emp-list');
-            if (d.top_employees && d.top_employees.length) {
-                let html = '';
-                d.top_employees.forEach((emp, i) => {
-                    const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
-                    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(24,26,42,0.6);border-radius:12px;border:1px solid var(--border-ink);">
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <span class="rank-badge ${rankCls}">${i+1}</span>
-                            <div>
-                                <div class="emp-name">${emp.name}</div>
-                                <div style="font-size:11px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${emp.civ_count||0} Civ · ${emp.govt_count||0} Govt</div>
-                            </div>
-                        </div>
-                        <div style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;">${emp.total_logs||0} logs</div>
-                    </div>`;
-                });
-                topList.innerHTML = html;
-            } else {
-                topList.innerHTML = '<div class="empty"><p>No employee data</p></div>';
-            }
-
-            // Render Chart
-            renderChart(d.chart_labels || [], d.chart_values || []);
-        } catch(e) { console.error('Dashboard fetch error:', e); }
-    }
-
-    // ===== EMPLOYEE TRACKER =====
-    async function fetchEmployeeTracker() {
-        try {
-            const res = await fetch('/api/employee-tracker');
-            const d = await res.json();
-            const tbody = document.getElementById('emp-tracker-body');
-            if (!d.success || !d.employees || !d.employees.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No employees found</p></td></tr>';
-                return;
-            }
-            let html = '';
-            d.employees.forEach((emp, i) => {
-                const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
-                html += `<tr>
-                    <td><span class="rank-badge ${rankCls}">${i+1}</span></td>
-                    <td class="emp-name">${emp.name}</td>
-                    <td><span class="tag tag-green">${emp.civ_count||0}</span></td>
-                    <td><span class="tag tag-purple">${emp.govt_count||0}</span></td>
-                    <td>${emp.service_count||0}</td>
-                    <td>${emp.upgrade_count||0}</td>
-                    <td style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;">${emp.total_logs||0}</td>
-                    <td style="font-size:11.5px;color:var(--parchment-faint);">${emp.last_active||'—'}</td>
-                </tr>`;
-            });
-            tbody.innerHTML = html;
-        } catch(e) { console.error('Employee tracker fetch error:', e); }
-    }
-
-    // ===== INVENTORY =====
-    async function fetchInventory() {
-        try {
-            const res = await fetch('/api/inventory');
-            const d = await res.json();
-            const tbody = document.getElementById('inventory-body');
-            if (!d.success || !d.items || !d.items.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>No inventory items</p></td></tr>';
-                return;
-            }
-            let html = '';
-            d.items.forEach(item => {
-                html += `<tr>
-                    <td class="emp-name">${item.item_name}</td>
-                    <td><span class="tag ${item.in_stock > 10 ? 'tag-green' : 'tag-amber'}">${item.in_stock}</span></td>
-                    <td>${item.bought}</td>
-                    <td>${item.restock_date||'—'}</td>
-                    <td style="font-family:'JetBrains Mono',monospace;">${fmt(item.unit_price)}</td>
-                    <td style="font-weight:700;color:var(--jade);font-family:'JetBrains Mono',monospace;">${fmt(item.total_value)}</td>
-                    <td style="font-size:11.5px;color:var(--parchment-faint);">${item.last_updated||'—'}</td>
-                    <td><button class="btn btn-ghost btn-sm" onclick="editInventoryItem('${item.row_index}','${item.item_name}','${item.in_stock}','${item.unit_price}','${item.bought}','${item.restock_date||''}')">✏️ Edit</button></td>
-                </tr>`;
-            });
-            tbody.innerHTML = html;
-        } catch(e) { console.error('Inventory fetch error:', e); }
-    }
-
-    // ===== AUDIT LOGS =====
-    async function fetchAuditLogs() {
-        try {
-            const res = await fetch('/api/audit-logs');
-            const d = await res.json();
-            const tbody = document.getElementById('audit-logs-body');
-            if (!d.success || !d.logs || !d.logs.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty"><p>No audit logs found</p></td></tr>';
-                return;
-            }
-            let html = '';
-            d.logs.forEach(l => {
-                html += `<tr>
-                    <td style="font-size:11.5px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${l.timestamp}</td>
-                    <td><span class="tag tag-blue">${l.action}</span></td>
-                    <td class="emp-name">${l.user}</td>
-                    <td><span class="tag tag-purple">${l.role}</span></td>
-                    <td style="font-size:12.5px;">${l.details}</td>
-                </tr>`;
-            });
-            tbody.innerHTML = html;
-        } catch(e) { console.error('Audit logs fetch error:', e); }
-    }
-
-    // ===== REVENUE CHART =====
-    let chartInstance = null;
-    function renderChart(labels, values) {
-        const ctx = document.getElementById('revenueChart');
-        if (!ctx) return;
-        if (chartInstance) chartInstance.destroy();
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels.length ? labels : ['Aug 01', 'Aug 05', 'Aug 10', 'Aug 15', 'Aug 20', 'Aug 25', 'Aug 30'],
-                datasets: [{
-                    label: 'Daily Sales (₹)',
-                    data: values.length ? values : [15000, 28000, 42000, 39000, 56000, 68000, 85000],
-                    borderColor: '#7B5CFA',
-                    borderWidth: 3,
-                    backgroundColor: (context) => {
-                        const bg = context.chart.ctx.createLinearGradient(0, 0, 0, 300);
-                        bg.addColorStop(0, 'rgba(123, 92, 250, 0.35)');
-                        bg.addColorStop(1, 'rgba(123, 92, 250, 0.0)');
-                        return bg;
-                    },
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#9C81FF',
-                    pointRadius: 4,
-                    pointHoverRadius: 7
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { color: 'rgba(36, 38, 64, 0.5)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 11 } } },
-                    y: { grid: { color: 'rgba(36, 38, 64, 0.5)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 11 }, callback: v => '₹' + v.toLocaleString() } }
-                }
-            }
-        });
-    }
-
-    // ===== MULTI-ROLE AUTH & USER SESSION =====
-    let activeSelectedRole = 'Admin';
-    let currentAuthAction = 'login'; // 'login', 'wipe', 'maintenance'
-
-    const roleScopes = {
-        'Admin': { icon: '👑', text: 'Full system access: Dashboard, Employee Tracker, Inventory Edit, Maintenance Mode, Access Control & Data Wipe.' },
-        'Manager': { icon: '💼', text: 'Management access: View Dashboard, Employee Tracker, Edit Inventory & Stock, View Audit Logs.' },
-        'Employee': { icon: '👤', text: 'Employee Portal: View Staff Leaderboard & Personal Log History.' }
-    };
-
-    function selectRole(role) {
-        activeSelectedRole = role;
-        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
-        const card = document.getElementById('role-card-' + role);
-        if (card) card.classList.add('active');
-        const scope = roleScopes[role] || roleScopes['Admin'];
-        document.getElementById('role-info-icon').textContent = scope.icon;
-        document.getElementById('role-info-text').textContent = scope.text;
-    }
-
-    function openAuthModal(action) {
-        currentAuthAction = action;
-        const heading = document.getElementById('modal-heading');
-        const sub = document.getElementById('modal-subtext');
-        const btn = document.getElementById('auth-submit-btn');
-
-        if (action === 'wipe') {
-            heading.textContent = '⚠️ Confirm Data Wipe & Rescan';
-            sub.textContent = 'Enter your Admin credentials to trigger a clean data wipe & rescan.';
-            btn.textContent = '🗑️ Authenticate & Wipe Data';
-            btn.className = 'btn btn-danger';
-        } else if (action === 'maintenance') {
-            heading.textContent = '🛠️ Toggle Maintenance Mode';
-            sub.textContent = 'Authenticate as Admin to toggle system maintenance mode.';
-            btn.textContent = '🛠️ Authenticate & Toggle Mode';
-            btn.className = 'btn btn-primary';
+            rTbody.innerHTML = html;
         } else {
-            heading.textContent = 'System Portal Authentication';
-            sub.textContent = 'Select your role tab (Admin, Manager, or Employee) and sign in.';
-            btn.textContent = '🔐 Sign In & Authenticate';
-            btn.className = 'btn btn-primary';
+            rTbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="ei">💳</span><p>No transactions yet</p></td></tr>';
         }
 
-        document.getElementById('auth-error').style.display = 'none';
-        document.getElementById('auth-modal').style.display = 'flex';
-    }
-
-    function togglePasswordVisibility() {
-        const input = document.getElementById('user-pass-input');
-        input.type = input.type === 'password' ? 'text' : 'password';
-    }
-
-    async function submitAuthAction() {
-        const name = document.getElementById('user-name-input').value.trim();
-        const pass = document.getElementById('user-pass-input').value.trim();
-        const errDiv = document.getElementById('auth-error');
-
-        if (!name) { errDiv.textContent = 'Please enter your name.'; errDiv.style.display = 'block'; return; }
-        if (!pass) { errDiv.textContent = 'Please enter the role password.'; errDiv.style.display = 'block'; return; }
-
-        errDiv.style.display = 'none';
-
-        try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, password: pass, role: activeSelectedRole })
-            });
-            const d = await res.json();
-            if (!d.success) {
-                errDiv.textContent = d.message || 'Invalid credentials for this role.';
-                errDiv.style.display = 'block';
-                return;
-            }
-
-            // Save user session locally
-            const userObj = { name: d.user, role: d.role };
-            localStorage.setItem('jiraiya_user', JSON.stringify(userObj));
-            updateUserUI(userObj);
-            closeModal('auth-modal');
-
-            if (currentAuthAction === 'wipe') {
-                confirmWipe();
-            } else if (currentAuthAction === 'maintenance') {
-                toggleMaintenance();
-            }
-        } catch(e) {
-            errDiv.textContent = 'Server authentication error.';
-            errDiv.style.display = 'block';
-        }
-    }
-
-    function updateUserUI(user) {
-        if (!user) return;
-        document.getElementById('sidebar-login').style.display = 'none';
-        const sUser = document.getElementById('sidebar-user');
-        if (sUser) {
-            sUser.style.display = 'flex';
-            document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
-            document.getElementById('user-display-name').textContent = user.name;
-            sUser.querySelector('.urole').textContent = user.role;
-        }
-
-        document.getElementById('topbar-login-btn').style.display = 'none';
-        const tPill = document.getElementById('topbar-user-pill');
-        if (tPill) {
-            tPill.style.display = 'inline-block';
-            document.getElementById('topbar-user-name').textContent = `${user.name} (${user.role})`;
-        }
-    }
-
-    function checkExistingUserSession() {
-        const saved = localStorage.getItem('jiraiya_user');
-        if (saved) {
-            try {
-                const user = JSON.parse(saved);
-                updateUserUI(user);
-            } catch(e){}
-        }
-    }
-
-    // ===== INVENTORY MODAL ACTIONS =====
-    function openInventoryModal(mode) {
-        document.getElementById('inv-modal-heading').textContent = mode === 'create' ? 'Create New Inventory Item' : 'Edit Inventory Item';
-        document.getElementById('inv-submit-btn').textContent = mode === 'create' ? '➕ Create Item' : '💾 Save Changes';
-        if (mode === 'create') {
-            document.getElementById('inv-row-index').value = '';
-            document.getElementById('inv-name').value = '';
-            document.getElementById('inv-stock').value = '0';
-            document.getElementById('inv-price').value = '0';
-            document.getElementById('inv-bought').value = '0';
-            document.getElementById('inv-restock-date').value = '';
-        }
-        document.getElementById('inv-modal').style.display = 'flex';
-    }
-
-    function editInventoryItem(rowIndex, name, stock, price, bought, restockDate) {
-        document.getElementById('inv-row-index').value = rowIndex;
-        document.getElementById('inv-name').value = name;
-        document.getElementById('inv-stock').value = stock;
-        document.getElementById('inv-price').value = price;
-        document.getElementById('inv-bought').value = bought;
-        document.getElementById('inv-restock-date').value = restockDate;
-        openInventoryModal('edit');
-    }
-
-    async function submitInventory() {
-        const rowIndex = document.getElementById('inv-row-index').value;
-        const itemName = document.getElementById('inv-name').value.trim();
-        const inStock = document.getElementById('inv-stock').value;
-        const unitPrice = document.getElementById('inv-price').value;
-        const bought = document.getElementById('inv-bought').value;
-        const restockDate = document.getElementById('inv-restock-date').value.trim();
-        const errDiv = document.getElementById('inv-error');
-
-        if (!itemName) { errDiv.textContent = 'Please enter item name.'; errDiv.style.display = 'block'; return; }
-        errDiv.style.display = 'none';
-
-        try {
-            const res = await fetch('/api/stock-edit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ row_index: rowIndex, item_name: itemName, in_stock: inStock, unit_price: unitPrice, bought, restock_date: restockDate })
-            });
-            const d = await res.json();
-            if (d.success) {
-                closeModal('inv-modal');
-                fetchInventory();
-            } else {
-                errDiv.textContent = d.message || 'Error updating item.';
-                errDiv.style.display = 'block';
-            }
-        } catch(e) { errDiv.textContent = 'Inventory save error.'; errDiv.style.display = 'block'; }
-    }
-
-    // ===== RESCAN & WIPE =====
-    async function triggerRescan() {
-        if (!confirm('Re-scan Discord channel history for August 2026?')) return;
-        try {
-            const res = await fetch('/api/rescan', { method: 'POST' });
-            const d = await res.json();
-            alert(d.message || 'Rescan triggered!');
-            refreshAll();
-        } catch(e) { alert('Rescan error'); }
-    }
-
-    async function confirmWipe() {
-        if (!confirm('⚠️ Are you sure you want to WIPE all existing data and run a complete rescan?')) return;
-        try {
-            const res = await fetch('/api/wipe', { method: 'POST' });
-            const d = await res.json();
-            alert(d.message || 'Data wiped and rescan started!');
-            refreshAll();
-        } catch(e) { alert('Wipe error'); }
-    }
-
-    async function toggleMaintenance() {
-        try {
-            const res = await fetch('/api/maintenance', { method: 'POST' });
-            const d = await res.json();
-            alert(d.message || 'Maintenance mode toggled!');
-            window.location.reload();
-        } catch(e) { alert('Maintenance toggle error'); }
-    }
-
-    // ===== ACCESS CONTROL MANAGER =====
-    async function openPermissionsModal() {
-        try {
-            const res = await fetch('/api/access-control');
-            const d = await res.json();
-            if (!d.success) { alert('Could not load permissions rules.'); return; }
-
-            const tbody = document.getElementById('permissions-table-body');
+        // Top employees
+        const topList = document.getElementById('top-emp-list');
+        if (d.top_employees && d.top_employees.length) {
             let html = '';
-            const options = [
-                { id: 'dashboard', name: 'Overview Dashboard' },
-                { id: 'employees', name: 'Employee Tracker' },
-                { id: 'transactions', name: 'Transaction Feed' },
-                { id: 'inventory', name: 'Stock & Edit Inventory' },
-                { id: 'audit', name: 'Audit Logs' },
-                { id: 'maintenance', name: 'Maintenance Mode' },
-                { id: 'wipe', name: 'Wipe & Rescan' }
-            ];
-
-            options.forEach(opt => {
-                const adminChecked = (d.rules.Admin || []).includes(opt.id) ? 'checked' : '';
-                const managerChecked = (d.rules.Manager || []).includes(opt.id) ? 'checked' : '';
-                const empChecked = (d.rules.Employee || []).includes(opt.id) ? 'checked' : '';
-                html += `<tr style="border-bottom:1px solid rgba(36,38,64,0.5);">
-                    <td style="padding:10px;font-weight:600;color:var(--parchment);">${opt.name}</td>
-                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Admin" data-opt="${opt.id}" ${adminChecked}></td>
-                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Manager" data-opt="${opt.id}" ${managerChecked}></td>
-                    <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Employee" data-opt="${opt.id}" ${empChecked}></td>
-                </tr>`;
+            d.top_employees.forEach((emp, i) => {
+                const rc = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(24,26,42,0.5);border-radius:12px;border:1px solid var(--ink-border);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="rank-badge ${rc}">${i+1}</span>
+                        <div><div class="emp-name">${emp.name}</div><div style="font-size:10.5px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${emp.civ_count||0} Civ · ${emp.govt_count||0} Govt</div></div>
+                    </div>
+                    <div style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;font-size:13px;">${emp.total_logs||0} logs</div>
+                </div>`;
             });
+            topList.innerHTML = html;
+        } else {
+            topList.innerHTML = '<div class="empty"><span class="ei">🏆</span><p>No employee data</p></div>';
+        }
 
-            tbody.innerHTML = html;
-            document.getElementById('permissions-modal').style.display = 'flex';
-        } catch(e) { alert('Error fetching permissions'); }
-    }
+        renderChart(d.chart_labels || [], d.chart_values || []);
+    } catch(e) { console.error('Dashboard error:', e); }
+}
 
-    async function savePermissions() {
-        const rules = { Admin: [], Manager: [], Employee: [] };
-        document.querySelectorAll('#permissions-table-body input[type="checkbox"]').forEach(cb => {
-            if (cb.checked) {
-                const role = cb.getAttribute('data-role');
-                const opt = cb.getAttribute('data-opt');
-                if (rules[role]) rules[role].push(opt);
-            }
-        });
+// ===== ECONOMY =====
+async function fetchEconomy() {
+    try {
+        const res = await fetch('/api/dashboard');
+        const d = await res.json();
+        if (!d.success) return;
 
-        try {
-            const res = await fetch('/api/access-control', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rules })
-            });
-            const d = await res.json();
-            if (d.success) {
-                alert('Access control rules saved successfully!');
-                closeModal('permissions-modal');
-            } else {
-                alert(d.message || 'Error saving rules.');
-            }
-        } catch(e) { alert('Save permissions error'); }
-    }
+        document.getElementById('eco-revenue').textContent = fmt(d.total_sales);
+        document.getElementById('eco-expenses').textContent = fmt(d.total_expenses);
+        document.getElementById('eco-tax').textContent = fmt(d.tax);
+        document.getElementById('eco-profit').textContent = fmt(d.profit);
 
-    function closeModal(id) {
-        document.getElementById(id).style.display = 'none';
-    }
+        const margin = d.total_sales > 0 ? Math.round((d.profit / d.total_sales) * 100) : 0;
+        document.getElementById('eco-margin').textContent = margin + '%';
 
-    function refreshAll() {
-        fetchDashboard();
-        fetchEmployeeTracker();
-        fetchTransactions();
-        fetchInventory();
-        fetchAuditLogs();
-    }
+        // Revenue breakdown
+        const bd = document.getElementById('eco-breakdown');
+        const sRev = d.service_revenue || 0;
+        const uRev = d.upgrade_revenue || 0;
+        const kRev = d.kit_revenue || 0;
+        const total = sRev + uRev + kRev || 1;
 
-    // INIT
-    window.addEventListener('DOMContentLoaded', () => {
-        checkExistingUserSession();
-        fetchDashboard();
+        bd.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:12px;">
+                <div><div style="font-weight:600;font-size:14px;">🔧 Services</div><div style="font-size:11px;color:var(--parchment-faint);margin-top:2px;">${d.service_count||0} transactions</div></div>
+                <div style="text-align:right;"><div style="font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--blue);">${fmt(sRev)}</div><div style="font-size:11px;color:var(--parchment-faint);">${Math.round(sRev/total*100)}%</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:rgba(123,92,250,0.08);border:1px solid rgba(123,92,250,0.2);border-radius:12px;">
+                <div><div style="font-weight:600;font-size:14px;">⬆️ Upgrades</div><div style="font-size:11px;color:var(--parchment-faint);margin-top:2px;">${d.upgrade_count||0} transactions</div></div>
+                <div style="text-align:right;"><div style="font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--jiraiya-400);">${fmt(uRev)}</div><div style="font-size:11px;color:var(--parchment-faint);">${Math.round(uRev/total*100)}%</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:12px;">
+                <div><div style="font-weight:600;font-size:14px;">🧰 Kits</div><div style="font-size:11px;color:var(--parchment-faint);margin-top:2px;">${d.kit_count||0} transactions</div></div>
+                <div style="text-align:right;"><div style="font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--cyan);">${fmt(kRev)}</div><div style="font-size:11px;color:var(--parchment-faint);">${Math.round(kRev/total*100)}%</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:rgba(242,84,91,0.08);border:1px solid rgba(242,84,91,0.2);border-radius:12px;">
+                <div><div style="font-weight:600;font-size:14px;">📤 Expenses</div><div style="font-size:11px;color:var(--parchment-faint);margin-top:2px;">${d.expense_count||0} claims</div></div>
+                <div style="text-align:right;"><div style="font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--crimson);">${fmt(d.total_expenses)}</div></div>
+            </div>
+        `;
+
+        renderIncomeChart(sRev, uRev, kRev);
+        renderIncomeExpenseChart(d.chart_labels || [], d.chart_values || [], d.total_expenses || 0);
+    } catch(e) { console.error('Economy error:', e); }
+}
+
+let incomeChartInstance = null;
+function renderIncomeChart(sRev, uRev, kRev) {
+    const ctx = document.getElementById('incomeChart');
+    if (!ctx) return;
+    if (incomeChartInstance) incomeChartInstance.destroy();
+    incomeChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Services', 'Upgrades', 'Kits'],
+            datasets: [{
+                data: [sRev, uRev, kRev],
+                backgroundColor: ['#3B82F6', '#7B5CFA', '#06B6D4'],
+                borderColor: '#12131F', borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#9A9BB8', padding: 16, font: { family: 'Inter', size: 12 } } }
+            },
+            cutout: '65%'
+        }
     });
+}
+
+let iecInstance = null;
+function renderIncomeExpenseChart(labels, values, totalExp) {
+    const ctx = document.getElementById('incomeExpenseChart');
+    if (!ctx) return;
+    if (iecInstance) iecInstance.destroy();
+    const expPerDay = labels.length > 0 ? Math.round(totalExp / labels.length) : 0;
+    iecInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['No Data'],
+            datasets: [
+                { label: 'Revenue (₹)', data: values.length ? values : [0], backgroundColor: 'rgba(123,92,250,0.6)', borderRadius: 6 },
+                { label: 'Expenses (₹)', data: labels.map(() => expPerDay), backgroundColor: 'rgba(242,84,91,0.5)', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#9A9BB8', font: { family: 'Inter', size: 12 } } } },
+            scales: {
+                x: { grid: { color: 'rgba(36,38,64,0.4)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 10 } } },
+                y: { grid: { color: 'rgba(36,38,64,0.4)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 10 }, callback: v => '₹'+v.toLocaleString() } }
+            }
+        }
+    });
+}
+
+// ===== TRANSACTIONS =====
+async function fetchTransactions() {
+    try {
+        const res = await fetch('/api/transactions');
+        const d = await res.json();
+        const tbody = document.getElementById('all-txns-body');
+        if (!d.success || !d.transactions || !d.transactions.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="ei">💸</span><p>No transactions found</p></td></tr>';
+            return;
+        }
+        let html = '';
+        d.transactions.forEach(t => {
+            const ts = t.type || '';
+            const tc = ts.includes('Service') ? 'tag-blue' : ts.includes('Grade') || ts.includes('Upgrade') ? 'tag-purple' : ts.includes('Kit') ? 'tag-cyan' : 'tag-crimson';
+            const isNeg = String(t.amount).startsWith('-');
+            html += `<tr><td style="font-size:12px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${t.date||''}</td><td><span class="tag ${tc}">${t.type}</span></td><td class="emp-name">${t.customer||'Unknown'}</td><td style="color:${isNeg?'var(--crimson)':'var(--jade)'};font-weight:700;font-family:'JetBrains Mono',monospace;">${fmt(fmtNum(t.amount))}</td><td>${t.staff||''}</td></tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch(e) { console.error('Transactions error:', e); }
+}
+
+function filterTransactions(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('#all-txns-body tr, #recent-txns-body tr').forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+// ===== EMPLOYEE TRACKER =====
+async function fetchEmployeeTracker() {
+    try {
+        const res = await fetch('/api/employee-tracker');
+        const d = await res.json();
+        const tbody = document.getElementById('emp-tracker-body');
+        if (!d.success || !d.employees || !d.employees.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="ei">👥</span><p>No employees found</p></td></tr>';
+            return;
+        }
+        let html = '';
+        d.employees.forEach((emp, i) => {
+            const rc = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+            html += `<tr>
+                <td><span class="rank-badge ${rc}">${i+1}</span></td>
+                <td class="emp-name">${emp.name}</td>
+                <td><span class="tag tag-green">${emp.civ_count||emp.civilian||0}</span></td>
+                <td><span class="tag tag-purple">${emp.govt_count||emp.govt||0}</span></td>
+                <td>${emp.service_count||emp.service_logs||0}</td>
+                <td>${emp.upgrade_count||emp.upgrades||0}</td>
+                <td style="font-weight:700;color:var(--jiraiya-400);font-family:'JetBrains Mono',monospace;">${emp.total_logs||emp.total||0}</td>
+                <td style="font-size:11px;color:var(--parchment-faint);">${emp.last_active||emp.last_date||'—'}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch(e) { console.error('Employee error:', e); }
+}
+
+// ===== INVENTORY =====
+async function fetchInventory() {
+    try {
+        const res = await fetch('/api/inventory');
+        const d = await res.json();
+        const tbody = document.getElementById('inventory-body');
+        if (!d.success || !d.items || !d.items.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="ei">📦</span><p>No inventory items</p></td></tr>';
+            return;
+        }
+        let html = '';
+        d.items.forEach(item => {
+            const stock = parseInt(item.stock || item.in_stock || 0);
+            html += `<tr>
+                <td class="emp-name">${item.name||item.item_name}</td>
+                <td><span class="tag ${stock > 10 ? 'tag-green' : 'tag-amber'}">${stock}</span></td>
+                <td>${item.bought||0}</td>
+                <td style="font-size:12px;color:var(--parchment-faint);">${item.restock_date||'—'}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">${fmt(item.unit_price)}</td>
+                <td style="font-weight:700;color:var(--jade);font-family:'JetBrains Mono',monospace;">${fmt(item.total_value)}</td>
+                <td style="font-size:11px;color:var(--parchment-faint);">${item.last_updated||'—'}</td>
+                <td><button class="btn btn-ghost btn-sm" onclick="editInventoryItem('${item.row_index}','${item.name||item.item_name}','${stock}','${item.unit_price}','${item.bought||0}','${item.restock_date||''}')">✏️ Edit</button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch(e) { console.error('Inventory error:', e); }
+}
+
+// ===== AUDIT LOGS =====
+async function fetchAuditLogs() {
+    try {
+        const res = await fetch('/api/audit-logs');
+        const d = await res.json();
+        const tbody = document.getElementById('audit-logs-body');
+        if (!d.success || !d.logs || !d.logs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="ei">📋</span><p>No audit logs found</p></td></tr>';
+            return;
+        }
+        let html = '';
+        d.logs.forEach(l => {
+            const row = Array.isArray(l) ? l : [l.timestamp, l.action, l.user, l.role, l.details];
+            html += `<tr>
+                <td style="font-size:11px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${row[0]||''}</td>
+                <td><span class="tag tag-blue">${row[1]||''}</span></td>
+                <td class="emp-name">${row[2]||''}</td>
+                <td><span class="tag tag-purple">${row[3]||''}</span></td>
+                <td style="font-size:12px;">${row[4]||''}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch(e) { console.error('Audit error:', e); }
+}
+
+// ===== WEBSITE LOGS =====
+async function fetchWebLogs() {
+    try {
+        const res = await fetch('/api/audit-logs');
+        const d = await res.json();
+        const tbody = document.getElementById('weblogs-body');
+        if (!d.success || !d.logs || !d.logs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="ei">🌐</span><p>No website logs found</p></td></tr>';
+            document.getElementById('wl-total').textContent = '0';
+            document.getElementById('wl-logins').textContent = '0';
+            document.getElementById('wl-failed').textContent = '0';
+            document.getElementById('wl-actions').textContent = '0';
+            return;
+        }
+
+        let logins = 0, failed = 0, actions = 0;
+        let html = '';
+        d.logs.forEach(l => {
+            const row = Array.isArray(l) ? l : [l.timestamp, l.action, l.user, l.role, l.details];
+            const action = (row[1]||'').toUpperCase();
+            if (action.includes('LOGIN') && !action.includes('FAIL')) logins++;
+            if (action.includes('FAIL')) failed++;
+            if (action.includes('WIPE') || action.includes('MAINTENANCE') || action.includes('UPDATE') || action.includes('CREATE')) actions++;
+
+            const typeTag = action.includes('LOGIN') ? (action.includes('FAIL') ? 'tag-crimson' : 'tag-green') :
+                           action.includes('WIPE') ? 'tag-crimson' : action.includes('MAINTENANCE') ? 'tag-amber' : 'tag-blue';
+            html += `<tr>
+                <td style="font-size:11px;color:var(--parchment-faint);font-family:'JetBrains Mono',monospace;">${row[0]||''}</td>
+                <td><span class="tag ${typeTag}">${row[1]||''}</span></td>
+                <td class="emp-name">${row[2]||''}</td>
+                <td><span class="tag tag-purple">${row[3]||''}</span></td>
+                <td style="font-size:12px;">${row[4]||''}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        document.getElementById('wl-total').textContent = d.logs.length;
+        document.getElementById('wl-logins').textContent = logins;
+        document.getElementById('wl-failed').textContent = failed;
+        document.getElementById('wl-actions').textContent = actions;
+    } catch(e) { console.error('Web logs error:', e); }
+}
+
+// ===== REVENUE CHART =====
+let chartInstance = null;
+function renderChart(labels, values) {
+    const ctx = document.getElementById('revenueChart');
+    if (!ctx) return;
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels.length ? labels : ['Aug 01','Aug 05','Aug 10','Aug 15','Aug 20','Aug 25','Aug 30'],
+            datasets: [{
+                label: 'Daily Sales (₹)',
+                data: values.length ? values : [15000,28000,42000,39000,56000,68000,85000],
+                borderColor: '#7B5CFA', borderWidth: 2.5,
+                backgroundColor: (ctx) => { const g = ctx.chart.ctx.createLinearGradient(0,0,0,280); g.addColorStop(0,'rgba(123,92,250,0.3)'); g.addColorStop(1,'rgba(123,92,250,0)'); return g; },
+                fill: true, tension: 0.35, pointBackgroundColor: '#9C81FF', pointRadius: 3, pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: 'rgba(36,38,64,0.4)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 10 } } },
+                y: { grid: { color: 'rgba(36,38,64,0.4)' }, ticks: { color: '#5D5E7A', font: { family: 'JetBrains Mono', size: 10 }, callback: v => '₹'+v.toLocaleString() } }
+            }
+        }
+    });
+}
+
+// ===== AUTH SYSTEM =====
+let activeSelectedRole = 'Admin';
+let currentAuthAction = 'login';
+
+const roleScopes = {
+    'Admin': { icon: '👑', text: 'Full system access: Dashboard, Employees, Inventory, Maintenance & Data Wipe.' },
+    'Manager': { icon: '💼', text: 'Manager access: Dashboard, Employee Tracker, Edit Inventory, View Logs.' },
+    'Employee': { icon: '👤', text: 'Employee Portal: View Staff Leaderboard & Personal History.' }
+};
+
+function selectRole(role) {
+    activeSelectedRole = role;
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('role-card-' + role);
+    if (card) card.classList.add('active');
+    const scope = roleScopes[role] || roleScopes['Admin'];
+    document.getElementById('role-info-icon').textContent = scope.icon;
+    document.getElementById('role-info-text').textContent = scope.text;
+}
+
+function openAuthModal(action) {
+    currentAuthAction = action;
+    const heading = document.getElementById('modal-heading');
+    const sub = document.getElementById('modal-subtext');
+    const btn = document.getElementById('auth-submit-btn');
+    const passInput = document.getElementById('user-pass-input');
+    if (passInput) { passInput.value = ''; passInput.type = 'password'; }
+    if (action === 'wipe') {
+        heading.textContent = '⚠️ Confirm Data Wipe & Rescan';
+        sub.textContent = 'Enter Admin credentials to wipe data & rescan.';
+        btn.textContent = '🗑️ Authenticate & Wipe'; btn.className = 'btn btn-danger';
+    } else if (action === 'maintenance') {
+        heading.textContent = '🛠️ Toggle Maintenance Mode';
+        sub.textContent = 'Authenticate as Admin to toggle maintenance.';
+        btn.textContent = '🛠️ Authenticate & Toggle'; btn.className = 'btn btn-primary';
+    } else {
+        heading.textContent = 'System Portal Authentication';
+        sub.textContent = 'Select your role tab and sign in.';
+        btn.textContent = '🔐 Sign In'; btn.className = 'btn btn-primary';
+    }
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-modal').style.display = 'flex';
+}
+
+function togglePasswordVisibility() {
+    const input = document.getElementById('user-pass-input');
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function submitAuthAction() {
+    const name = document.getElementById('user-name-input').value.trim();
+    const passInput = document.getElementById('user-pass-input');
+    const pass = passInput.value.trim();
+    const errDiv = document.getElementById('auth-error');
+
+    if (!name) { errDiv.textContent = 'Please enter your name.'; errDiv.style.display = 'block'; return; }
+    if (!pass) { errDiv.textContent = 'Please enter the password.'; errDiv.style.display = 'block'; return; }
+    errDiv.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, password: pass, role: activeSelectedRole })
+        });
+        const d = await res.json();
+        if (!d.success) {
+            errDiv.textContent = d.error || 'Invalid credentials for this role.';
+            errDiv.style.display = 'block';
+            passInput.value = '';
+            return;
+        }
+
+        const userObj = { name: d.user_name || name, role: d.user_role || activeSelectedRole };
+        localStorage.setItem('jiraiya_user', JSON.stringify(userObj));
+        updateUserUI(userObj);
+        closeModal('auth-modal');
+
+        if (currentAuthAction === 'wipe') confirmWipe();
+        else if (currentAuthAction === 'maintenance') toggleMaintenance();
+    } catch(e) {
+        errDiv.textContent = 'Server authentication error.';
+        errDiv.style.display = 'block';
+        passInput.value = '';
+    }
+}
+
+function updateUserUI(user) {
+    if (!user) return;
+    document.getElementById('sidebar-login').style.display = 'none';
+    const sUser = document.getElementById('sidebar-user');
+    if (sUser) {
+        sUser.style.display = 'flex';
+        document.getElementById('user-avatar').textContent = user.name.charAt(0).toUpperCase();
+        document.getElementById('user-display-name').textContent = user.name;
+        document.getElementById('user-display-role').textContent = user.role;
+    }
+    document.getElementById('topbar-login-btn').style.display = 'none';
+    const tPill = document.getElementById('topbar-user-pill');
+    if (tPill) {
+        tPill.style.display = 'inline-flex';
+        document.getElementById('topbar-user-name').textContent = `${user.name} (${user.role})`;
+    }
+}
+
+function checkExistingUserSession() {
+    const saved = localStorage.getItem('jiraiya_user');
+    if (saved) { try { updateUserUI(JSON.parse(saved)); } catch(e){} }
+}
+
+// ===== INVENTORY MODAL =====
+function openInventoryModal(mode) {
+    document.getElementById('inv-modal-heading').textContent = mode === 'create' ? 'Create New Inventory Item' : 'Edit Inventory Item';
+    document.getElementById('inv-submit-btn').textContent = mode === 'create' ? '➕ Create Item' : '💾 Save Changes';
+    if (mode === 'create') {
+        document.getElementById('inv-row-index').value = '';
+        document.getElementById('inv-name').value = '';
+        document.getElementById('inv-stock').value = '0';
+        document.getElementById('inv-price').value = '0';
+        document.getElementById('inv-bought').value = '0';
+        document.getElementById('inv-restock-date').value = '';
+    }
+    document.getElementById('inv-modal').style.display = 'flex';
+}
+
+function editInventoryItem(rowIndex, name, stock, price, bought, restockDate) {
+    document.getElementById('inv-row-index').value = rowIndex;
+    document.getElementById('inv-name').value = name;
+    document.getElementById('inv-stock').value = stock;
+    document.getElementById('inv-price').value = price;
+    document.getElementById('inv-bought').value = bought;
+    document.getElementById('inv-restock-date').value = restockDate;
+    openInventoryModal('edit');
+}
+
+async function submitInventory() {
+    const rowIndex = document.getElementById('inv-row-index').value;
+    const itemName = document.getElementById('inv-name').value.trim();
+    const inStock = document.getElementById('inv-stock').value;
+    const unitPrice = document.getElementById('inv-price').value;
+    const bought = document.getElementById('inv-bought').value;
+    const restockDate = document.getElementById('inv-restock-date').value.trim();
+    const errDiv = document.getElementById('inv-error');
+    if (!itemName) { errDiv.textContent = 'Please enter item name.'; errDiv.style.display = 'block'; return; }
+    errDiv.style.display = 'none';
+    try {
+        const res = await fetch('/api/stock-edit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ row_index: rowIndex, item_name: itemName, in_stock: inStock, unit_price: unitPrice, bought, restock_date: restockDate })
+        });
+        const d = await res.json();
+        if (d.success) { closeModal('inv-modal'); fetchInventory(); }
+        else { errDiv.textContent = d.message || d.error || 'Error updating item.'; errDiv.style.display = 'block'; }
+    } catch(e) { errDiv.textContent = 'Inventory save error.'; errDiv.style.display = 'block'; }
+}
+
+// ===== RESCAN & WIPE =====
+async function triggerRescan() {
+    if (!confirm('Re-scan Discord channel history for August 2026?')) return;
+    try { const res = await fetch('/api/rescan', { method: 'POST' }); const d = await res.json(); alert(d.message || 'Rescan triggered!'); refreshAll(); } catch(e) { alert('Rescan error'); }
+}
+async function confirmWipe() {
+    if (!confirm('⚠️ WIPE all data and run a complete rescan?')) return;
+    try { const res = await fetch('/api/wipe', { method: 'POST' }); const d = await res.json(); alert(d.message || 'Data wiped!'); refreshAll(); } catch(e) { alert('Wipe error'); }
+}
+async function toggleMaintenance() {
+    try { const res = await fetch('/api/maintenance/toggle', { method: 'POST' }); const d = await res.json(); alert(d.status_text || 'Maintenance toggled!'); window.location.reload(); } catch(e) { alert('Maintenance toggle error'); }
+}
+
+// ===== ACCESS CONTROL =====
+async function openPermissionsModal() {
+    try {
+        const res = await fetch('/api/permissions');
+        const d = await res.json();
+        if (!d.success) { alert('Could not load permissions.'); return; }
+        const perms = d.permissions || {};
+        const tbody = document.getElementById('permissions-table-body');
+        const options = [
+            { id: 'dashboard', name: 'Overview Dashboard' }, { id: 'employees', name: 'Employee Tracker' },
+            { id: 'transactions', name: 'Transaction Feed' }, { id: 'inventory', name: 'Stock & Edit' },
+            { id: 'audit', name: 'Audit Logs' }, { id: 'maintenance', name: 'Maintenance Mode' }, { id: 'wipe', name: 'Wipe & Rescan' }
+        ];
+        let html = '';
+        options.forEach(opt => {
+            const ac = perms.Admin && perms.Admin[opt.id] ? 'checked' : '';
+            const mc = perms.Manager && perms.Manager[opt.id] ? 'checked' : '';
+            const ec = perms.Employee && perms.Employee[opt.id] ? 'checked' : '';
+            html += `<tr style="border-bottom:1px solid rgba(36,38,64,0.4);">
+                <td style="padding:10px;font-weight:600;">${opt.name}</td>
+                <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Admin" data-opt="${opt.id}" ${ac}></td>
+                <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Manager" data-opt="${opt.id}" ${mc}></td>
+                <td style="padding:10px;text-align:center;"><input type="checkbox" data-role="Employee" data-opt="${opt.id}" ${ec}></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        document.getElementById('permissions-modal').style.display = 'flex';
+    } catch(e) { alert('Error fetching permissions'); }
+}
+
+async function savePermissions() {
+    const permissions = { Admin: {}, Manager: {}, Employee: {} };
+    document.querySelectorAll('#permissions-table-body input[type="checkbox"]').forEach(cb => {
+        const role = cb.getAttribute('data-role');
+        const opt = cb.getAttribute('data-opt');
+        if (permissions[role]) permissions[role][opt] = cb.checked;
+    });
+    try {
+        const res = await fetch('/api/permissions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions })
+        });
+        const d = await res.json();
+        if (d.success) { alert('Access control saved!'); closeModal('permissions-modal'); }
+        else { alert(d.error || 'Error saving.'); }
+    } catch(e) { alert('Save permissions error'); }
+}
+
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+    if (id === 'auth-modal') {
+        const p = document.getElementById('user-pass-input');
+        if (p) { p.value = ''; p.type = 'password'; }
+    }
+}
+
+async function refreshAll() {
+    await fetchDashboard();
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+        const pid = activePage.id.replace('page-', '');
+        if (pid === 'employees') fetchEmployeeTracker();
+        else if (pid === 'transactions') fetchTransactions();
+        else if (pid === 'inventory') fetchInventory();
+        else if (pid === 'audit') fetchAuditLogs();
+        else if (pid === 'economy') fetchEconomy();
+        else if (pid === 'weblogs') fetchWebLogs();
+    }
+}
+
+// INIT
+window.addEventListener('DOMContentLoaded', () => { checkExistingUserSession(); fetchDashboard(); });
 </script>
 </body>
 </html>

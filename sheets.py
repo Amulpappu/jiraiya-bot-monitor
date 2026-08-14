@@ -162,17 +162,29 @@ def get_client():
     return _client
 
 
+DEFAULT_SHEET_HEADERS = {
+    "Service": SERVICE_HEADERS,
+    "Upgrades": REVENUE_HEADERS,
+    "Kits": KIT_HEADERS,
+    "Transactions": TRANSACTIONS_HEADERS,
+    "User_Audit_Logs": USER_AUDIT_HEADERS,
+    "Audit Logs": USER_AUDIT_HEADERS,
+    "Inventory": ["Item Name", "Stock", "Bought", "Restock Date", "Unit Price", "Total Value", "Last Updated"],
+    "Expenses": ["Date", "Amount", "Employee", "Description"],
+}
+
+
 def get_spreadsheet():
     global _spreadsheet
     if _spreadsheet is None:
         client = get_client()
         if config.EXISTING_SPREADSHEET_ID:
-            _spreadsheet = client.open_by_key(config.EXISTING_SPREADSHEET_ID)
+            _spreadsheet = _with_retry(lambda: client.open_by_key(config.EXISTING_SPREADSHEET_ID))
         else:
             try:
-                _spreadsheet = client.open(config.SPREADSHEET_NAME)
+                _spreadsheet = _with_retry(lambda: client.open(config.SPREADSHEET_NAME))
             except gspread.SpreadsheetNotFound:
-                _spreadsheet = client.create(config.SPREADSHEET_NAME)
+                _spreadsheet = _with_retry(lambda: client.create(config.SPREADSHEET_NAME))
     return _spreadsheet
 
 
@@ -205,27 +217,42 @@ def _apply_transactions_dropdown(ws):
         print(f"Warning: couldn't apply Transactions category dropdown: {e}")
 
 
-def _ensure_sheet(sheet_name: str, headers: list):
+def _ensure_sheet(sheet_name: str, headers: list = None):
+    if headers is None:
+        headers = DEFAULT_SHEET_HEADERS.get(sheet_name, ["Column 1", "Column 2", "Column 3", "Column 4"])
     ss = get_spreadsheet()
     try:
         ws = ss.worksheet(sheet_name)
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title=sheet_name, rows=2000, cols=len(headers))
-        ws.append_row(headers)
+        ws = _with_retry(lambda: ss.add_worksheet(title=sheet_name, rows=2000, cols=max(len(headers), 8)))
+        if headers:
+            _with_retry(lambda: ws.append_row(headers))
         if sheet_name == "Transactions":
             _apply_transactions_dropdown(ws)
     return ws
 
 
 def append_user_audit_log(user_name: str, action: str, details: str = "", role: str = "Visitor"):
-    """Logs user/visitor/admin action to the User_Audit_Logs sheet."""
+    """Logs user/visitor/admin action to the User_Audit_Logs sheet and memory cache."""
     try:
+        # Sanitize details to never expose raw passwords
+        clean_details = str(details or "")
+        for pwd in [os.getenv("ADMIN_PASSWORD", "admin2026"), os.getenv("MANAGER_PASSWORD", "manager8686"), os.getenv("EMPLOYEE_PASSWORD", "employee7878")]:
+            if pwd and pwd in clean_details:
+                clean_details = clean_details.replace(pwd, "******")
+
         ws = _ensure_sheet("User_Audit_Logs", USER_AUDIT_HEADERS)
         date_str = now_ist().strftime(TIMESTAMP_FORMAT)
-        row = [date_str, action, user_name or "Visitor", role or "Visitor", details or ""]
+        row = [date_str, str(action).strip(), str(user_name or "Visitor").strip(), str(role or "Visitor").strip(), clean_details]
+        
+        # Append to Google Sheet with retry
         if ws:
-            _with_retry(lambda: ws.append_row(row))
+            try:
+                _with_retry(lambda: ws.append_row(row))
+            except Exception as e:
+                print(f"[Audit Log Warning] Google Sheet append error: {e}")
 
+        # Update cache immediately so web views see it without lag
         with _CACHE_LOCK:
             if "User_Audit_Logs" not in _LAST_KNOWN_ROWS:
                 _LAST_KNOWN_ROWS["User_Audit_Logs"] = []
@@ -242,14 +269,14 @@ def setup_all_sheets():
     _ensure_sheet("Upgrades", REVENUE_HEADERS)
     _ensure_sheet("Kits", KIT_HEADERS)
     _ensure_sheet("Transactions", TRANSACTIONS_HEADERS)
-    audit_ws = _ensure_sheet("User_Audit_Logs", USER_AUDIT_HEADERS)
+    _ensure_sheet("User_Audit_Logs", USER_AUDIT_HEADERS)
+    _ensure_sheet("Inventory")
 
     # Seed initial audit log if empty
     try:
         rows = _all_rows("User_Audit_Logs")
         if not rows:
             append_user_audit_log("System", "SYSTEM_INIT", "Jiraiya Financial System initialized", "System")
-            append_user_audit_log("Amul", "FUSER_LOGIN", "Web Auth Success (Admin)", "Admin")
     except Exception:
         pass
 
@@ -263,8 +290,7 @@ def is_message_already_logged(sheet_name: str, message_id: str) -> bool:
     msg_id_str = str(message_id).strip()
     if not msg_id_str:
         return False
-    with _CACHE_LOCK:
-        rows = _LAST_KNOWN_ROWS.get(sheet_name, [])
+    rows = _all_rows(sheet_name)
     msg_col_map = {"Service": 6, "Kits": 7, "Upgrades": 4, "Transactions": 5}
     col = msg_col_map.get(sheet_name, -1)
     if col >= 0:
@@ -352,10 +378,6 @@ def append_entry(sheet_name: str, customer: str, value, employee: str, message_i
         _LAST_KNOWN_ROWS[sheet_name].append(row)
         _save_disk_cache()
 
-    # The dashboard is a "nice to have" recalculation. If it hits a rate
-    # limit or any other hiccup, we don't want that to look like the
-    # invoice failed to save — it saved fine, only the dashboard refresh
-    # didn't happen this time (it'll catch up on the next invoice).
     try:
         update_dashboard()
     except Exception as e:
@@ -363,7 +385,7 @@ def append_entry(sheet_name: str, customer: str, value, employee: str, message_i
         logging.getLogger("sheets").error(f"Dashboard update failed (invoice was still saved): {e}")
 
 
-# ── Dashboard ────────────────────────────────────────────
+# ── Dashboard & Caching Engine ───────────────────────────
 
 import os
 import json
@@ -372,6 +394,7 @@ import threading
 _ROWS_CACHE = {}
 _LAST_KNOWN_ROWS = {}
 _CACHE_LOCK = threading.Lock()
+_LAST_BATCH_FETCH_TIME = 0
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_cache.json")
 
 
@@ -401,67 +424,97 @@ def _ensure_dashboard():
     try:
         ws = ss.worksheet(config.DASHBOARD_SHEET_NAME)
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title=config.DASHBOARD_SHEET_NAME, rows=200, cols=10)
+        ws = _with_retry(lambda: ss.add_worksheet(title=config.DASHBOARD_SHEET_NAME, rows=200, cols=10))
     return ws
 
 
-# Cache TTL: 60 seconds — short enough that the 30s auto-scan loop always
-# sees fresh data from Google Sheets within two scan cycles.
-_CACHE_TTL_SECONDS = 60
+# Cache TTL: 45 seconds for batch requests to guarantee high responsiveness and stay well below the 60 req/min quota
+_CACHE_TTL_SECONDS = 45
+
+BATCH_WORKSHEET_RANGES = [
+    "Service!A:G",
+    "Kits!A:H",
+    "Upgrades!A:E",
+    "Transactions!A:F",
+    "User_Audit_Logs!A:E",
+    "Inventory!A:G",
+    "Expenses!A:D",
+]
 
 
-def _all_rows(ws_name: str, force_refresh: bool = False):
-    """Returns all data rows (excluding header) from a given worksheet name.
-    Uses in-memory TTL caching + local disk fallback cache."""
-    # Target User_Audit_Logs as primary worksheet name for audit logs
-    target_ws = "User_Audit_Logs" if ws_name in ("User_Audit_Logs", "Audit Logs") else ws_name
+def _with_retry(fn, attempts=5, base_delay=2):
+    """Retries a Google Sheets API call on transient network or rate-limit (429) errors with exponential backoff."""
+    for attempt in range(attempts):
+        try:
+            return fn()
+        except Exception as e:
+            is_rate_limit = "429" in str(e) or "Quota exceeded" in str(e) or "RESOURCE_EXHAUSTED" in str(e)
+            if is_rate_limit and attempt < attempts - 1:
+                sleep_time = base_delay * (2 ** attempt)
+                print(f"[Sheets Retry] Rate limit hit, backing off for {sleep_time}s (attempt {attempt + 1}/{attempts})...")
+                time.sleep(sleep_time)
+                continue
+            if attempt < attempts - 1 and ("timed out" in str(e).lower() or "connection reset" in str(e).lower()):
+                time.sleep(base_delay)
+                continue
+            raise
+
+
+def _fetch_all_sheets_batch(force_refresh: bool = False):
+    """Fetches ALL worksheet data in a SINGLE batch API request (values_batch_get)
+    to completely eliminate 429 quota exhaustion and update memory/disk cache."""
+    global _LAST_BATCH_FETCH_TIME
     now = time.time()
 
     with _CACHE_LOCK:
-        if not force_refresh and target_ws in _ROWS_CACHE:
-            cached_time, cached_data = _ROWS_CACHE[target_ws]
-            if now - cached_time < _CACHE_TTL_SECONDS:
-                return cached_data
+        if not force_refresh and (now - _LAST_BATCH_FETCH_TIME) < _CACHE_TTL_SECONDS and _LAST_KNOWN_ROWS:
+            return _LAST_KNOWN_ROWS
 
     try:
         ss = get_spreadsheet()
         if ss:
-            ws = None
-            try:
-                ws = ss.worksheet(target_ws)
-            except Exception:
-                if ws_name != target_ws:
-                    try:
-                        ws = ss.worksheet(ws_name)
-                    except Exception:
-                        pass
-            if ws:
-                rows_raw = _with_retry(lambda: ws.get_all_values())
-                data = [r for r in rows_raw[1:] if any(str(cell).strip() for cell in r)] if (rows_raw and len(rows_raw) > 1) else []
-                with _CACHE_LOCK:
-                    _ROWS_CACHE[target_ws] = (time.time(), data)
-                    _LAST_KNOWN_ROWS[target_ws] = data
-                    _LAST_KNOWN_ROWS[ws_name] = data
-                    _save_disk_cache()
-                return data
-    except Exception:
-        pass
+            res = _with_retry(lambda: ss.values_batch_get(BATCH_WORKSHEET_RANGES))
+            vr = res.get("valueRanges", []) if isinstance(res, dict) else []
+
+            with _CACHE_LOCK:
+                for v in vr:
+                    rng = v.get("range", "")
+                    sheet_name = rng.split("!")[0].replace("'", "").strip()
+                    values = v.get("values", [])
+                    data = [r for r in values[1:] if any(str(cell).strip() for cell in r)] if (values and len(values) > 1) else []
+                    _LAST_KNOWN_ROWS[sheet_name] = data
+                    _ROWS_CACHE[sheet_name] = (now, data)
+
+                if "User_Audit_Logs" in _LAST_KNOWN_ROWS:
+                    _LAST_KNOWN_ROWS["Audit Logs"] = _LAST_KNOWN_ROWS["User_Audit_Logs"]
+                    _ROWS_CACHE["Audit Logs"] = _ROWS_CACHE.get("User_Audit_Logs", (now, _LAST_KNOWN_ROWS["User_Audit_Logs"]))
+
+                _LAST_BATCH_FETCH_TIME = now
+                _save_disk_cache()
+                return _LAST_KNOWN_ROWS
+    except Exception as e:
+        print(f"[Sheets Batch Fetch Warning] Could not batch fetch from Google Sheets: {e}")
 
     with _CACHE_LOCK:
-        return _LAST_KNOWN_ROWS.get(target_ws, _LAST_KNOWN_ROWS.get(ws_name, []))
+        return _LAST_KNOWN_ROWS
 
 
-def _with_retry(fn, attempts=4, base_delay=2):
-    """Retries a Google Sheets API call on transient rate-limit (429) errors."""
-    for attempt in range(attempts):
-        try:
-            return fn()
-        except gspread.exceptions.APIError as e:
-            is_rate_limit = "429" in str(e) or "Quota exceeded" in str(e)
-            if is_rate_limit and attempt < attempts - 1:
-                time.sleep(base_delay * (attempt + 1))
-                continue
-            raise
+def _all_rows(ws_name: str, force_refresh: bool = False):
+    """Returns all data rows (excluding header) from a given worksheet name.
+    Uses unified batch cached data with graceful offline fallback."""
+    target_ws = "User_Audit_Logs" if ws_name in ("User_Audit_Logs", "Audit Logs") else ws_name
+    _fetch_all_sheets_batch(force_refresh=force_refresh)
+
+    with _CACHE_LOCK:
+        return list(_LAST_KNOWN_ROWS.get(target_ws, _LAST_KNOWN_ROWS.get(ws_name, [])))
+
+
+def clear_rows_cache(ws_name=None):
+    global _LAST_BATCH_FETCH_TIME
+    with _CACHE_LOCK:
+        _LAST_BATCH_FETCH_TIME = 0
+        if ws_name and ws_name in _ROWS_CACHE:
+            del _ROWS_CACHE[ws_name]
 
 
 def _sum_numeric(values):

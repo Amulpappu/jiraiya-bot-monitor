@@ -86,13 +86,6 @@ def save_role_permissions(perms):
 
 @app.route("/")
 def index():
-    user_name = session.get("user_name")
-    role = session.get("user_role", "Visitor")
-    if user_name and user_name.lower() not in ("guest", "visitor", "unknown"):
-        try:
-            sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})", role=role)
-        except Exception:
-            pass
     return render_template("index.html", is_maintenance=IS_MAINTENANCE_MODE, maintenance_msg=MAINTENANCE_MESSAGE)
 
 
@@ -108,11 +101,6 @@ def sync_user_session():
         session["is_admin"] = (role == "Admin")
         session["is_manager"] = (role in ("Admin", "Manager"))
         session["is_employee"] = True
-
-        try:
-            sheets.append_user_audit_log(user_name, "FUSER_LOGIN", f"Web/App Auth Success ({role})", role=role)
-        except Exception:
-            pass
 
         return jsonify({"success": True, "user_name": user_name, "user_role": role})
 
@@ -185,7 +173,7 @@ def user_login():
         target_pass = EMPLOYEE_PASSWORD
 
     if password != target_pass and password != ADMIN_PASSWORD:
-        sheets.append_user_audit_log(user_name, "LOGIN_FAILED", f"Invalid Password Attempt for {role}", role=role)
+        sheets.append_user_audit_log(user_name, "LOGIN_FAILED", f"Failed authentication attempt for {role}", role=role)
         return jsonify({"success": False, "error": f"Invalid Password for {role} role! Access Denied."}), 401
 
     is_admin = (role == "Admin" or password == ADMIN_PASSWORD)
@@ -412,11 +400,11 @@ def collapse_and_deduplicate_transactions(service_rows, upgrade_rows, kit_rows, 
             pass
         return datetime.datetime.min
 
-    # User directive: Only include August 2026 (Month 8) onwards for official employees, sorted in ascending date order (Aug 01 -> Aug 31)
+    # User directive: Include August 2026 (Month 8) onwards, sorted in ascending date order (Aug 01 -> Aug 31)
     aug_start = datetime.datetime(2026, 8, 1, 0, 0, 0)
     aug_items = [
         it for it in items
-        if parse_dt(it) >= aug_start and it.get("staff") in config.OFFICIAL_EMPLOYEE_NAMES
+        if parse_dt(it) >= aug_start and (it.get("staff") and str(it.get("staff")).strip().lower() not in ("unknown", "none", ""))
     ]
     aug_items.sort(key=parse_dt, reverse=False)
     return aug_items
@@ -441,13 +429,13 @@ def get_dashboard_data():
         profit = round(total_sales - expenses_tot - tax, 2)
         total_txns = len(service_rows) + len(upgrade_rows) + len(kit_rows) + len(expense_rows)
 
-        # Count unique official employees only
+        # Count unique official employees
         emp_set = set()
         emp_counts = {}
         for s_name, rows in [("Service", service_rows), ("Upgrades", upgrade_rows), ("Kits", kit_rows)]:
             for r in rows:
                 emp = sheets.get_row_employee(s_name, r)
-                if emp and emp in config.OFFICIAL_EMPLOYEE_NAMES:
+                if emp and str(emp).strip().lower() not in ("unknown", "none", ""):
                     emp_set.add(emp)
                     emp_counts[emp] = emp_counts.get(emp, 0) + 1
 
@@ -528,7 +516,7 @@ def get_employee_tracker():
 
         for r in service_rows:
             staff = sheets.get_row_employee("Service", r)
-            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
+            if staff and str(staff).strip().lower() not in ("unknown", "none", ""):
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 cat = str(r[2]).strip().lower() if len(r) > 2 else ""
@@ -542,7 +530,7 @@ def get_employee_tracker():
 
         for r in upgrade_rows:
             staff = sheets.get_row_employee("Upgrades", r)
-            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
+            if staff and str(staff).strip().lower() not in ("unknown", "none", ""):
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 emp_stats[staff]["upgrades"] += 1
@@ -551,7 +539,7 @@ def get_employee_tracker():
 
         for r in kit_rows:
             staff = sheets.get_row_employee("Kits", r)
-            if staff and staff in config.OFFICIAL_EMPLOYEE_NAMES:
+            if staff and str(staff).strip().lower() not in ("unknown", "none", ""):
                 if staff not in emp_stats:
                     emp_stats[staff] = {"kits": 0, "civilian": 0, "govt": 0, "service": 0, "upgrades": 0, "total": 0, "last_date": r[0] if r else ""}
                 emp_stats[staff]["kits"] += 1

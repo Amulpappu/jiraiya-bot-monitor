@@ -8,3 +8,4 @@ credentials.json
 *.flag
 local_cache.json
 processed_images.json
+.env
