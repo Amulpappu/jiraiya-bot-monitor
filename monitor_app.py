@@ -567,36 +567,44 @@ def get_employee_tracker():
 
 @app.route("/api/wipe", methods=["POST"])
 def api_wipe():
-    """Wipes all data sheets (preserving headers) and signals bot to rescan."""
+    """Wipes all data sheets (preserving headers in row 1) and signals bot to rescan."""
     data = request.get_json() or {}
     password = data.get("password", "").strip()
-    user_name = data.get("user_name", session.get("user_name", "Admin"))
-    if password != ADMIN_PASSWORD:
-        return jsonify({"success": False, "error": "Invalid password!"}), 401
+    user_name = data.get("user_name") or session.get("user_name", "Admin")
+    is_admin = session.get("is_admin", False) or session.get("user_role") == "Admin"
+
+    if not is_admin and password != ADMIN_PASSWORD:
+        return jsonify({"success": False, "error": "Admin credentials or password required to wipe data!"}), 401
+
     try:
         ss = sheets.get_spreadsheet()
-        wiped_sheets = []
-        HEADER_MAP = {
-            "Service": sheets.SERVICE_HEADERS,
-            "Kits": sheets.KIT_HEADERS,
-            "Upgrades": sheets.REVENUE_HEADERS,
-            "Transactions": sheets.TRANSACTIONS_HEADERS,
-        }
-        for sheet_name in ["Service", "Kits", "Upgrades", "Transactions", "Employee Tracker", "August Employee Tracker"]:
-            try:
-                ws = ss.worksheet(sheet_name)
-                header = HEADER_MAP.get(sheet_name) or ws.row_values(1)
-                sheets._with_retry(lambda w=ws: w.clear())
-                if header:
-                    sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
-                wiped_sheets.append(sheet_name)
-            except Exception as e:
-                print(f"[Wipe] Could not wipe {sheet_name}: {e}")
+        clear_ranges = [
+            "Service!A2:Z",
+            "Kits!A2:Z",
+            "Upgrades!A2:Z",
+            "Transactions!A2:Z",
+        ]
+        try:
+            sheets._with_retry(lambda: ss.values_batch_clear(body={"ranges": clear_ranges}))
+        except Exception as e:
+            print(f"[Wipe Batch Clear Warning] {e}")
+            for sname in ["Service", "Kits", "Upgrades", "Transactions"]:
+                try:
+                    ws = ss.worksheet(sname)
+                    sheets._with_retry(lambda w=ws: w.clear())
+                    header = sheets.DEFAULT_SHEET_HEADERS.get(sname)
+                    if header:
+                        sheets._with_retry(lambda w=ws, h=header: w.append_row(h))
+                except Exception as ex:
+                    print(f"[Wipe Individual Sheet Warning] {sname}: {ex}")
 
-        # Clear all local caches (web app process)
+        # Clear all memory & disk caches in web app
+        sheets.clear_rows_cache()
         with sheets._CACHE_LOCK:
-            sheets._ROWS_CACHE.clear()
-            sheets._LAST_KNOWN_ROWS.clear()
+            sheets._LAST_KNOWN_ROWS["Service"] = []
+            sheets._LAST_KNOWN_ROWS["Kits"] = []
+            sheets._LAST_KNOWN_ROWS["Upgrades"] = []
+            sheets._LAST_KNOWN_ROWS["Transactions"] = []
             sheets._save_disk_cache()
 
         # Clear processed image hashes
@@ -612,11 +620,14 @@ def api_wipe():
             import time as _t
             f.write(str(_t.time()))
 
-        sheets.append_user_audit_log(user_name, "DATA_WIPE", f"Wiped sheets: {', '.join(wiped_sheets)}", "Admin")
+        sheets.append_user_audit_log(user_name, "DATA_WIPE", "Wiped sheets: Service, Kits, Upgrades, Transactions (Rescan triggered)", role="Admin")
 
-        return jsonify({"success": True, "message": f"Wiped {', '.join(wiped_sheets)}! Bot will rescan Discord channels."})
+        return jsonify({
+            "success": True,
+            "message": "Data wiped successfully! Discord bot will rescan channels."
+        })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": f"Wipe error: {str(e)}"}), 500
 
 
 @app.route("/api/inventory")

@@ -1444,8 +1444,11 @@ async function submitAuthAction() {
         updateUserUI(userObj);
         closeModal('auth-modal');
 
-        if (currentAuthAction === 'wipe') confirmWipe();
-        else if (currentAuthAction === 'maintenance') toggleMaintenance();
+        if (currentAuthAction === 'wipe') {
+            await executeWipe(pass, userObj.name);
+        } else if (currentAuthAction === 'maintenance') {
+            await toggleMaintenance(pass, userObj.name);
+        }
     } catch(e) {
         errDiv.textContent = 'Server authentication error.';
         errDiv.style.display = 'block';
@@ -1525,14 +1528,57 @@ async function submitInventory() {
 // ===== RESCAN & WIPE =====
 async function triggerRescan() {
     if (!confirm('Re-scan Discord channel history for August 2026?')) return;
-    try { const res = await fetch('/api/rescan', { method: 'POST' }); const d = await res.json(); alert(d.message || 'Rescan triggered!'); refreshAll(); } catch(e) { alert('Rescan error'); }
+    try {
+        const res = await fetch('/api/rescan', { method: 'POST' });
+        const d = await res.json();
+        alert(d.message || 'Rescan triggered!');
+        refreshAll();
+    } catch(e) {
+        alert('Rescan network error: ' + e);
+    }
 }
-async function confirmWipe() {
-    if (!confirm('⚠️ WIPE all data and run a complete rescan?')) return;
-    try { const res = await fetch('/api/wipe', { method: 'POST' }); const d = await res.json(); alert(d.message || 'Data wiped!'); refreshAll(); } catch(e) { alert('Wipe error'); }
+
+async function confirmWipe(pass = '', uName = '') {
+    await executeWipe(pass, uName);
 }
-async function toggleMaintenance() {
-    try { const res = await fetch('/api/maintenance/toggle', { method: 'POST' }); const d = await res.json(); alert(d.status_text || 'Maintenance toggled!'); window.location.reload(); } catch(e) { alert('Maintenance toggle error'); }
+
+async function executeWipe(password = '', userName = '') {
+    if (!confirm('⚠️ WIPE all data sheets and run a complete channel rescan?')) return;
+    try {
+        const res = await fetch('/api/wipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password, user_name: userName })
+        });
+        const d = await res.json();
+        if (d.success) {
+            alert(d.message || 'Data wiped successfully! Discord bot will rescan channels.');
+            refreshAll();
+        } else {
+            alert('Wipe Error: ' + (d.error || d.message || 'Operation failed'));
+        }
+    } catch(e) {
+        alert('Wipe network error: ' + e);
+    }
+}
+
+async function toggleMaintenance(password = '', userName = '') {
+    try {
+        const res = await fetch('/api/maintenance/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password, name: userName })
+        });
+        const d = await res.json();
+        if (d.success) {
+            alert(d.status_text || 'Maintenance toggled!');
+            window.location.reload();
+        } else {
+            alert('Maintenance Error: ' + (d.error || 'Operation failed'));
+        }
+    } catch(e) {
+        alert('Maintenance network error: ' + e);
+    }
 }
 
 // ===== ACCESS CONTROL =====
