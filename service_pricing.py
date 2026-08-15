@@ -52,7 +52,7 @@ def is_upgrade_message(text: str, amount: float = None) -> bool:
 def resolve_category_and_count(amount: float, keyword_cat: str = "", text: str = "") -> dict:
     """Resolves exact service category, count, unit price, and total given amount, keyword, and message text.
     Civilian = ₹7,000 per unit, Govt / PD / EMS / Taxi = ₹10,000 per unit.
-    When count is specified in text (e.g. '3x govt'), total is calculated as count * unit_price."""
+    When count is specified in text (e.g. '3x govt', 'civ 2', '2 civ'), total is calculated as count * unit_price."""
     text_low = (text or "").lower()
     cat = keyword_cat.lower() if keyword_cat else parse_service_category(text)
 
@@ -67,16 +67,22 @@ def resolve_category_and_count(amount: float, keyword_cat: str = "", text: str =
 
     unit_price = float(config.SERVICE_PRICES.get(cat, 10000.0 if cat in ("govt", "pd", "ems", "taxi", "gov") else 7000.0))
 
-    # Extract explicit count from text (e.g. '3x govt', '2 govt', '5x civ')
+    # Extract explicit count from text:
+    # 1. Number BEFORE category: '3x govt', '2 civ', '5 civilian'
+    # 2. Number AFTER category: 'govt 3', 'civ 2', 'civ: 4', 'civ x 2'
     cnt = 1
-    match = re.search(r"(\d+)\s*x?\s*(govt|gov|pd|ems|taxi|civ|civilian|service)", text_low)
-    if match:
-        cnt = int(match.group(1))
+    m_before = re.search(r"(\d+)\s*x?\s*(govt|gov|pd|ems|taxi|civ|civilian|service)", text_low)
+    m_after = re.search(r"(govt|gov|pd|ems|taxi|civ|civilian|service)\s*x?\s*[:\-]?\s*(\d+)", text_low)
+
+    if m_before:
+        cnt = int(m_before.group(1))
+    elif m_after:
+        cnt = int(m_after.group(2))
     elif amount and amount > 0:
         cnt = max(1, int(round(amount / unit_price)))
 
-    # If count was explicitly written in text (e.g. 3x govt), total is count * unit_price
-    if match or (amount is None or amount <= 0):
+    # If count was explicitly written in text, total is count * unit_price
+    if (m_before or m_after) or (amount is None or amount <= 0):
         total = float(cnt * unit_price)
     else:
         total = float(amount)

@@ -37,6 +37,28 @@ def is_image_attachment(attachment: discord.Attachment) -> bool:
     return ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 
 
+def extract_image_urls(message: discord.Message) -> list:
+    """Extracts all image URLs from attachments, embeds, or direct links."""
+    urls = []
+    if getattr(message, "attachments", None):
+        for a in message.attachments:
+            if is_image_attachment(a):
+                urls.append(a.url)
+    if getattr(message, "embeds", None):
+        for e in message.embeds:
+            if e.image and e.image.url:
+                urls.append(e.image.url)
+            elif e.thumbnail and e.thumbnail.url:
+                urls.append(e.thumbnail.url)
+    if getattr(message, "content", None):
+        import re
+        links = re.findall(r"https?://\S+\.(?:png|jpg|jpeg|webp|bmp|gif)(?:\?\S*)?", message.content, re.IGNORECASE)
+        for lk in links:
+            if lk not in urls:
+                urls.append(lk)
+    return urls
+
+
 # ── Duplicate-image tracking (local JSON file) ──────────
 def load_processed_hashes():
     if os.path.exists(config.PROCESSED_HASHES_FILE):
@@ -77,27 +99,19 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
     """
     Processes invoices and logs for combined/service channels.
     """
-    print(f"[process_service] msg_id={message.id} backfill={is_backfill} rescan={is_full_rescan} attachments={len(message.attachments)}")
-
-    image_attachment = next(
-        (a for a in message.attachments if is_image_attachment(a)),
-        None,
-    )
+    image_urls = extract_image_urls(message)
+    print(f"[process_service] msg_id={message.id} backfill={is_backfill} rescan={is_full_rescan} images={len(image_urls)}")
 
     image_hash = None
     parsed = {}
 
-    if image_attachment:
+    if image_urls:
         try:
             image_hash, parsed, _raw_text = await ocr.process_invoice_image(
-                image_attachment.url, ["customer", "amount"]
+                image_urls[0], ["customer", "amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for service message {message.id}: {e}")
-
-    if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
-        await safe_add_reaction(message, "🔁")
-        return
 
     customer = parsed.get("customer") if parsed else None
     amount = parsed.get("amount") if parsed else None
@@ -125,9 +139,6 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
             sheets.append_transaction_entry(upgrade_val, customer or "Car UpGrade", "Car UpGrade", employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
         except Exception as e:
             ocr.logger.error(f"Failed to log Upgrade entry for message {message.id}: {e}")
-        if image_hash:
-            processed_hashes.add(image_hash)
-            save_processed_hashes(processed_hashes)
         await safe_add_reaction(message, "✅")
         return
 
@@ -150,57 +161,38 @@ async def process_service_message(message: discord.Message, cfg: dict, is_backfi
             await safe_reply(message, "Failed to save this service invoice to Google Sheets. Check bot logs.")
         return
 
-    if image_hash:
-        processed_hashes.add(image_hash)
-        save_processed_hashes(processed_hashes)
+    txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
+    txn_description = f"{result['count']}x {result['category']}"
+    try:
+        sheets.append_transaction_entry(service_total, txn_description, txn_category, employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
+    except Exception as e:
+        ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
-    if result.get("confident", True) or service_total > 0:
-        txn_category = "Service-Civilian" if result["category"] == "civilian" else "Service-Government"
-        txn_description = f"{result['count']}x {result['category']}"
-        try:
-            sheets.append_transaction_entry(service_total, txn_description, txn_category, employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
-        except Exception as e:
-            ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
-
-        await safe_add_reaction(message, "✅")
-        if not is_backfill:
-            times = f" x{result['count']}" if result["count"] and result["count"] > 1 else ""
-            amt_str = f"₹{service_total:,.0f}"
-            await safe_reply(
-                message,
-                f"Logged: {result['category']}{times} service = {amt_str}"
-            )
-        return
-
-    await safe_add_reaction(message, "❓")
+    await safe_add_reaction(message, "✅")
     if not is_backfill:
-        await safe_reply(message, "Logged as 'Unspecified' for now — please verify invoice amount or category.")
+        times = f" x{result['count']}" if result["count"] and result["count"] > 1 else ""
+        amt_str = f"₹{service_total:,.0f}"
+        await safe_reply(
+            message,
+            f"Logged: {result['category']}{times} service = {amt_str}"
+        )
 
 
 async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: bool = False, is_full_rescan: bool = False):
     """
     Processes kit sales where player types quantities shorthand in text OR attaches an invoice image screenshot.
     """
-
     qty = kit_pricing.parse_kit_quantities(message.content)
-
-    image_attachment = next(
-        (a for a in message.attachments if is_image_attachment(a)),
-        None,
-    )
+    image_urls = extract_image_urls(message)
 
     image_hash, parsed = None, {"customer": None, "amount": None}
-    if image_attachment:
+    if image_urls:
         try:
             image_hash, parsed, _raw_text = await ocr.process_invoice_image(
-                image_attachment.url, ["customer", "amount"]
+                image_urls[0], ["customer", "amount"]
             )
         except Exception as e:
             ocr.logger.error(f"OCR failed for kit message {message.id}: {e}")
-
-    if config.IGNORE_DUPLICATE_IMAGES and image_hash and image_hash in processed_hashes:
-        await safe_add_reaction(message, "🔁")
-        return
 
     amount = parsed.get("amount") if parsed else None
 
@@ -224,14 +216,8 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             qty = {"rk": 0, "ck": int(amount // ck_unit)}
 
     if qty is None:
-        await safe_add_reaction(message, "❓")
-        if not is_backfill:
-            await safe_reply(
-                message,
-                "Couldn't find kit quantity or invoice amount in your message. "
-                "Please include quantity (e.g. `each 10`, `rk 10`) or attach an invoice screenshot."
-            )
-        return
+        # Default to 1 Repair Kit if sent in a Kits channel
+        qty = {"rk": 1, "ck": 0}
 
     total, discount, combined_qty, rk_subtotal, ck_subtotal = kit_pricing.calculate_kit_total(
         qty["rk"], qty["ck"]
@@ -259,12 +245,6 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
             await safe_reply(message, "Failed to save this kit sale to Google Sheets. Check bot logs.")
         return
 
-    if image_hash:
-        processed_hashes.add(image_hash)
-        save_processed_hashes(processed_hashes)
-
-    author_emp = config.resolve_employee_from_author(message.author)
-    msg_ts = message_to_ist_str(message)
     try:
         if qty["rk"] > 0:
             sheets.append_transaction_entry(rk_subtotal or total, f"{qty['rk']}x", "Repair Kit", employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
@@ -285,36 +265,33 @@ async def process_kit_message(message: discord.Message, cfg: dict, is_backfill: 
 
 def resolve_message_channel_config(message: discord.Message):
     """Resolves channel config for text channels, threads, and archived threads.
-    Priority: thread name > parent channel name > direct channel name.
-    This ensures threads named 'Services' or 'Upgrades' inside aug-logs are routed correctly."""
+    Priority: thread name > parent channel name > direct channel name."""
     ch = message.channel
     channel_name = getattr(ch, "name", "")
 
-    # 1. If this is a thread, check the thread name first (e.g. 'Services', 'Upgrades')
+    # 1. If this is a thread, check thread name first
     parent = getattr(ch, "parent", None)
     if parent:
-        # It's a thread — thread name takes priority for routing
         cfg, cfg_key = config.get_channel_config(channel_name)
         if cfg:
-            print(f"[resolve] thread={channel_name!r} -> matched thread name key={cfg_key!r}")
             return cfg, cfg_key, channel_name
 
-        # Thread name didn't match — fall back to parent channel name
         parent_name = getattr(parent, "name", "")
         cfg, cfg_key = config.get_channel_config(parent_name)
         if cfg:
-            print(f"[resolve] thread={channel_name!r} -> fallback to parent={parent_name!r} key={cfg_key!r}")
             return cfg, cfg_key, parent_name
 
-        return None, None, channel_name
+        return config._SERVICE_CONFIG, "Service", channel_name
 
-    # 2. Direct text channel (not a thread)
+    # 2. Direct channel
     cfg, cfg_key = config.get_channel_config(channel_name)
     if cfg:
         return cfg, cfg_key, channel_name
 
-    return None, None, channel_name
+    if config.is_august_channel(ch):
+        return config._SERVICE_CONFIG, "Service", channel_name
 
+    return None, None, channel_name
 
 
 async def process_invoice_message(message: discord.Message, channel_name: str, is_backfill: bool = False, is_full_rescan: bool = False):
@@ -326,15 +303,15 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
     if not cfg:
         cfg, cfg_key = config.get_channel_config(channel_name)
     if not cfg:
-        return
+        cfg, cfg_key = config._SERVICE_CONFIG, "Service"
 
     cat = str(cfg.get("category", "")).lower()
 
-    if cfg.get("kit_channel") or cat == "kit":
+    if cfg.get("kit_channel") or cat == "kit" or "kit" in str(cfg_key).lower():
         await process_kit_message(message, cfg, is_backfill, is_full_rescan)
         return
 
-    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service"):
+    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service") or "service" in str(cfg_key).lower() or "log" in str(cfg_key).lower() or "bill" in str(cfg_key).lower():
         await process_service_message(message, cfg, is_backfill, is_full_rescan)
         return
 
@@ -342,15 +319,18 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
     author_emp = config.resolve_employee_from_author(message.author)
     msg_ts = message_to_ist_str(message)
 
+    image_urls = extract_image_urls(message)
+
     # Handle text-only upgrade entries (messages without image attachments)
-    if not message.attachments and message.content:
+    if not image_urls and message.content:
         import re
         numbers = re.findall(r"\b\d{4,7}\b", message.content)
         if numbers:
             try:
                 upg_val = float(numbers[0])
+                target_sheet = cfg.get("sheet_name", "Upgrades")
                 sheets.append_entry(
-                    sheet_name=cfg.get("sheet_name", "Upgrades"),
+                    sheet_name=target_sheet,
                     customer="Unknown",
                     value=upg_val,
                     employee=author_emp,
@@ -363,30 +343,15 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             except Exception:
                 pass
 
-    for attachment in message.attachments:
-        if not is_image_attachment(attachment):
-            continue
-
-        try:
-            image_hash, parsed, raw_text = await ocr.process_invoice_image(
-                attachment.url, fields
-            )
-        except Exception as e:
-            ocr.logger.error(
-                f"OCR failed for message {message.id} in #{channel_name} "
-                f"({attachment.filename}): {e}"
-            )
-            if not is_backfill:
-                await safe_reply(
-                    message,
-                    f"Couldn't read that invoice image (`{attachment.filename}`). "
-                    f"Please re-upload a clearer screenshot."
+    for img_url in (image_urls or [None]):
+        parsed = {}
+        if img_url:
+            try:
+                _hash, parsed, raw_text = await ocr.process_invoice_image(
+                    img_url, fields
                 )
-            continue
-
-        if config.IGNORE_DUPLICATE_IMAGES and image_hash in processed_hashes:
-            await safe_add_reaction(message, "🔁")
-            continue
+            except Exception as e:
+                ocr.logger.error(f"OCR failed for message {message.id} in #{channel_name}: {e}")
 
         customer = parsed.get("customer") if parsed else "Unknown"
         value = (parsed.get("amount") if "amount" in fields else parsed.get("quantity")) if parsed else 0
@@ -397,9 +362,10 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
             value = service_pricing.extract_amount_from_text(message.content) or 0
 
         try:
+            target_sheet = cfg.get("sheet_name", "Transactions")
             sheets.append_entry(
-                sheet_name=cfg.get("sheet_name", "Transactions"),
-                customer=customer,
+                sheet_name=target_sheet,
+                customer=customer or "Unknown",
                 value=value,
                 employee=author_emp,
                 message_id=str(message.id),
@@ -411,19 +377,15 @@ async def process_invoice_message(message: discord.Message, channel_name: str, i
                 await safe_reply(message, "Failed to save this invoice to Google Sheets. Check bot logs.")
             continue
 
-        processed_hashes.add(image_hash)
-        save_processed_hashes(processed_hashes)
-
-        txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(cfg.get("sheet_name"))
-        if txn_category:
-            try:
-                sheets.append_transaction_entry(value, customer or "Car UpGrade", txn_category, employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
-            except Exception as e:
-                ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
+        txn_category = GENERIC_SHEET_TO_TRANSACTION_CATEGORY.get(target_sheet, "Car UpGrade")
+        try:
+            sheets.append_transaction_entry(value, customer or txn_category, txn_category, employee=author_emp, message_id=str(message.id), timestamp=msg_ts)
+        except Exception as e:
+            ocr.logger.error(f"Failed to write Transactions entry for message {message.id}: {e}")
 
         await safe_add_reaction(message, "✅")
         if not is_backfill:
-            await safe_reply(message, f"Logged {cfg.get('sheet_name', 'Invoice')}: ₹{value:,.0f}")
+            await safe_reply(message, f"Logged {target_sheet}: ₹{value:,.0f}")
 
 
 def get_logged_message_ids() -> set:
@@ -442,29 +404,23 @@ def get_logged_message_ids() -> set:
 
 
 def resolve_target_sheet_key(message: discord.Message, channel):
-    """Figures out which destination sheet a message would be logged to
-    (Kits / Service / a generic sheet name like Upgrades), WITHOUT running
-    OCR or writing anything. Used to group messages across channels so each
-    destination sheet can be written in chronological order."""
+    """Figures out destination sheet (Kits / Service / Upgrades)."""
     cfg, cfg_key, _ = resolve_message_channel_config(message)
     if not cfg:
         cfg, cfg_key = config.get_channel_config(channel)
     if not cfg:
-        return None
+        cfg, cfg_key = config._SERVICE_CONFIG, "Service"
 
     cat = str(cfg.get("category", "")).lower()
-    if cfg.get("kit_channel") or cat == "kit" or cfg_key == "Kits":
+    if cfg.get("kit_channel") or cat == "kit" or "kit" in str(cfg_key).lower():
         return "Kits"
-    if cfg.get("combined_logs") or cfg.get("category_channel") or cat in ("combined", "service") or cfg_key == "Service":
-        return "Service"
-    if cfg_key == "Upgrades" or cat == "upgrade":
+    if cfg_key == "Upgrades" or cat == "upgrade" or "upgrade" in str(cfg_key).lower():
         return "Upgrades"
-    return cfg.get("sheet_name", "Transactions")
+    return "Service"
 
 
-async def backfill_channel_history(channel, limit: int = 500, is_full_rescan: bool = False):
-    """Scans RECENT messages in ONE channel and returns the filtered, still-
-    unprocessed discord.Message objects (oldest first)."""
+async def backfill_channel_history(channel, limit: int = 1000, is_full_rescan: bool = False):
+    """Scans messages in ONE channel for August 2026."""
     channel_name = getattr(channel, "name", str(channel))
     if not config.is_august_channel(channel):
         return []
@@ -501,13 +457,9 @@ async def backfill_channel_history(channel, limit: int = 500, is_full_rescan: bo
     return history_messages
 
 
-async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = False, limit: int = 500) -> int:
-    """Scans every configured channel/thread in the guild, groups the
-    resulting messages by destination sheet (Kits / Service / Upgrades /
-    etc.), sorts EACH group chronologically across all contributing
-    channels, and only then writes them out — so every sheet's rows come
-    out in correct date order (Aug 01 -> Aug 31) no matter which channel
-    each entry originally came from."""
+async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = False, limit: int = 1000) -> int:
+    """Scans every configured channel/thread in the guild, groups by destination sheet,
+    sorts chronologically, and logs to Google Sheets."""
     targets = await collect_target_channels(guild)
 
     grouped: dict[str, list] = {}
@@ -527,7 +479,7 @@ async def scan_and_log_channels(guild: discord.Guild, is_full_rescan: bool = Fal
             try:
                 await process_invoice_message(message, channel_name, is_backfill=True, is_full_rescan=is_full_rescan)
                 total_synced += 1
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1.2)
             except Exception as e:
                 ocr.logger.error(f"Error processing message {message.id} in #{channel_name}: {e}")
 
@@ -543,7 +495,7 @@ async def collect_target_channels(guild: discord.Guild):
     for exact_id in config.EXACT_CHANNEL_IDS:
         ch = guild.get_channel(exact_id) or guild.get_thread(exact_id)
         if not ch:
-            for channel in guild.text_channels:
+            for channel in getattr(guild, "channels", []):
                 if channel.id == exact_id:
                     ch = channel
                     break
@@ -557,8 +509,9 @@ async def collect_target_channels(guild: discord.Guild):
             seen_ids.add(ch.id)
             targets.append(ch)
 
-    # 2. Guild text channels & active/archived threads matching August logging
-    for channel in guild.text_channels:
+    # 2. Guild channels & active/archived threads matching August logging
+    all_channels = getattr(guild, "channels", []) or getattr(guild, "text_channels", [])
+    for channel in all_channels:
         if channel.id in config.EXCLUDED_CHANNEL_IDS:
             continue
 
@@ -568,21 +521,31 @@ async def collect_target_channels(guild: discord.Guild):
                 targets.append(channel)
 
         # Scan active threads
-        for thread in getattr(channel, "threads", []):
-            if thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(thread) or config.is_august_channel(channel)):
+        if hasattr(channel, "threads"):
+            for thread in channel.threads:
+                if thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(thread) or config.is_august_channel(channel)):
+                    if thread.id not in seen_ids:
+                        seen_ids.add(thread.id)
+                        targets.append(thread)
+
+        # Scan archived threads
+        if hasattr(channel, "archived_threads"):
+            try:
+                async for archived_thread in channel.archived_threads(limit=100):
+                    if archived_thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(archived_thread) or config.is_august_channel(channel)):
+                        if archived_thread.id not in seen_ids:
+                            seen_ids.add(archived_thread.id)
+                            targets.append(archived_thread)
+            except Exception:
+                pass
+
+    # 3. Also check guild threads directly if available
+    if hasattr(guild, "threads"):
+        for thread in guild.threads:
+            if thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(thread) or config.is_august_channel(getattr(thread, "parent", None))):
                 if thread.id not in seen_ids:
                     seen_ids.add(thread.id)
                     targets.append(thread)
-
-        # Scan archived threads
-        try:
-            async for archived_thread in channel.archived_threads(limit=100):
-                if archived_thread.id not in config.EXCLUDED_CHANNEL_IDS and (config.is_august_channel(archived_thread) or config.is_august_channel(channel)):
-                    if archived_thread.id not in seen_ids:
-                        seen_ids.add(archived_thread.id)
-                        targets.append(archived_thread)
-        except Exception:
-            pass
 
     return targets
 

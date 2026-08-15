@@ -16,6 +16,31 @@ EXISTING_SPREADSHEET_ID = os.getenv("EXISTING_SPREADSHEET_ID", os.getenv("Code69
 
 
 
+SMALL_CAPS_MAP = str.maketrans({
+    "ᴀ": "a", "ʙ": "b", "ᴄ": "c", "ᴅ": "d", "ᴇ": "e", "ғ": "f", "ɢ": "g",
+    "ʜ": "h", "ɪ": "i", "ᴊ": "j", "ᴋ": "k", "ʟ": "l", "ᴍ": "m", "ɴ": "n",
+    "ᴏ": "o", "ᴘ": "p", "ǫ": "q", "ʀ": "r", "ꜱ": "s", "ᴛ": "t", "ᴜ": "u",
+    "ᴠ": "v", "ᴡ": "w", "x": "x", "ʏ": "y", "ᴢ": "z",
+})
+
+
+def normalize_channel_text(text: str) -> str:
+    """Converts decorative Unicode and small-cap fonts into clean lowercase ASCII text."""
+    if not text:
+        return ""
+    import unicodedata
+    import re
+    t = str(text).translate(SMALL_CAPS_MAP).lower().strip()
+    try:
+        norm = unicodedata.normalize("NFKD", t)
+        t = "".join(c for c in norm if ord(c) < 128)
+    except Exception:
+        pass
+    t = t.replace("┆", " ").replace("-", " ").replace("_", " ").replace(".", " ").strip()
+    t = re.sub(r"\s+", " ", t)
+    return t
+
+
 def is_august_channel(channel_input) -> bool:
     """Checks if a channel object or channel name/ID is allowed for August scanning."""
     if not channel_input:
@@ -32,23 +57,25 @@ def is_august_channel(channel_input) -> bool:
         return True
 
     channel_name = getattr(channel_input, "name", str(channel_input))
-    c_low = str(channel_name).lower().strip()
+    clean = normalize_channel_text(channel_name)
 
-    if any(ex in c_low for ex in ("vip", "ticket")):
+    if any(ex in clean for ex in ("vip claim", "vip", "ticket")):
         return False
 
-    if any(k in c_low for k in ("service", "services", "kit", "kits", "upgrade", "upgrades", "aug", "august", "log", "logs", "bill_claim", "bill-claim", "bill claim", "ʙɪʟʟ")):
+    keywords = (
+        "service", "services", "kit", "kits", "upgrade", "upgrades",
+        "aug", "august", "log", "logs", "bill", "claim", "receipt",
+        "invoice", "mechanic", "shop", "order", "civ", "gov"
+    )
+    if any(k in clean for k in keywords):
         return True
-
-    if "claim" in c_low and not any(k in c_low for k in ("bill", "service", "aug", "kit", "upgrade")):
-        return False
 
     return False
 
 
 def get_channel_config(channel_input):
     """Resolves channel configuration for channel objects, channel IDs, or string names."""
-    if not channel_input or not is_august_channel(channel_input):
+    if not channel_input:
         return None, None
 
     ch_id = getattr(channel_input, "id", None)
@@ -67,30 +94,21 @@ def get_channel_config(channel_input):
     if c_low in CHANNEL_CONFIG:
         return CHANNEL_CONFIG[c_low], c_low
 
-    import unicodedata
-    try:
-        normalized = unicodedata.normalize("NFKD", c_low)
-        normalized = "".join(c for c in normalized if ord(c) < 128)
-    except Exception:
-        normalized = c_low
+    clean = normalize_channel_text(channel_name)
 
-    clean = normalized.replace("┆", " ").replace("-", " ").replace("_", " ").replace(".", " ").strip()
-    import re
-    clean = re.sub(r"[^\x00-\x7F]+", " ", clean).strip()
-    clean = re.sub(r"\s+", " ", clean)
-
+    # 1. Kits channels
     if any(k in clean for k in ("kit", "kits", "rk", "ck", "repair", "cleaning")):
         return _KIT_CONFIG, "Kits"
-    if "\u1d0b\u026a\u1d1b" in c_low or "kit" in c_low:
-        return _KIT_CONFIG, "Kits"
 
+    # 2. Upgrades channels
     if any(k in clean for k in ("upgrade", "upgrades", "mod", "mods", "car up")):
         return _UPGRADE_CONFIG, "Upgrades"
 
-    if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi", "bill_claim")):
+    # 3. Service / Billing / Log channels
+    if any(k in clean for k in ("service", "services", "civ", "pd", "ems", "gov", "taxi", "bill", "claim", "invoice", "receipt", "log", "logs", "aug", "august", "shop", "mechanic")):
         return _SERVICE_CONFIG, "Service"
 
-    if any(k in clean for k in ("log", "logs", "aug", "august")):
+    if is_august_channel(channel_input):
         return _SERVICE_CONFIG, "Service"
 
     return None, None
@@ -162,10 +180,11 @@ def normalize_employee_name(raw: str) -> str:
         if key in low:
             return mapped_name
 
-    if "mohammed" in low or "fart" in low:
-        return "Unknown"
-
-    return ascii_str.title() if ascii_str else raw_str
+    import re
+    cleaned = re.sub(r"[^\w\s]", "", ascii_str).strip()
+    if cleaned:
+        return cleaned.title()
+    return raw_str.strip()
 
 
 def resolve_employee_from_author(author) -> str:
@@ -176,11 +195,15 @@ def resolve_employee_from_author(author) -> str:
     username = getattr(author, "name", None)
     if username:
         mapped = normalize_employee_name(username)
-        if mapped != username and mapped != "Unknown":
+        if mapped and mapped != "Unknown" and mapped != username:
             return mapped
 
     display_name = getattr(author, "display_name", None) or getattr(author, "name", None) or "Unknown"
-    return normalize_employee_name(display_name)
+    mapped_display = normalize_employee_name(display_name)
+    if mapped_display and mapped_display != "Unknown":
+        return mapped_display
+
+    return str(display_name or username or "Staff").strip()
 
 
 OFFICIAL_EMPLOYEE_NAMES = {
@@ -192,22 +215,20 @@ OFFICIAL_EMPLOYEE_NAMES = {
 
 
 def is_official_employee(author) -> bool:
-    """Returns True if the Discord author is a human member posting in shop channels (excluding bots & blacklisted handles)."""
-    if not author or getattr(author, "bot", False):
+    """Returns True for any human Discord member posting in the server channels (excluding bots)."""
+    if not author:
         return False
-    emp = resolve_employee_from_author(author)
-    if not emp or emp == "Unknown":
+    if getattr(author, "bot", False):
         return False
     return True
 
 
 # ── Tesseract OCR ────────────────────────────────────────
-# On Windows, uncomment and point this at your tesseract.exe install path.
-# On Linux/Mac (after `apt install tesseract-ocr` or `brew install tesseract`),
-# leave this as None — pytesseract will find it automatically.
-TESSERACT_CMD = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
-# Example Windows value:
-# TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+if os.name == "nt":
+    _DEFAULT_WIN_TESS = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    TESSERACT_CMD = os.getenv("TESSERACT_CMD", _DEFAULT_WIN_TESS if os.path.exists(_DEFAULT_WIN_TESS) else None)
+else:
+    TESSERACT_CMD = os.getenv("TESSERACT_CMD", None)
 
 # ── Local storage ────────────────────────────────────────
 PROCESSED_HASHES_FILE = "processed_images.json"
