@@ -11,8 +11,6 @@ A Discord bot plus web dashboard that automatically reads service, kit and invoi
 - **Pricing helpers** (`kit_pricing.py`, `service_pricing.py`) to calculate totals
 - **One-command start** (`start_all.py`): runs the bot and dashboard together and keeps the free Render instance awake
 
-The repo also contains **`jarvis_assistant/`**, a separate desktop AI assistant experiment (voice control, PC performance monitoring, local LLM via Ollama). See its [`docs/`](jarvis_assistant/docs) folder.
-
 ## 🛠️ Tech Stack
 
 Python · discord.py · Flask · gspread (Google Sheets API) · Tesseract OCR · Render
@@ -55,7 +53,6 @@ ocr.py              Screenshot text extraction
 database.py         Local JSON data store for the dashboard
 start_all.py        Starts bot + dashboard together (used on Render)
 templates/, static/ Dashboard HTML and assets
-jarvis_assistant/   Separate desktop AI assistant project
 ```
 
 ## 👤 Author
