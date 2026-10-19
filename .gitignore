@@ -12,5 +12,4 @@ processed_images.json
 # Local data and logs (never commit)
 *.db
 *.sqlite3
-jarvis_assistant/data/
 *.log
