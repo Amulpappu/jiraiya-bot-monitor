@@ -9,3 +9,8 @@ credentials.json
 local_cache.json
 processed_images.json
 .env
+# Local data and logs (never commit)
+*.db
+*.sqlite3
+jarvis_assistant/data/
+*.log
